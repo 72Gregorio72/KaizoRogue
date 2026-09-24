@@ -7307,6 +7307,19 @@ const struct ItemInfo gItemsInfo[] =
         .iconPalette = gItemIconPalette_Glimmoranite,
     },
 
+    [ITEM_WILD_ENCOUNTERS] =
+    {
+        .name = COMPOUND_STRING("WILD ENCOUNTERS"),
+        .pluralName = COMPOUND_STRING("WILD ENCOUNTERS"),
+        .price = 0,
+        .description = COMPOUND_STRING("Toggle wild encounters\nON or OFF."),
+        .pocket = POCKET_KEY_ITEMS,
+        .type = ITEM_USE_BAG_MENU,
+        .fieldUseFunc = ItemUseOutOfBattle_WildEncounters,
+        .iconPic = gItemIcon_Repel,
+        .iconPalette = gItemIconPalette_MaxRepel,
+    },
+
 // Gems
 #if I_PRICE >= GEN_9
     #define GEM_PRICE 15000

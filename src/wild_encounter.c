@@ -61,6 +61,7 @@ EWRAM_DATA static u32 sFeebasRngValue = 0;
 EWRAM_DATA bool8 gIsFishingEncounter = 0;
 EWRAM_DATA bool8 gIsSurfingEncounter = 0;
 EWRAM_DATA u8 gChainFishingDexNavStreak = 0;
+EWRAM_DATA static u8 sWildEncountersEnabled = 0;
 
 #include "data/wild_encounters.h"
 
@@ -699,7 +700,7 @@ bool8 StandardWildEncounter(u16 curMetatileBehavior, u16 prevMetatileBehavior)
     enum TimeOfDay timeOfDay;
     struct Roamer *roamer;
 
-    if (sWildEncountersDisabled == TRUE)
+    if (sWildEncountersEnabled == FALSE)
         return FALSE;
 
     headerId = GetCurrentMapWildMonHeaderId();
@@ -841,6 +842,13 @@ bool8 StandardWildEncounter(u16 curMetatileBehavior, u16 prevMetatileBehavior)
 
 void RockSmashWildEncounter(void)
 {
+    // Sostituisci il controllo FlagGet con:
+    if (sWildEncountersEnabled == FALSE)
+    {
+        gSpecialVar_Result = FALSE;
+        return;
+    }
+
     u32 headerId = GetCurrentMapWildMonHeaderId();
     enum TimeOfDay timeOfDay;
 
@@ -883,6 +891,10 @@ void RockSmashWildEncounter(void)
 
 bool8 SweetScentWildEncounter(void)
 {
+    // Sostituisci il controllo FlagGet con:
+    if (sWildEncountersEnabled == FALSE)
+        return FALSE;
+
     s16 x, y;
     u32 headerId;
     enum TimeOfDay timeOfDay;
@@ -980,6 +992,9 @@ void FishingWildEncounter(u8 rod)
     u32 headerId;
     s16 x, y;
     enum TimeOfDay timeOfDay;
+
+    if (sWildEncountersEnabled == FALSE)
+        return;
 
     gIsFishingEncounter = TRUE;
     GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
@@ -1257,4 +1272,15 @@ u32 ChooseHiddenMonIndex(void)
 bool32 MapHasNoEncounterData(void)
 {
     return (GetCurrentMapWildMonHeaderId() == HEADER_NONE);
+}
+
+void Script_ToggleWildEncounters(void)
+{
+    sWildEncountersEnabled ^= 1;
+    gSpecialVar_Result = sWildEncountersEnabled; // 1 = abilitati, 0 = disabilitati
+}
+
+bool8 AreWildEncountersDisabled(void)
+{
+    return sWildEncountersDisabled;
 }

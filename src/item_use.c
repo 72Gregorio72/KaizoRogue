@@ -48,6 +48,8 @@
 #include "constants/item_effects.h"
 #include "constants/items.h"
 #include "constants/songs.h"
+#include "wild_encounter.h"
+#include "item_menu.h"
 
 static void SetUpItemUseCallback(u8);
 static void FieldCB_UseItemOnField(void);
@@ -1581,3 +1583,17 @@ void ItemUseOutOfBattle_TownMap(u8 taskId)
 }
 
 #undef tUsingRegisteredKeyItem
+
+static const u8 sText_WildEncountersEnabled[] = _("Wild encounters are now ON!$");
+static const u8 sText_WildEncountersDisabled[] = _("Wild encounters are now OFF!$");
+
+void ItemUseOutOfBattle_WildEncounters(u8 taskId)
+{
+    Script_ToggleWildEncounters();
+    PlaySE(SE_USE_ITEM);
+
+    if (gSpecialVar_Result == 1)
+        DisplayItemMessage(taskId, FONT_NORMAL, sText_WildEncountersEnabled, CloseItemMessage);
+    else
+        DisplayItemMessage(taskId, FONT_NORMAL, sText_WildEncountersDisabled, CloseItemMessage);
+}

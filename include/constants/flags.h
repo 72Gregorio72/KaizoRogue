@@ -384,6 +384,12 @@
 #define FLAG_MET_FRONTIER_BEAUTY_MOVE_TUTOR  0x15A
 #define FLAG_MET_FRONTIER_SWIMMER_MOVE_TUTOR 0x15B
 
+#define KAIZO_HUB_FLAGS_START   0x900   // Flag riservati alla Hub (non resettati)
+#define KAIZO_HUB_FLAGS_END     0x9FF
+
+#define KAIZO_HUB_VARS_START    VAR_0x40F0 // Ultime 16 variabili riservate alla Hub
+#define KAIZO_HUB_VARS_END      VAR_0x40FF
+
 // Flags for whether a rematchable trainer has been registered in the player's Match Call.
 // Most are used implicitly by adding their REMATCH_* id to TRAINER_REGISTERED_FLAGS_START.
 // Some Match Call entries (like those for gym leaders, Wally, and all non-trainer NPCs like Prof. Birch)

@@ -187,6 +187,7 @@ void NewGameInitData(void)
     gSaveBlock2Ptr->encryptionKey = 0;
 
     StringCopy(gSaveBlock2Ptr->playerName, sDefaultPlayerName);
+    FlagSet(FLAG_SYS_B_DASH);
     gSaveBlock2Ptr->playerGender = MALE;
     SeedCustomRng((Random() << 16) | Random());
     gSaveBlock2Ptr->randomizerSeed = (Random() << 16) | Random();

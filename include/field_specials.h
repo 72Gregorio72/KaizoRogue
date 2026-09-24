@@ -48,5 +48,6 @@ void Script_GetKaizoStarterSpecies(void);
 void Script_GiveKaizoStarter(void);
 void Script_SetupOaksLabStarter(void);
 void Script_RandomizeFindItemResult(void);
+void Script_ToggleWildEncounters(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

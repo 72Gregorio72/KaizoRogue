@@ -2160,12 +2160,13 @@ static void Cmd_getexp(void)
 
     switch (gBattleScripting.getexpState)
     {
-    case 0: // check if should receive exp at all
+   case 0: // check if should receive exp at all
         if (IsOnPlayerSide(gBattlerFainted)
             || IsAiVsAiBattle()
-            || !BattleTypeAllowsExp())
+            || !BattleTypeAllowsExp()
+            || !(gBattleTypeFlags & BATTLE_TYPE_TRAINER)) // <-- ZERO EXP DA WILD ENCOUNTERS!
         {
-            gBattleScripting.getexpState = 6; // goto last case
+            gBattleScripting.getexpState = 6; // Salta direttamente alla fine senza dare EXP né messaggi
         }
         else
         {
@@ -8273,16 +8274,9 @@ static void Cmd_givecaughtmon(void)
     switch (state)
     {
     case GIVECAUGHTMON_CHECK_PARTY_SIZE:
-        if (CalculatePlayerPartyCount() == PARTY_SIZE && B_CATCH_SWAP_INTO_PARTY >= GEN_7)
-        {
-            PrepareStringBattleWithWait(STRINGID_SENDCAUGHTMONPARTYORBOX, gBattlerAttacker);
-            gBattleCommunication[MULTIUSE_STATE] = GIVECAUGHTMON_ASK_ADD_TO_PARTY;
-        }
-        else
-        {
-            gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_NO_MESSAGE_SKIP;
-            gBattleCommunication[MULTIUSE_STATE] = GIVECAUGHTMON_GIVE_AND_SHOW_MSG;
-        }
+        // SALTA qualsiasi richiesta di PC o scelta party: vai dritto alla consegna
+        gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_NO_MESSAGE_SKIP;
+        gBattleCommunication[MULTIUSE_STATE] = GIVECAUGHTMON_GIVE_AND_SHOW_MSG;
         break;
     case GIVECAUGHTMON_ASK_ADD_TO_PARTY:
         HandleBattleWindow(YESNOBOX_X_Y, 0);
@@ -8367,46 +8361,29 @@ static void Cmd_givecaughtmon(void)
     case GIVECAUGHTMON_GIVE_AND_SHOW_MSG:
     {
         struct Pokemon *caughtMon = GetBattlerMon(GetCatchingBattler());
+
+        // 1. Ripristina l'oggetto tenuto se previsto da GEN_9
         if (B_RESTORE_HELD_BATTLE_ITEMS >= GEN_9)
         {
             enum Item lostItem = gBattleStruct->itemLost[B_TRAINER_OPPONENT_A][gBattlerPartyIndexes[GetCatchingBattler()]].originalItem;
             if (lostItem != ITEM_NONE && GetItemPocket(lostItem) != POCKET_BERRIES)
-                SetMonData(caughtMon, MON_DATA_HELD_ITEM, &lostItem);  // Restore non-berry items
+                SetMonData(caughtMon, MON_DATA_HELD_ITEM, &lostItem);
         }
 
-        u32 emptySlot;
-        for (emptySlot = 0; emptySlot < PARTY_SIZE; emptySlot++)
+        // 2. SOSTITUZIONE DIRETTA: libera/sovrascrive lo slot 0
+        // Copiamo i dati del catturato direttamente nel primo slot della squadra
+        gParties[B_TRAINER_PLAYER][0] = *caughtMon;
+
+        // Pulizia degli altri 5 slot della squadra (garantisce team size = 1 fisso)
+        for (u32 i = 1; i < PARTY_SIZE; i++)
         {
-            if (GetMonData(&gParties[B_TRAINER_PLAYER][emptySlot], MON_DATA_SPECIES) == SPECIES_NONE)
-                break;
+            ZeroMonData(&gParties[B_TRAINER_PLAYER][i]);
         }
 
-        if (GiveCapturedMonToPlayer(caughtMon) != MON_GIVEN_TO_PARTY
-         && gBattleCommunication[MULTISTRING_CHOOSER] != B_MSG_SWAPPED_INTO_PARTY)
-        {
-            if (!ShouldShowBoxWasFullMessage())
-            {
-                gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SENT_SOMEONES_PC;
-                StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON)));
-                GetMonData(caughtMon, MON_DATA_NICKNAME, gStringVar2);
-            }
-            else
-            {
-                StringCopy(gStringVar1, GetBoxNamePtr(VarGet(VAR_PC_BOX_TO_SEND_MON))); // box the mon was sent to
-                GetMonData(caughtMon, MON_DATA_NICKNAME, gStringVar2);
-                StringCopy(gStringVar3, GetBoxNamePtr(GetPCBoxToSendMon())); //box the mon was going to be sent to
-                gBattleCommunication[MULTISTRING_CHOOSER] = B_MSG_SOMEONES_BOX_FULL;
-            }
+        // Calcola statistiche del nuovo Pokémon nella squadra
+        CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
 
-            // Change to B_MSG_SENT_LANETTES_PC or B_MSG_LANETTES_BOX_FULL
-            if (FlagGet(FLAG_SYS_PC_LANETTE))
-                gBattleCommunication[MULTISTRING_CHOOSER]++;
-        }
-
-        // Copy changedSpecies to allow caught mon to revert to its original species.
-        if (emptySlot != PARTY_SIZE)
-            gBattleStruct->partyState[B_SIDE_PLAYER][emptySlot].changedSpecies = GetBattlerPartyState(GetCatchingBattler())->changedSpecies;
-
+        // Imposta il messaggio "ha sostituito il tuo Pokémon" o salta
         gBattleResults.caughtMonSpecies = GetMonData(caughtMon, MON_DATA_SPECIES);
         GetMonData(caughtMon, MON_DATA_NICKNAME, gBattleResults.caughtMonNick);
         gBattleResults.caughtMonBall = GetMonData(caughtMon, MON_DATA_POKEBALL);
@@ -8414,10 +8391,8 @@ static void Cmd_givecaughtmon(void)
         gSelectedMonPartyId = PARTY_SIZE;
         gBattleCommunication[MULTIUSE_STATE] = 0;
 
-        if (gBattleCommunication[MULTISTRING_CHOOSER] == B_MSG_NO_MESSAGE_SKIP)
-            gBattlescriptCurrInstr = cmd->passInstr;
-        else
-            gBattlescriptCurrInstr = cmd->nextInstr;
+        // Mostra il prompt del soprannome se abilitato, altrimenti termina
+        gBattlescriptCurrInstr = cmd->nextInstr;
         break;
     }
     }

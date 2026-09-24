@@ -46,7 +46,6 @@
 #include "metatile_behavior.h"
 #include "mirage_tower.h"
 #include "money.h"
-#include "new_game.h"
 #include "oras_dowse.h"
 #include "palette.h"
 #include "play_time.h"
@@ -84,6 +83,7 @@
 #include "constants/songs.h"
 #include "constants/trainer_hill.h"
 #include "constants/weather.h"
+#include "new_game.h"
 
 STATIC_ASSERT((B_FLAG_FOLLOWERS_DISABLED == 0 || OW_FOLLOWERS_ENABLED), FollowersFlagAssignedWithoutEnablingThem);
 
@@ -114,6 +114,8 @@ struct CableClubPlayer
 
 extern const struct MapLayout *const gMapLayouts[];
 extern const struct MapHeader *const *const gMapGroups[];
+
+static void ResetKaizoRogueRun(void);
 
 static void Overworld_ResetStateAfterWhiteOut(void);
 static void CB2_ReturnToFieldLocal(void);
@@ -1955,28 +1957,15 @@ void CB2_NewGame(void)
 
 void CB2_WhiteOut(void)
 {
-    u8 state;
+    // Esegui la pulizia e prepara il warp alla Hub
+    ResetKaizoRogueRun();
 
-    if (++gMain.state >= 120)
-    {
-        FieldClearVBlankHBlankCallbacks();
-        StopMapMusic();
-        ResetSafariZoneFlag_();
-        DoWhiteOut();
-        ResetInitialPlayerAvatarState();
-        ScriptContext_Init();
-        UnlockPlayerFieldControls();
-        if (IsWhiteoutCutscene())
-            gFieldCallback = FieldCB_RushInjuredPokemonToCenter;
-        else
-            gFieldCallback = FieldCB_WarpExitFadeFromBlack;
-        state = 0;
-        SetFollowerNPCData(FNPC_DATA_SURF_BLOB, FNPC_SURF_BLOB_NONE);
-        DoMapLoadLoop(&state);
-        SetFieldVBlankCallback();
-        SetMainCallback1(CB1_Overworld);
-        SetMainCallback2(CB2_Overworld);
-    }
+    // Applica il warp effettivo
+    WarpIntoMap();
+
+    // Carica la mappa dell'Hub
+    SetMainCallback2(CB2_LoadMap);
+    gFieldCallback = FieldCB_DefaultWarpExit;
 }
 
 void CB2_LoadMap(void)
@@ -4025,4 +4014,41 @@ static void Task_OvwldCredits_WaitFade(u8 taskId)
         SetMainCallback2(CB2_LoadMap);
         DestroyTask(taskId);
     }
+}
+
+static void ResetKaizoRogueRun(void)
+{
+    // --- 1. BACKUP DEI DATI DELLA HUB (META-PROGRESSION) ---
+    // Salva qui le variabili o strutture che usi per la tua Hub
+    // (ad esempio monete rogue, sblocchi, upgrade permanenti, ecc.)
+    u16 hubVarsBackup[16];
+    for (u32 i = 0; i < 16; i++)
+    {
+        hubVarsBackup[i] = VarGet(VAR_0x40F0 + i);
+    }
+
+    // --- 2. RESET NATIVO TOTALE DI KANTO (Zero hardcoding) ---
+    // Esegue esattamente lo stesso codice di "Nuovo Gioco":
+    // azzera la mappa, nasconde Oak nel lab, imposta i flag iniziali corretti,
+    // svuota borsa, squadra, trainer e oggetti raccolti.
+    NewGameInitData();
+
+    // --- 3. RIPRISTINO DATI HUB ---
+    for (u32 i = 0; i < 16; i++)
+    {
+        VarSet(VAR_0x40F0 + i, hubVarsBackup[i]);
+    }
+
+    // --- 4. PREPARAZIONE NUOVA RUN ---
+    // Nuovo seed di randomizzazione per i Pokémon e gli incontri
+    gSaveBlock2Ptr->randomizerSeed = Random32();
+
+    // Scarpe da corsa subito disponibili (opzionale per comodità)
+    FlagSet(FLAG_SYS_B_DASH);
+
+    // --- 5. WARP ALLA TUA HUB ---
+    SetContinueGameWarpStatusToDynamicWarp();
+    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
+                       MAP_NUM(MAP_KAIZO_HUB),
+                       WARP_ID_NONE, 10, 7);
 }

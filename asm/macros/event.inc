@@ -569,6 +569,19 @@
 	.2byte \quantity
 	.endm
 
+	.macro additem_raw item:req, quantity=1
+	.byte 0xe7
+	.2byte \item
+	.2byte \quantity
+	.endm
+
+	.macro giveitem_raw item:req, quantity=1
+	additem_raw \item, \quantity
+	copyvar VAR_0x8000, \item
+	copyvar VAR_0x8001, \quantity
+	callstd STD_OBTAIN_ITEM
+	.endm
+
 	@ Removes quantity of the specified item from the player's Bag. If the player has fewer than 'quantity' in their bag
 	@ then none will be removed and VAR_RESULT will be set to FALSE. Otherwise it will be set to TRUE.
 	.macro removeitem itemId:req, quantity=1

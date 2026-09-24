@@ -588,6 +588,7 @@ endif
 $(ROM): $(ELF)
 	$(OBJCOPY) -O binary $< $@
 	$(FIX) $@ -p --silent
+	@echo -e "\e[1;32mBuild Successful!\e[0m"
 
 emerald: all
 firered: all

@@ -1109,10 +1109,29 @@ PalletTown_ProfessorOaksLab_EventScript_ChoseStarter::
 	call EventScript_RestorePrevTextColor
 	setflag FLAG_SYS_POKEMON_GET
 	setflag FLAG_PALLET_LADY_NOT_BLOCKING_SIGN
-	
-	// CONSEGNA IL POKEMON CON STAT E MOSSE KAIZO:
+
+	// CONSEGNA POKEMON KAIZO:
 	special Script_GiveKaizoStarter
+
+	// 1. POKEDEX COMPLETO E SCARPE DA CORSA
+	setflag FLAG_SYS_POKEDEX_GET
+	setflag FLAG_SYS_B_DASH
+	special SetUnlockedPokedexFlags
+
+	// STRUMENTI KAIZO GARANTITI AL 100%:
+	additem_raw ITEM_MASTER_BALL, 999
+	additem_raw ITEM_RARE_CANDY, 999
+	additem_raw ITEM_WILD_ENCOUNTERS, 1
 	
+	// RIMOSSO: setflag FLAG_SYS_NO_ENCOUNTERS
+
+	// 4. SALTA IL PACCO DI OAK E TOGLIE IL VECCHIO A SMERALDOPOLI
+	setvar VAR_MAP_SCENE_VIRIDIAN_CITY_OLD_MAN, 2
+	setvar VAR_MAP_SCENE_VIRIDIAN_CITY_MART, 2
+	setvar VAR_MAP_SCENE_ROUTE22, 1
+	setvar VAR_MAP_SCENE_PALLET_TOWN_RIVALS_HOUSE, 1
+	setvar VAR_MAP_SCENE_POKEMON_CENTER_TEALA, 1
+
 	copyvar VAR_STARTER_MON, PLAYER_STARTER_NUM
 	bufferspeciesname STR_VAR_1, PLAYER_STARTER_SPECIES
 	message PalletTown_ProfessorOaksLab_Text_ReceivedMonFromOak
@@ -1369,7 +1388,7 @@ PalletTown_ProfessorOaksLab_Text_OakBePatientRival::
 	.string "You can have one, too!$"
 
 PalletTown_ProfessorOaksLab_Text_OakWhichOneWillYouChoose:
-	.string "OAK: Choose your starter!$"
+	.string "OAK: Choose your starter bro!$"
 
 PalletTown_ProfessorOaksLab_Text_OakHeyDontGoAwayYet::
 	.string "OAK: Hey!\n"
@@ -1630,4 +1649,42 @@ PalletTown_ProfessorOaksLab_Text_RivalIllCompleteThePokedex::
 
 PalletTown_ProfessorOaksLab_Text_OakConfirmRandomStarter:
 	.string "OAK: Do you want {STR_VAR_1}?$"
+
+EventScript_ItemToggleEncounters::
+	lockall
+	special Script_ToggleWildEncounters
+	goto_if_eq VAR_RESULT, 1, EventScript_EnableEncounters
+	msgbox Text_KaizoEncountersOff, MSGBOX_SIGN
+	releaseall
+	end
+
+EventScript_EnableEncounters::
+	msgbox Text_KaizoEncountersOn, MSGBOX_SIGN
+	releaseall
+	end
+
+Text_KaizoEncountersOff:
+	.string "Wild encounters DISABLED!$"
+
+Text_KaizoEncountersOn:
+	.string "Wild encounters ENABLED!$"
+
+EventScript_ToggleEncounters::
+	lockall
+	special Script_ToggleWildEncounters
+	goto_if_eq VAR_RESULT, 1, EventScript_EncountersEnabled
+	msgbox Text_EncountersOff, MSGBOX_SIGN
+	releaseall
+	end
+
+EventScript_EncountersEnabled::
+	msgbox Text_EncountersOn, MSGBOX_SIGN
+	releaseall
+	end
+
+Text_EncountersOff:
+	.string "Wild encounters DISABLED!$"
+
+Text_EncountersOn:
+	.string "Wild encounters ENABLED!$"
 

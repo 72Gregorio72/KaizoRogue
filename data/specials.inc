@@ -644,3 +644,4 @@ gSpecials::
 	def_special Script_SetupOaksLabStarter
 	def_special Script_GiveKaizoStarter
 	def_special Script_RandomizeFindItemResult
+	def_special Script_ToggleWildEncounters
