@@ -858,6 +858,10 @@ void CreateMon(struct Pokemon *mon, enum Species species, u8 level, u32 personal
     SetMonData(mon, MON_DATA_LEVEL, &level);
     mail = MAIL_NONE;
     SetMonData(mon, MON_DATA_MAIL, &mail);
+
+    // --- ASSEGNA GLI IV CASUALI ANCHE AI MON GENERATI CON CREATEMON (GIVEMON/STARTER) ---
+    SetBoxMonIVs(&mon->box, USE_RANDOM_IVS);
+    CalculateMonStats(mon);
 }
 
 void CreateMonWithIVs(struct Pokemon *mon, enum Species species, u8 level, u32 personality, struct OriginalTrainerId trainerId, u8 fixedIV)
@@ -905,7 +909,7 @@ bool32 ComputePlayerShinyOdds(u32 personality, u32 value)
 
 void SetBoxMonIVs(struct BoxPokemon *mon, u8 fixedIV)
 {
-    u32 i, value;
+    u32 i;
 
     if (fixedIV < USE_RANDOM_IVS)
     {
@@ -914,27 +918,21 @@ void SetBoxMonIVs(struct BoxPokemon *mon, u8 fixedIV)
         return;
     }
 
-    u32 iv;
-    u32 ivRandom = Random32();
+    u8 hp    = Random() % 32;
+    u8 atk   = Random() % 32;
+    u8 def   = Random() % 32;
+    u8 speed = Random() % 32;
+    u8 spatk = Random() % 32;
+    u8 spdef = Random() % 32;
+
+    SetBoxMonData(mon, MON_DATA_HP_IV, &hp);
+    SetBoxMonData(mon, MON_DATA_ATK_IV, &atk);
+    SetBoxMonData(mon, MON_DATA_DEF_IV, &def);
+    SetBoxMonData(mon, MON_DATA_SPEED_IV, &speed);
+    SetBoxMonData(mon, MON_DATA_SPATK_IV, &spatk);
+    SetBoxMonData(mon, MON_DATA_SPDEF_IV, &spdef);
+
     enum Species species = GetBoxMonData(mon, MON_DATA_SPECIES);
-    value = (u16)ivRandom;
-
-    iv = value & MAX_IV_MASK;
-    SetBoxMonData(mon, MON_DATA_HP_IV, &iv);
-    iv = (value & (MAX_IV_MASK << 5)) >> 5;
-    SetBoxMonData(mon, MON_DATA_ATK_IV, &iv);
-    iv = (value & (MAX_IV_MASK << 10)) >> 10;
-    SetBoxMonData(mon, MON_DATA_DEF_IV, &iv);
-
-    value = (u16)(ivRandom >> 16);
-
-    iv = value & MAX_IV_MASK;
-    SetBoxMonData(mon, MON_DATA_SPEED_IV, &iv);
-    iv = (value & (MAX_IV_MASK << 5)) >> 5;
-    SetBoxMonData(mon, MON_DATA_SPATK_IV, &iv);
-    iv = (value & (MAX_IV_MASK << 10)) >> 10;
-    SetBoxMonData(mon, MON_DATA_SPDEF_IV, &iv);
-
     SetBoxMonPerfectIVs(mon, gSpeciesInfo[species].perfectIVCount);
 }
 
@@ -6740,29 +6738,26 @@ static void ResolveIVs(enum Species species, const u16 *ivsTemplate, u8 *ivs)
     u32 nonFixedIvCount = 0;
     enum Stat availableIVs[NUM_STATS];
     enum Stat selectedIvs[NUM_STATS];
+
     for (i = 0; i < NUM_STATS; i++)
     {
-        if (ivsTemplate[i] < USE_RANDOM_IVS)
-        {
-            ivs[i] = ivsTemplate[i];
-        }
-        else if (ivsTemplate[i] == USE_RANDOM_IVS)
+        // Se il template è vuoto, oppure se ha USE_RANDOM_IVS, oppure se lo starter ha il default fisso (es. 0 o 15),
+        // estraiamo sempre un valore da 0 a 31
+        if (ivsTemplate == NULL || ivsTemplate[i] >= USE_RANDOM_IVS || ivsTemplate[i] == 0)
         {
             availableIVs[nonFixedIvCount] = i;
-            ivs[i] = Random() % (MAX_PER_STAT_IVS + 1);
+            ivs[i] = Random() % 32;
             nonFixedIvCount++;
         }
         else
         {
-            errorf("invalid iv value of %d above maximum of %d", ivs[i], MAX_PER_STAT_IVS);
-            ivs[i] = MAX_PER_STAT_IVS;
+            ivs[i] = ivsTemplate[i];
         }
     }
 
-    // Perfect IV calculation
+    // Calcolo IV perfetti se previsti dalla specie (es. leggendari)
     if (gSpeciesInfo[species].perfectIVCount != 0)
     {
-        // Select the IVs that will be perfected.
         for (i = 0; i < nonFixedIvCount && i < gSpeciesInfo[species].perfectIVCount; i++)
         {
             u8 index = Random() % (nonFixedIvCount - i);

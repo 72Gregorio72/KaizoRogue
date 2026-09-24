@@ -97,6 +97,7 @@
 #define PSS_DATA_WINDOW_SKILLS_STATS_LEFT 2 // HP, Attack, Defense
 #define PSS_DATA_WINDOW_SKILLS_STATS_RIGHT 3 // Sp. Attack, Sp. Defense, Speed
 #define PSS_DATA_WINDOW_EXP 4 // Exp, next level
+#define PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH 5
 
 // Dynamic fields for the Battle Moves and Contest Moves pages.
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
@@ -188,7 +189,41 @@ static EWRAM_DATA struct PokemonSummaryScreenData
     s16 switchCounter; // Used for various switch statement cases that decompress/load graphics or Pokémon data
     u8 unk_filler4[6];
     u8 categoryIconSpriteId;
+    bool8 showIVs;
 } *sMonSummaryScreen = NULL;
+
+// static const u8 sText_JudgeNoGood[]     = _("{COLOR RED}No Good$");     // 0
+// static const u8 sText_JudgeDecent[]     = _("Decent$");                  // 1 - 15
+// static const u8 sText_JudgePrettyGood[] = _("Pretty good$");             // 16 - 25
+// static const u8 sText_JudgeVeryGood[]   = _("Very good$");               // 26 - 29
+// static const u8 sText_JudgeFantastic[]  = _("{COLOR GREEN}Fantastic$"); // 30
+// static const u8 sText_JudgeBest[]       = _("{COLOR GREEN}Best!$");     // 31
+
+// static const u8 *GetIVJudgeString(u8 iv)
+// {
+//     if (iv == 0)
+//         return sText_JudgeNoGood;
+//     if (iv <= 15)
+//         return sText_JudgeDecent;
+//     if (iv <= 25)
+//         return sText_JudgePrettyGood;
+//     if (iv <= 29)
+//         return sText_JudgeVeryGood;
+//     if (iv == 30)
+//         return sText_JudgeFantastic;
+//     return sText_JudgeBest; // 31
+// }
+
+// Vettori unitari (seno e coseno) per i 6 assi (scalati * 256)
+// Ordine: HP, ATK, DEF, SPEED, SPDEF, SPATK
+static const s16 sHexAxisVectors[6][2] = {
+    {   0, -256 }, // HP (In alto)
+    {  221, -128 }, // ATK (In alto a destra, sin 60° ~ 0.866, cos 60° = 0.5)
+    {  221,  128 }, // DEF (In basso a destra)
+    {   0,  256 }, // SPEED (In basso)
+    { -221,  128 }, // SPDEF (In basso a sinistra)
+    { -221, -128 }  // SPATK (In alto a sinistra)
+};
 
 EWRAM_DATA u8 gLastViewedMonIndex = 0;
 static EWRAM_DATA u8 sMoveSlotToReplace = 0;
@@ -337,6 +372,9 @@ u32 GetAdjustedIvData(struct Pokemon *mon, u32 stat);
 static void UpdateMoveRelearnerState();
 static void UpdateRelearnPrompt(void);
 static struct BoxPokemon *GetCurrentBoxmon(void);
+static void HideSkillsIVRadar(void);
+
+static void DrawSkillsIVRadarPage(void);
 
 #define IS_MOVE_PAGE(page) (page == PSS_PAGE_BATTLE_MOVES || page == PSS_PAGE_CONTEST_MOVES)
 
@@ -697,6 +735,16 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
         .height = 4,
         .paletteNum = 6,
         .baseBlock = 561,
+    },
+    // Finestra del grafico IV stile Switch
+    [PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH] = {
+        .bg = 0,
+        .tilemapLeft = 10,
+        .tilemapTop = 6,
+        .width = 20,
+        .height = 14,
+        .paletteNum = 6,
+        .baseBlock = 700, // Spostato a 700 per non sovrapporsi mai alla pagina Mosse (467..640)
     },
 };
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for both battle and contest moves
@@ -1714,27 +1762,27 @@ static void ClearStatLabel(u32 length, u32 statsCoordX, u32 statsCoordY)
         FillBgTilemapBufferRect(1, blankStatsBlock, statsCoordX + blankOffset + i, statsCoordY, 1, 1, 2);
 }
 
-static void HandleMoveRelearnerInput(u8 taskId)
-{
-    if (JOY_NEW(START_BUTTON))
-    {
-        sMonSummaryScreen->callback = CB2_InitLearnMove;
-        gRelearnMode = sMonSummaryScreen->currPageIndex;
-        if (sMonSummaryScreen->isBoxMon)
-        {
-            gSpecialVar_0x8004 = PC_MON_CHOSEN;
-            gSpecialVar_MonBoxPos = sMonSummaryScreen->curMonIndex;
-            gSpecialVar_MonBoxId = StorageGetCurrentBox();
-        }
-        else
-        {
-            gSpecialVar_0x8004 = sMonSummaryScreen->curMonIndex;
-        }
-        StopPokemonAnimations();
-        PlaySE(SE_SELECT);
-        BeginCloseSummaryScreen(taskId);
-    }
-}
+// static void HandleMoveRelearnerInput(u8 taskId)
+// {
+//     if (JOY_NEW(START_BUTTON))
+//     {
+//         sMonSummaryScreen->callback = CB2_InitLearnMove;
+//         gRelearnMode = sMonSummaryScreen->currPageIndex;
+//         if (sMonSummaryScreen->isBoxMon)
+//         {
+//             gSpecialVar_0x8004 = PC_MON_CHOSEN;
+//             gSpecialVar_MonBoxPos = sMonSummaryScreen->curMonIndex;
+//             gSpecialVar_MonBoxId = StorageGetCurrentBox();
+//         }
+//         else
+//         {
+//             gSpecialVar_0x8004 = sMonSummaryScreen->curMonIndex;
+//         }
+//         StopPokemonAnimations();
+//         PlaySE(SE_SELECT);
+//         BeginCloseSummaryScreen(taskId);
+//     }
+// }
 
 static void Task_HandleInput(u8 taskId)
 {
@@ -1750,10 +1798,14 @@ static void Task_HandleInput(u8 taskId)
         }
         else if (JOY_NEW(DPAD_LEFT))
         {
+            if (sMonSummaryScreen->showIVs)
+                HideSkillsIVRadar();
             ChangePage(taskId, -1);
         }
         else if (JOY_NEW(DPAD_RIGHT))
         {
+            if (sMonSummaryScreen->showIVs)
+                HideSkillsIVRadar();
             ChangePage(taskId, 1);
         }
         else if (JOY_NEW(A_BUTTON))
@@ -1802,17 +1854,35 @@ static void Task_HandleInput(u8 taskId)
             PlaySE(SE_SELECT);
             BeginCloseSummaryScreen(taskId);
         }
-        else if (DEBUG_POKEMON_SPRITE_VISUALIZER && JOY_NEW(SELECT_BUTTON) && !gMain.inBattle)
+        else if (JOY_NEW(SELECT_BUTTON))
         {
-            sMonSummaryScreen->callback = CB2_Pokemon_Sprite_Visualizer;
-            StopPokemonAnimations();
-            PlaySE(SE_SELECT);
-            CloseSummaryScreen(taskId);
+            if (sMonSummaryScreen->currPageIndex == PSS_PAGE_SKILLS)
+            {
+                PlaySE(SE_SELECT);
+                if (!sMonSummaryScreen->showIVs)
+                {
+                    sMonSummaryScreen->showIVs = TRUE;
+
+                    ClearWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_LEFT);
+                    ClearWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_RIGHT);
+                    ClearWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_EXP);
+                    RemoveWindowByIndex(PSS_DATA_WINDOW_SKILLS_STATS_LEFT);
+                    RemoveWindowByIndex(PSS_DATA_WINDOW_SKILLS_STATS_RIGHT);
+                    RemoveWindowByIndex(PSS_DATA_WINDOW_EXP);
+
+                    DrawSkillsIVRadarPage();
+                    ScheduleBgCopyTilemapToVram(0);
+                }
+                else
+                {
+                    HideSkillsIVRadar();
+                }
+            }
         }
-        else if (ShouldShowMoveRelearner() && IS_MOVE_PAGE(sMonSummaryScreen->currPageIndex))
-        {
-            HandleMoveRelearnerInput(taskId);
-        }
+        // else if (ShouldShowMoveRelearner() && IS_MOVE_PAGE(sMonSummaryScreen->currPageIndex))
+        // {
+        //     HandleMoveRelearnerInput(taskId);
+        // }
     }
 }
 
@@ -1946,6 +2016,9 @@ static void ChangeSummaryPokemon(u8 taskId, s8 delta)
 {
     s8 monId;
 
+    if (sMonSummaryScreen->showIVs)
+        HideSkillsIVRadar();
+
     if (!sMonSummaryScreen->lockMonFlag)
     {
         if (sMonSummaryScreen->isBoxMon == TRUE)
@@ -2015,6 +2088,9 @@ static void Task_ChangeSummaryMon(u8 taskId)
     case 4:
         if (ExtractMonDataToSummaryStruct(&sMonSummaryScreen->currentMon) == FALSE)
             return;
+        
+        if (sMonSummaryScreen->showIVs)
+            HideSkillsIVRadar();
 
         if (P_SUMMARY_SCREEN_RENAME && sMonSummaryScreen->currPageIndex == PSS_PAGE_INFO)
             ShowUtilityPrompt(SUMMARY_MODE_NORMAL);
@@ -2152,6 +2228,9 @@ static void ChangePage(u8 taskId, s8 delta)
         return;
     else if (delta == 1 && sMonSummaryScreen->currPageIndex == sMonSummaryScreen->maxPageIndex)
         return;
+
+    if (sMonSummaryScreen->showIVs)
+        HideSkillsIVRadar();
 
     PlaySE(SE_SELECT);
     ClearPageWindowTilemaps(sMonSummaryScreen->currPageIndex);
@@ -3155,6 +3234,332 @@ static void PrintTextOnWindowWithFont(u8 windowId, const u8 *string, u8 x, u8 y,
     AddTextPrinterParameterized4(windowId, fontId, x, y, 0, lineSpacing, sTextColors[colorId], 0, string);
 }
 
+static s8 GetNatureStatModifier(u8 nature, u8 statIndex)
+{
+    // statIndex: 1: ATK, 2: DEF, 3: SPEED, 4: SPDEF, 5: SPATK
+    enum Stat stat;
+    switch (statIndex)
+    {
+    case 1: stat = STAT_ATK; break;
+    case 2: stat = STAT_DEF; break;
+    case 3: stat = STAT_SPEED; break;
+    case 4: stat = STAT_SPDEF; break;
+    case 5: stat = STAT_SPATK; break;
+    default: return 0;
+    }
+
+    if (gNaturesInfo[nature].statUp == stat && gNaturesInfo[nature].statDown != stat)
+        return 1;
+    if (gNaturesInfo[nature].statDown == stat && gNaturesInfo[nature].statUp != stat)
+        return -1;
+    return 0;
+}
+
+// Disegna una singola linea tra due punti usando l'algoritmo di Bresenham
+static void DrawLine(u8 windowId, s16 x0, s16 y0, s16 x1, s16 y1, u8 color)
+{
+    s16 dx = x1 - x0;
+    s16 dy = y1 - y0;
+    s16 sx = (dx >= 0) ? 1 : -1;
+    s16 sy = (dy >= 0) ? 1 : -1;
+    dx = (dx < 0) ? -dx : dx;
+    dy = (dy < 0) ? -dy : dy;
+
+    s16 err = dx - dy;
+
+    while (1)
+    {
+        if (x0 >= 0 && x0 < 144 && y0 >= 0 && y0 < 104)
+            FillWindowPixelRect(windowId, color, x0, y0, 1, 1);
+
+        if (x0 == x1 && y0 == y1)
+            break;
+
+        s16 e2 = err * 2;
+        if (e2 > -dy)
+        {
+            err -= dy;
+            x0 += sx;
+        }
+        if (e2 < dx)
+        {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+static void DrawHorizontalLine(u8 windowId, s16 x1, s16 x2, s16 y, u8 color)
+{
+    if (x1 > x2) { s16 t = x1; x1 = x2; x2 = t; }
+    if (x1 < 0) x1 = 0;
+    if (x2 >= 144) x2 = 143;
+    if (y < 0 || y >= 104) return;
+
+    FillWindowPixelRect(windowId, color, x1, y, (x2 - x1 + 1), 1);
+}
+
+static void DrawFilledTriangle(u8 windowId, s16 x0, s16 y0, s16 x1, s16 y1, s16 x2, s16 y2, u8 color)
+{
+    s16 a, b, y, last;
+
+    if (y0 > y1) { s16 t = y0; y0 = y1; y1 = t; t = x0; x0 = x1; x1 = t; }
+    if (y1 > y2) { s16 t = y1; y1 = y2; y2 = t; t = x1; x1 = x2; x2 = t; }
+    if (y0 > y1) { s16 t = y0; y0 = y1; y1 = t; t = x0; x0 = x1; x1 = t; }
+
+    if (y0 == y2) return;
+
+    s16 dx01 = x1 - x0, dy01 = y1 - y0;
+    s16 dx02 = x2 - x0, dy02 = y2 - y0;
+    s16 dx12 = x2 - x1, dy12 = y2 - y1;
+    s32 sa = 0, sb = 0;
+
+    if (y1 == y2) last = y1;
+    else          last = y1 - 1;
+
+    for (y = y0; y <= last; y++)
+    {
+        a = x0 + sa / dy01;
+        b = x0 + sb / dy02;
+        sa += dx01;
+        sb += dx02;
+        DrawHorizontalLine(windowId, a, b, y, color);
+    }
+
+    sa = (s32)dx12 * (y - y1);
+    sb = (s32)dx02 * (y - y0);
+    for (; y <= y2; y++)
+    {
+        a = x1 + sa / dy12;
+        b = x0 + sb / dy02;
+        sa += dx12;
+        sb += dx02;
+        DrawHorizontalLine(windowId, a, b, y, color);
+    }
+}
+
+static void LoadRadarGraphPalette(void)
+{
+    u16 pal[16];
+    pal[0]  = RGB(0, 0, 0);           // 0: Trasparente
+    pal[1]  = RGB(6, 8, 11);          // 1: Sfondo Grigio Scuro Slate
+    pal[2]  = RGB(31, 31, 31);        // 2: Bianco puro
+    pal[3]  = RGB(12, 24, 31);        // 3: Celeste brillante (Grafico)
+    pal[4]  = RGB(14, 16, 20);        // 4: Assi/griglia
+    pal[5]  = RGB(31, 3, 3);          // 5: Rosso puro acceso (Natura UP +)
+    pal[6]  = RGB(4, 31, 4);          // 6: Verde puro acceso (Natura DOWN -)
+    pal[7]  = RGB(1, 2, 3);           // 7: Ombra scura del testo
+    pal[8]  = RGB(0, 0, 0);
+    pal[9]  = RGB(0, 0, 0);
+    pal[10] = RGB(0, 0, 0);
+    pal[11] = RGB(0, 0, 0);
+    pal[12] = RGB(0, 0, 0);
+    pal[13] = RGB(0, 0, 0);
+    pal[14] = RGB(0, 0, 0);
+    pal[15] = RGB(0, 0, 0);
+
+    LoadPalette(pal, BG_PLTT_ID(6), sizeof(pal));
+}
+
+#define GRAPH_CENTER_X   80
+#define GRAPH_CENTER_Y   54
+#define GRAPH_MAX_RADIUS 34
+
+static void DrawDot(u8 windowId, s16 cx, s16 cy, u8 color)
+{
+    // Disegna un dischetto di 3x3 pixel per i vertici esterni
+    FillWindowPixelRect(windowId, color, cx - 1, cy - 1, 3, 3);
+}
+
+static void DrawIVRadarGraph(u8 windowId, struct Pokemon *mon)
+{
+    u8 ivs[6];
+    s16 vx[6], vy[6];
+    s16 bgX[6], bgY[6];
+    u32 i;
+
+    u8 colorFill    = 3; // Celeste
+    u8 colorGrid    = 4; // Grigio assi
+    u8 colorOutline = 2; // Bianco
+    u8 colorDots    = 2; // Bianco
+
+    ivs[0] = GetMonData(mon, MON_DATA_HP_IV);
+    ivs[1] = GetMonData(mon, MON_DATA_ATK_IV);
+    ivs[2] = GetMonData(mon, MON_DATA_DEF_IV);
+    ivs[3] = GetMonData(mon, MON_DATA_SPEED_IV);
+    ivs[4] = GetMonData(mon, MON_DATA_SPDEF_IV);
+    ivs[5] = GetMonData(mon, MON_DATA_SPATK_IV);
+
+    for (i = 0; i < 6; i++)
+    {
+        // Un minimo di 3 pixel per evitare che a 0 IV collassi a punto singolo
+        s16 r = 3 + ((ivs[i] * (GRAPH_MAX_RADIUS - 3)) / 31);
+        vx[i] = GRAPH_CENTER_X + ((sHexAxisVectors[i][0] * r) >> 8);
+        vy[i] = GRAPH_CENTER_Y + ((sHexAxisVectors[i][1] * r) >> 8);
+
+        bgX[i] = GRAPH_CENTER_X + ((sHexAxisVectors[i][0] * GRAPH_MAX_RADIUS) >> 8);
+        bgY[i] = GRAPH_CENTER_Y + ((sHexAxisVectors[i][1] * GRAPH_MAX_RADIUS) >> 8);
+    }
+
+    // 1. Assi dal centro ai vertici massimi
+    for (i = 0; i < 6; i++)
+    {
+        DrawLine(windowId, GRAPH_CENTER_X, GRAPH_CENTER_Y, bgX[i], bgY[i], colorGrid);
+    }
+
+    // 2. Contorno dell'esagono massimo (IV = 31)
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawLine(windowId, bgX[i], bgY[i], bgX[next], bgY[next], colorGrid);
+    }
+
+    // 3. Riempimento del poligono celeste degli IV reali
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawFilledTriangle(windowId, GRAPH_CENTER_X, GRAPH_CENTER_Y, vx[i], vy[i], vx[next], vy[next], colorFill);
+    }
+
+    // 4. Bordo bianco attorno al poligono celeste
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawLine(windowId, vx[i], vy[i], vx[next], vy[next], colorOutline);
+    }
+
+    // 5. Pallini bianchi sui 6 vertici massimi (stile Switch)
+    for (i = 0; i < 6; i++)
+    {
+        DrawDot(windowId, bgX[i], bgY[i], colorDots);
+    }
+}
+
+static const u8 sText_Slash31Formatted[] = _("/31$");
+
+static void PrintStatLabelWithIVValue(u8 windowId, const u8 *statName, u8 iv, s8 natureMod, u8 x, u8 y)
+{
+    u8 strValue[16];
+    u8 strIVNum[4];
+
+    // Slot nella palette 6:
+    // 2 = Bianco, 5 = Rosso, 6 = Verde, 7 = Ombra scura
+    static const u8 sColorNormal[3] = {0, 2, 7}; // Bianco
+    static const u8 sColorUp[3]     = {0, 6, 7}; // Verde puro (Natura UP +)
+    static const u8 sColorDown[3]   = {0, 5, 7}; // Rosso puro (Natura DOWN -)
+
+    const u8 *textColor;
+
+    if (natureMod > 0)
+        textColor = sColorUp;    // Verde per Nature Up (+)
+    else if (natureMod < 0)
+        textColor = sColorDown;  // Rosso per Nature Down (-)
+    else
+        textColor = sColorNormal;// Bianco per Neutrale
+
+    // Stampa il nome della statistica
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y, 0, 0, textColor, 0, statName);
+
+    // Stampa "n/31" sempre in bianco
+    ConvertIntToDecimalStringN(strIVNum, iv, STR_CONV_MODE_LEFT_ALIGN, 2);
+    StringCopy(strValue, strIVNum);
+    StringAppend(strValue, sText_Slash31Formatted);
+
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y + 10, 0, 0, sColorNormal, 0, strValue);
+}
+
+static void HideSkillsIVRadar(void)
+{
+    if (sMonSummaryScreen->showIVs)
+    {
+        sMonSummaryScreen->showIVs = FALSE;
+
+        // 1. Pulisci e rimuovi la finestra del radar
+        if (sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH] != WINDOW_NONE)
+        {
+            FillWindowPixelBuffer(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH], PIXEL_FILL(0));
+            ClearWindowTilemap(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH]);
+            CopyWindowToVram(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH], COPYWIN_FULL);
+            RemoveWindowByIndex(PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH);
+        }
+
+        // 2. Ripristina la palette originale dei testi del riepilogo
+        LoadPalette(gSummaryScreen_Pal, BG_PLTT_ID(0), 8 * PLTT_SIZE_4BPP);
+
+        // 3. Ripristina i tilemap delle etichette statiche
+        PutWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_LEFT);
+        PutWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_RIGHT);
+        PutWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_EXP);
+
+        // 4. RI-AGGIUNGI E ALLOCA LE 3 FINESTRE DEI DATI DINAMICI CHE ERANO STATE DISTRUTTE
+        AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_STATS_LEFT);
+        AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_STATS_RIGHT);
+        AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_EXP);
+
+        // 5. Metti i loro tilemap a schermo
+        PutWindowTilemap(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_STATS_LEFT]);
+        PutWindowTilemap(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_STATS_RIGHT]);
+        PutWindowTilemap(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_EXP]);
+
+        // 6. Ridisegna le scritte e i numeri
+        ExtractMonSkillStatsData(&sMonSummaryScreen->currentMon, &sMonSummaryScreen->summary);
+        PrintHeldItemName();
+        PrintRibbonCount();
+        BufferLeftColumnStats();
+        PrintLeftColumnStats();
+        BufferRightColumnStats();
+        PrintRightColumnStats();
+        PrintExpPointsNextLevel();
+
+        // 7. Spingi le finestre in VRAM
+        CopyWindowToVram(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_STATS_LEFT], COPYWIN_FULL);
+        CopyWindowToVram(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_STATS_RIGHT], COPYWIN_FULL);
+        CopyWindowToVram(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_EXP], COPYWIN_FULL);
+
+        ScheduleBgCopyTilemapToVram(0);
+        ScheduleBgCopyTilemapToVram(1);
+        ScheduleBgCopyTilemapToVram(2);
+    }
+}
+
+static void DrawSkillsIVRadarPage(void)
+{
+    u8 windowId = AddWindowFromTemplateList(sPageSkillsTemplate, PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH);
+    struct Pokemon *mon = &sMonSummaryScreen->currentMon;
+    u8 nature = sMonSummaryScreen->summary.nature;
+
+    // Ricarica la palette personalizzata con grigio scuro e celeste
+    LoadRadarGraphPalette();
+
+    // 1. RIEMPI TUTTO IL RIQUADRO DI GRIGIO SCURO (Colore 1)
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
+
+    // 2. DISEGNA IL GRAFICO RADAR CELESTE
+    DrawIVRadarGraph(windowId, mon);
+
+    // 3. STAMPA ETICHETTE E VALORI "n/31" ATTORNO AI VERTICI
+    // HP (In alto al centro)
+    PrintStatLabelWithIVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_IV), 0, 68, 2);
+
+    // Attack (In alto a destra)
+    PrintStatLabelWithIVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_IV), GetNatureStatModifier(nature, 1), 118, 22);
+
+    // Defense (In basso a destra)
+    PrintStatLabelWithIVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_IV), GetNatureStatModifier(nature, 2), 118, 64);
+
+    // Speed (In basso al centro)
+    PrintStatLabelWithIVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_IV), GetNatureStatModifier(nature, 3), 66, 86);
+
+    // Sp. Def (In basso a sinistra)
+    PrintStatLabelWithIVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_IV), GetNatureStatModifier(nature, 4), 6, 64);
+
+    // Sp. Atk (In alto a sinistra)
+    PrintStatLabelWithIVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_IV), GetNatureStatModifier(nature, 5), 6, 22);
+
+    PutWindowTilemap(windowId);
+    CopyWindowToVram(windowId, COPYWIN_FULL);
+}
+
 static void PrintTextOnWindow(u8 windowId, const u8 *string, u8 x, u8 y, u8 lineSpacing, u8 colorId)
 {
     PrintTextOnWindowWithFont(windowId, string, x, y, lineSpacing, colorId, FONT_NORMAL);
@@ -3380,6 +3785,17 @@ static void ClearPageWindowTilemaps(u8 page)
         if (ShouldShowIvEvPrompt())
             ClearWindowTilemap(PSS_LABEL_WINDOW_PROMPT_UTILITY);
         ClearWindowTilemap(PSS_LABEL_WINDOW_PROMPT_RELEARN);
+
+        // SE IL RADAR È ATTIVO, CHIUDILO E SVUOTA BG0 PRIMA DEL CAMBIO SCHERMATA
+        if (sMonSummaryScreen->showIVs)
+        {
+            FillWindowPixelBuffer(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH], PIXEL_FILL(0));
+            ClearWindowTilemap(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH]);
+            CopyWindowToVram(sMonSummaryScreen->windowIds[PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH], COPYWIN_FULL);
+            RemoveWindowByIndex(PSS_DATA_WINDOW_SKILLS_RADAR_GRAPH);
+            LoadPalette(gSummaryScreen_Pal, BG_PLTT_ID(0), 8 * PLTT_SIZE_4BPP);
+            sMonSummaryScreen->showIVs = FALSE;
+        }
         break;
     case PSS_PAGE_BATTLE_MOVES:
         if (sMonSummaryScreen->mode == SUMMARY_MODE_SELECT_MOVE)
@@ -3828,17 +4244,17 @@ static void PrintRibbonCount(void)
 
 static void BufferStat(u8 *dst, enum Stat statIndex, u32 stat, u32 strId, u32 n)
 {
-    static const u8 sTextNatureDown[] = _("{COLOR}{08}");
-    static const u8 sTextNatureUp[] = _("{COLOR}{05}");
-    static const u8 sTextNatureNeutral[] = _("{COLOR}{01}");
+    static const u8 sTextNatureDown[] = _("{COLOR}{05}");    // Rosso per Natura Down (-)
+    static const u8 sTextNatureUp[]   = _("{COLOR}{07}");    // Verde per Natura Up (+)
+    static const u8 sTextNatureNeutral[] = _("{COLOR}{01}"); // Neutrale vanilla
     u8 *txtPtr;
 
     if (statIndex == 0 || !P_SUMMARY_SCREEN_NATURE_COLORS || gNaturesInfo[sMonSummaryScreen->summary.mintNature].statUp == gNaturesInfo[sMonSummaryScreen->summary.mintNature].statDown)
         txtPtr = StringCopy(dst, sTextNatureNeutral);
     else if (statIndex == gNaturesInfo[sMonSummaryScreen->summary.mintNature].statUp)
-        txtPtr = StringCopy(dst, sTextNatureUp);
+        txtPtr = StringCopy(dst, sTextNatureUp);   // Stat aumentata -> Verde
     else if (statIndex == gNaturesInfo[sMonSummaryScreen->summary.mintNature].statDown)
-        txtPtr = StringCopy(dst, sTextNatureDown);
+        txtPtr = StringCopy(dst, sTextNatureDown); // Stat diminuita -> Rosso
     else
         txtPtr = StringCopy(dst, sTextNatureNeutral);
 
@@ -3850,7 +4266,6 @@ static void BufferStat(u8 *dst, enum Stat statIndex, u32 stat, u32 strId, u32 n)
 
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(strId, dst);
 }
-
 static const u8 *GetLetterGrade(u32 stat)
 {
     static const u8 gText_GradeF[] = _("F");
@@ -4739,12 +5154,13 @@ static void KeepMoveSelectorVisible(u8 firstSpriteId)
 
 static inline bool32 ShouldShowMoveRelearner(void)
 {
-    return (P_SUMMARY_SCREEN_MOVE_RELEARNER
-         && !sMonSummaryScreen->lockMovesFlag
-         && sMonSummaryScreen->mode != SUMMARY_MODE_BOX_CURSOR
-         && sMonSummaryScreen->hasRelearnableMoves
-         && !InBattleFactory()
-         && !InSlateportBattleTent());
+    return FALSE;
+    // return (P_SUMMARY_SCREEN_MOVE_RELEARNER
+    //      && !sMonSummaryScreen->lockMovesFlag
+    //      && sMonSummaryScreen->mode != SUMMARY_MODE_BOX_CURSOR
+    //      && sMonSummaryScreen->hasRelearnableMoves
+    //      && !InBattleFactory()
+    //      && !InSlateportBattleTent());
 }
 
 static inline bool32 ShouldShowRename(void)
