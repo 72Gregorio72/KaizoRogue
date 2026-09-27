@@ -2892,7 +2892,14 @@ void TrySpawnObjectEvents(s16 cameraX, s16 cameraY)
         else if (InTrainerHill())
             objectCount = HILL_TRAINERS_PER_FLOOR;
         else
-            objectCount = gMapHeader.events->objectEventCount;
+        {
+            // Conta tutti i template effettivamente presenti nel SaveBlock1 (inclusi gli hidden item iniettati)
+            for (objectCount = 0; objectCount < OBJECT_EVENT_TEMPLATES_COUNT; objectCount++)
+            {
+                if (gSaveBlock1Ptr->objectEventTemplates[objectCount].graphicsId == 0)
+                    break;
+            }
+        }
 
         for (i = 0; i < objectCount; i++)
         {

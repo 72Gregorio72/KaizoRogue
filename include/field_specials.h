@@ -49,5 +49,7 @@ void Script_GiveKaizoStarter(void);
 void Script_SetupOaksLabStarter(void);
 void Script_RandomizeFindItemResult(void);
 void Script_ToggleWildEncounters(void);
+u32 GetCurrentExpMultiplier(void);
+void BufferCurrentExpMultiplierName(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

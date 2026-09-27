@@ -259,7 +259,7 @@
 #define VAR_0x40F4                 0x40F4
 #define VAR_0x40F5                 0x40F5
 #define VAR_0x40F6                 0x40F6
-#define VAR_0x40F7                 0x40F7
+#define VAR_EXP_MULTIPLIER         0x40F7
 #define VAR_0x40F8                 0x40F8
 #define VAR_0x40F9                 0x40F9
 #define VAR_0x40FA                 0x40FA

@@ -8,6 +8,8 @@
 #include "item.h"
 #include "string_util.h"
 #include "script.h"
+#include "constants/vars.h"
+#include "field_specials.h"
 
 // --- PROTOTIPI GENERALI ---
 static bool32 IsValidKaizoSpecies(u16 species);
@@ -190,4 +192,62 @@ void Script_GiveKaizoStarter(void)
     GiveMonInitialMoveset(&mon);
     CalculateMonStats(&mon);
     GiveCapturedMonToPlayer(&mon);
+}
+
+// --- LOGICA EXP MULTIPLIER ---
+u32 GetCurrentExpMultiplier(void)
+{
+    u16 val = VarGet(VAR_EXP_MULTIPLIER);
+    if (val == 0 || val == 100)
+        return 100; // 1.0x (Predefinito vanilla)
+    if (val == 1)
+        return 0;   // 0x (Nessuna EXP)
+    return val;     // 50 (0.5x), 150 (1.5x), 200 (2x), 300 (3x), 500 (5x), 1000 (10x)
+}
+
+static const u8 sText_Exp0x[]  = _("0x (Nessuna EXP)");
+static const u8 sText_Exp05x[] = _("0.5x (Dimezzata)");
+static const u8 sText_Exp1x[]  = _("1x (Normale)");
+static const u8 sText_Exp15x[] = _("1.5x");
+static const u8 sText_Exp2x[]  = _("2x (Doppia)");
+static const u8 sText_Exp3x[]  = _("3x (Tripla)");
+static const u8 sText_Exp5x[]  = _("5x");
+static const u8 sText_Exp10x[] = _("10x");
+static const u8 sText_ExpX[]   = _("x");
+
+void BufferCurrentExpMultiplierName(void)
+{
+    u32 mult = GetCurrentExpMultiplier();
+    switch (mult)
+    {
+    case 0:
+        StringCopy(gStringVar1, sText_Exp0x);
+        break;
+    case 50:
+        StringCopy(gStringVar1, sText_Exp05x);
+        break;
+    case 100:
+        StringCopy(gStringVar1, sText_Exp1x);
+        break;
+    case 150:
+        StringCopy(gStringVar1, sText_Exp15x);
+        break;
+    case 200:
+        StringCopy(gStringVar1, sText_Exp2x);
+        break;
+    case 300:
+        StringCopy(gStringVar1, sText_Exp3x);
+        break;
+    case 500:
+        StringCopy(gStringVar1, sText_Exp5x);
+        break;
+    case 1000:
+        StringCopy(gStringVar1, sText_Exp10x);
+        break;
+    default:
+        ConvertIntToDecimalStringN(gStringVar2, mult / 100, STR_CONV_MODE_LEFT_ALIGN, 4);
+        StringCopy(gStringVar1, gStringVar2);
+        StringAppend(gStringVar1, sText_ExpX);
+        break;
+    }
 }

@@ -11,6 +11,7 @@
   "allow_escaping": false,
   "allow_running": true,
   "show_map_name": true,
+  "floor_number": 0,
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
   "connections": [
     {
@@ -27,6 +28,7 @@
   "object_events": [
     {
       "local_id": "LOCALID_PALLET_SIGN_LADY",
+      "type": "object",
       "graphics_id": "OBJ_EVENT_GFX_WOMAN_1_FRLG",
       "x": 3,
       "y": 10,
@@ -41,6 +43,7 @@
     },
     {
       "local_id": "LOCALID_PALLET_FAT_MAN",
+      "type": "object",
       "graphics_id": "OBJ_EVENT_GFX_FAT_MAN_FRLG",
       "x": 13,
       "y": 17,
@@ -55,6 +58,7 @@
     },
     {
       "local_id": "LOCALID_PALLET_PROF_OAK",
+      "type": "object",
       "graphics_id": "OBJ_EVENT_GFX_PROF_OAK",
       "x": 10,
       "y": 8,
@@ -109,15 +113,6 @@
       "var": "VAR_MAP_SCENE_PALLET_TOWN_OAK",
       "var_value": "0",
       "script": "PalletTown_EventScript_OakTriggerRight"
-    },
-    {
-      "type": "trigger",
-      "x": 13,
-      "y": 2,
-      "elevation": 3,
-      "var": "VAR_TEMP_2",
-      "var_value": "1",
-      "script": "PalletTown_EventScript_SignLadyTrigger"
     }
   ],
   "bg_events": [
@@ -162,6 +157,5 @@
       "script": "PalletTown_EventScript_TrainerTips"
     }
   ],
-  "floor_number": 0,
   "region": "REGION_KANTO"
 }

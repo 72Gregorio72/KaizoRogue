@@ -400,6 +400,18 @@ static const u8 *GetInteractedObjectEventScript(struct MapPosition *position, u8
             return NULL;
     }
 
+    if (gObjectEvents[objectEventId].graphicsId == OBJ_EVENT_GFX_ITEM_BALL)
+    {
+        const struct ObjectEventTemplate *template = GetObjectEventTemplateByLocalIdAndMap(
+            gObjectEvents[objectEventId].localId,
+            gSaveBlock1Ptr->location.mapNum,
+            gSaveBlock1Ptr->location.mapGroup
+        );
+
+        if (template != NULL && template->flagId >= FLAG_HIDDEN_ITEMS_START)
+            return NULL;
+    }
+
     gSelectedObjectEvent = objectEventId;
     gSpecialVar_LastTalked = gObjectEvents[objectEventId].localId;
 

@@ -198,6 +198,9 @@ static void CameraCB_CreditsPan(struct CameraObject *camera);
 static void Task_OvwldCredits_FadeOut(u8 taskId);
 static void Task_OvwldCredits_WaitFade(u8 taskId);
 
+
+void SpawnHiddenItemSprites(void);
+
 static u8 sPlayerLinkStates[MAX_LINK_PLAYERS];
 // This callback is called with a player's key code. It then returns an
 // adjusted key code, effectively intercepting the input before anything
@@ -379,6 +382,10 @@ static bool8 (*const sLinkPlayerFacingHandlers[])(struct LinkPlayerObjectEvent *
     FacingHandler_ForcedFacingChange,
 };
 
+static const u8 sHiddenItemBallScript[] = {
+    0x27 // Opcode del comando 'end' negli event script GBA
+};
+
 static void MovementStatusHandler_EnterFreeMode(struct LinkPlayerObjectEvent *, struct ObjectEvent *);
 static void MovementStatusHandler_TryAdvanceScript(struct LinkPlayerObjectEvent *, struct ObjectEvent *);
 
@@ -534,16 +541,26 @@ void ApplyNewEncryptionKeyToGameStats(u32 newKey)
         ApplyNewEncryptionKeyToWord(&gSaveBlock1Ptr->gameStats[i], newKey);
 }
 
+#ifndef BG_EVENT_HIDDEN_ITEM
+#define BG_EVENT_HIDDEN_ITEM 7
+#endif
+
+extern const u8 EventScript_FindItem[];
+
 void LoadObjEventTemplatesFromHeader(void)
 {
-    // Clear map object templates
+    u32 i;
+    u32 objCount = gMapHeader.events->objectEventCount;
+    const struct BgEvent *bgEvents = gMapHeader.events->bgEvents;
+    u8 bgCount = gMapHeader.events->bgEventCount;
+
+    // Pulisce i template esistenti nel saveblock
     CpuFill32(0, gSaveBlock1Ptr->objectEventTemplates, sizeof(gSaveBlock1Ptr->objectEventTemplates));
 
-    for (u32 i = 0; i < gMapHeader.events->objectEventCount; i++)
+    for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
     {
         if (gMapHeader.events->objectEvents[i].kind == OBJ_KIND_CLONE)
         {
-            // load target object from the connecting map
             u8 localId = gMapHeader.events->objectEvents[i].targetLocalId;
             u8 mapNum = gMapHeader.events->objectEvents[i].targetMapNum;
             u8 mapGroup = gMapHeader.events->objectEvents[i].targetMapGroup;
@@ -563,6 +580,38 @@ void LoadObjEventTemplatesFromHeader(void)
             gSaveBlock1Ptr->objectEventTemplates[i] = gMapHeader.events->objectEvents[i];
         }
     }
+
+    // Iniezione degli Hidden Item come Poké Ball
+    if (bgEvents != NULL)
+    {
+        for (u32 b = 0; b < bgCount && i < OBJECT_EVENT_TEMPLATES_COUNT; b++)
+        {
+            if (bgEvents[b].kind == BG_EVENT_HIDDEN_ITEM)
+            {
+                // Ricostruisce il flag esatto sommando la base
+                u16 itemFlag = FLAG_HIDDEN_ITEMS_START + bgEvents[b].bgUnion.hiddenItem.hiddenItemId;
+
+                if (!FlagGet(itemFlag))
+                {
+                    struct ObjectEventTemplate *template = &gSaveBlock1Ptr->objectEventTemplates[i];
+                    template->localId = i + 1; // Local ID speciale
+                    template->graphicsId = OBJ_EVENT_GFX_ITEM_BALL;
+                    template->x = bgEvents[b].x;
+                    template->y = bgEvents[b].y;
+                    template->elevation = 3;
+                    template->movementType = MOVEMENT_TYPE_LOOK_AROUND;
+                    template->movementRangeX = 0;
+                    template->movementRangeY = 0;
+                    template->trainerType = 0;
+                    template->trainerRange_berryTreeId = 0;
+                    template->script = NULL;
+                    template->flagId = itemFlag;
+                    template->kind = OBJ_KIND_NORMAL;
+                    i++;
+                }
+            }
+        }
+    }
 }
 
 void LoadSaveblockObjEventScripts(void)
@@ -570,9 +619,15 @@ void LoadSaveblockObjEventScripts(void)
     const struct ObjectEventTemplate *mapHeaderObjTemplates = gMapHeader.events->objectEvents;
     struct ObjectEventTemplate *savObjTemplates = gSaveBlock1Ptr->objectEventTemplates;
     s32 i;
+    u32 headerCount = gMapHeader.events->objectEventCount;
 
     for (i = 0; i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
-        savObjTemplates[i].script = mapHeaderObjTemplates[i].script;
+    {
+        if (i < headerCount)
+            savObjTemplates[i].script = mapHeaderObjTemplates[i].script;
+        else
+            savObjTemplates[i].script = NULL;
+    }
 }
 
 static struct ObjectEventTemplate *GetObjectEventTemplate(u8 localId)
@@ -2618,6 +2673,8 @@ static void InitObjectEventsLocal(void)
     FollowerNPC_HandleSprite();
     UpdateFollowingPokemon();
     TryRunOnWarpIntoMapScript();
+
+    SpawnHiddenItemSprites();
 }
 
 static void InitObjectEventsReturnToField(void)
@@ -2625,6 +2682,7 @@ static void InitObjectEventsReturnToField(void)
     SpawnObjectEventsOnReturnToField(0, 0);
     RotatingGate_InitPuzzleAndGraphics();
     RunOnReturnToFieldMapScript();
+    SpawnHiddenItemSprites();
 }
 
 static void SetCameraToTrackPlayer(void)
@@ -4051,4 +4109,56 @@ static void ResetKaizoRogueRun(void)
     SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
                        MAP_NUM(MAP_KAIZO_HUB),
                        WARP_ID_NONE, 10, 7);
+}
+
+#ifndef BG_EVENT_HIDDEN_ITEM
+#define BG_EVENT_HIDDEN_ITEM 7
+#endif
+
+void SpawnHiddenItemSprites(void)
+{
+    u32 i;
+    const struct BgEvent *bgEvents;
+    u8 count;
+    u16 camX, camY;
+
+    if (gMapHeader.events == NULL)
+        return;
+
+    bgEvents = gMapHeader.events->bgEvents;
+    count = gMapHeader.events->bgEventCount;
+
+    if (bgEvents == NULL)
+        return;
+
+    // u16 corrisponde alla firma di GetCameraFocusCoords(u16 *x, u16 *y)
+    GetCameraFocusCoords(&camX, &camY);
+
+    for (i = 0; i < count; i++)
+    {
+        if (bgEvents[i].kind == BG_EVENT_HIDDEN_ITEM)
+        {
+            u16 itemFlag = bgEvents[i].bgUnion.hiddenItem.hiddenItemId;
+
+            if (!FlagGet(itemFlag))
+            {
+                struct ObjectEventTemplate template;
+
+                template.localId = 0xFF;
+                template.graphicsId = OBJ_EVENT_GFX_ITEM_BALL;
+                template.x = bgEvents[i].x;
+                template.y = bgEvents[i].y;
+                template.elevation = 3;
+                template.movementType = MOVEMENT_TYPE_LOOK_AROUND;
+                template.movementRangeX = 0;
+                template.movementRangeY = 0;
+                template.trainerType = 0; // 0 equivale a nessun trainer
+                template.trainerRange_berryTreeId = 0;
+                template.script = NULL;
+                template.flagId = 0;
+
+                TrySpawnObjectEventTemplate(&template, gSaveBlock1Ptr->location.mapNum, gSaveBlock1Ptr->location.mapGroup, (s16)camX, (s16)camY);
+            }
+        }
+    }
 }

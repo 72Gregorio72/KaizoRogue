@@ -3,7 +3,6 @@
   "name": "PewterCity_Frlg",
   "layout": "LAYOUT_PEWTER_CITY",
   "music": "MUS_RG_PEWTER",
-  "region": "REGION_KANTO",
   "region_map_section": "MAPSEC_PEWTER_CITY",
   "requires_flash": false,
   "weather": "WEATHER_SUNNY",
@@ -216,33 +215,6 @@
       "var": "VAR_MAP_SCENE_PEWTER_CITY",
       "var_value": "0",
       "script": "PewterCity_EventScript_GymGuideTriggerRight"
-    },
-    {
-      "type": "trigger",
-      "x": 46,
-      "y": 21,
-      "elevation": 3,
-      "var": "VAR_MAP_SCENE_PEWTER_CITY",
-      "var_value": "1",
-      "script": "PewterCity_EventScript_RunningShoesAideTriggerTop"
-    },
-    {
-      "type": "trigger",
-      "x": 46,
-      "y": 22,
-      "elevation": 3,
-      "var": "VAR_MAP_SCENE_PEWTER_CITY",
-      "var_value": "1",
-      "script": "PewterCity_EventScript_RunningShoesAideTriggerMid"
-    },
-    {
-      "type": "trigger",
-      "x": 46,
-      "y": 23,
-      "elevation": 3,
-      "var": "VAR_MAP_SCENE_PEWTER_CITY",
-      "var_value": "1",
-      "script": "PewterCity_EventScript_RunningShoesAideTriggerBottom"
     }
   ],
   "bg_events": [
@@ -290,11 +262,12 @@
       "type": "hidden_item",
       "x": 6,
       "y": 3,
-      "elevation": 3,
-      "item": "ITEM_POKE_BALL",
+      "elevation": 0,
+      "item": "ITEM_POTION",
       "flag": "FLAG_HIDDEN_ITEM_PEWTER_CITY_POKE_BALL",
       "quantity": 1,
       "underfoot": false
     }
-  ]
+  ],
+  "region": "REGION_KANTO"
 }

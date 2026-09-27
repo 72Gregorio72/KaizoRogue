@@ -110,3 +110,73 @@ Kaizo_Hub_Text_Warping:
 
 Kaizo_Hub_Text_AskWarp:
 	.string "Vuoi tornare a casa tua a Pallet Town?$"
+
+// --- NPC REGOLATORE EXP ---
+Kaizo_Hub_EventScript_ExpMultiplierNPC::
+	lock
+	faceplayer
+	goto_if_ne VAR_EXP_MULTIPLIER, 0, Kaizo_Hub_EventScript_ExpMultiplier_HasSetting
+	setvar VAR_EXP_MULTIPLIER, 100
+
+Kaizo_Hub_EventScript_ExpMultiplier_HasSetting::
+	special BufferCurrentExpMultiplierName
+	msgbox Kaizo_Hub_Text_Exp_Intro, MSGBOX_DEFAULT
+	dynmultipush Kaizo_Hub_Text_Exp_0x, 1
+	dynmultipush Kaizo_Hub_Text_Exp_05x, 50
+	dynmultipush Kaizo_Hub_Text_Exp_1x, 100
+	dynmultipush Kaizo_Hub_Text_Exp_15x, 150
+	dynmultipush Kaizo_Hub_Text_Exp_2x, 200
+	dynmultipush Kaizo_Hub_Text_Exp_3x, 300
+	dynmultipush Kaizo_Hub_Text_Exp_5x, 500
+	dynmultipush Kaizo_Hub_Text_Exp_10x, 1000
+	dynmultistack 0, 0, FALSE, 6, FALSE, VAR_EXP_MULTIPLIER, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_ExpMultiplier_Cancel
+	copyvar VAR_EXP_MULTIPLIER, VAR_RESULT
+	special BufferCurrentExpMultiplierName
+	msgbox Kaizo_Hub_Text_Exp_Changed, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_ExpMultiplier_Cancel::
+	msgbox Kaizo_Hub_Text_Exp_NoChange, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_Exp_Intro:
+	.string "Posso regolare l'esperienza ottenuta\n"
+	.string "nelle battaglie durante la run.\p"
+	.string "Moltiplicatore attuale: {STR_VAR_1}\p"
+	.string "Quale moltiplicatore vuoi impostare?$"
+
+Kaizo_Hub_Text_Exp_Changed:
+	.string "Moltiplicatore EXP impostato su:\n"
+	.string "{STR_VAR_1}! Buona continuazione!$"
+
+Kaizo_Hub_Text_Exp_NoChange:
+	.string "Nessuna modifica effettuata.\n"
+	.string "Torna pure se vuoi cambiare l'EXP!$"
+
+Kaizo_Hub_Text_Exp_0x:
+	.string "0x (Nessuna EXP)$"
+
+Kaizo_Hub_Text_Exp_05x:
+	.string "0.5x (Dimezzata)$"
+
+Kaizo_Hub_Text_Exp_1x:
+	.string "1x (Normale)$"
+
+Kaizo_Hub_Text_Exp_15x:
+	.string "1.5x$"
+
+Kaizo_Hub_Text_Exp_2x:
+	.string "2x (Doppia)$"
+
+Kaizo_Hub_Text_Exp_3x:
+	.string "3x (Tripla)$"
+
+Kaizo_Hub_Text_Exp_5x:
+	.string "5x$"
+
+Kaizo_Hub_Text_Exp_10x:
+	.string "10x$"
+
