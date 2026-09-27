@@ -646,3 +646,9 @@ gSpecials::
 	def_special Script_RandomizeFindItemResult
 	def_special Script_ToggleWildEncounters
 	def_special BufferCurrentExpMultiplierName
+	def_special Script_IVBooster_Init
+	def_special Script_IVBooster_GetRemainingPoints
+	def_special Script_IVBooster_PushStatChoices
+	def_special Script_IVBooster_SelectStat
+	def_special Script_IVBooster_PushPointChoices
+	def_special Script_IVBooster_ApplyPoints

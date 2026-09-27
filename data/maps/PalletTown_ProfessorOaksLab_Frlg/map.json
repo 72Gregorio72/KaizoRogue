@@ -3,7 +3,6 @@
   "name": "PalletTown_ProfessorOaksLab_Frlg",
   "layout": "LAYOUT_PALLET_TOWN_PROFESSOR_OAKS_LAB",
   "music": "MUS_RG_OAK_LAB",
-  "region": "REGION_KANTO",
   "region_map_section": "MAPSEC_PALLET_TOWN",
   "requires_flash": false,
   "weather": "WEATHER_NONE",
@@ -162,6 +161,20 @@
       "trainer_sight_or_berry_tree_id": "0",
       "script": "PalletTown_ProfessorOaksLab_EventScript_Pokedex",
       "flag": "FLAG_HIDE_POKEDEX"
+    },
+    {
+      "type": "object",
+      "graphics_id": "OBJ_EVENT_GFX_EXPERT_F",
+      "x": 12,
+      "y": 4,
+      "elevation": 0,
+      "movement_type": "MOVEMENT_TYPE_NONE",
+      "movement_range_x": 0,
+      "movement_range_y": 0,
+      "trainer_type": "TRAINER_TYPE_NONE",
+      "trainer_sight_or_berry_tree_id": "0",
+      "script": "Kaizo_Hub_EventScript_IVBoosterNPC",
+      "flag": "FLAG_HIDE_IV_BOOSTER_NPC"
     }
   ],
   "warp_events": [
@@ -276,5 +289,6 @@
       "player_facing_dir": "BG_EVENT_PLAYER_FACING_ANY",
       "script": "PalletTown_ProfessorOaksLab_EventScript_RightSign"
     }
-  ]
+  ],
+  "region": "REGION_KANTO"
 }

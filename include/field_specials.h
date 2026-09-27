@@ -52,4 +52,13 @@ void Script_ToggleWildEncounters(void);
 u32 GetCurrentExpMultiplier(void);
 void BufferCurrentExpMultiplierName(void);
 
+
+// IV Booster NPC
+void Script_IVBooster_Init(void);
+void Script_IVBooster_GetRemainingPoints(void);
+void Script_IVBooster_PushStatChoices(void);
+void Script_IVBooster_SelectStat(void);
+void Script_IVBooster_PushPointChoices(void);
+void Script_IVBooster_ApplyPoints(void);
+
 #endif // GUARD_FIELD_SPECIALS_H

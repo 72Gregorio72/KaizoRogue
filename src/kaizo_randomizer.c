@@ -10,6 +10,10 @@
 #include "script.h"
 #include "constants/vars.h"
 #include "field_specials.h"
+#include "malloc.h"
+#include "script_menu.h"
+#include "constants/battle.h"
+
 
 // --- PROTOTIPI GENERALI ---
 static bool32 IsValidKaizoSpecies(u16 species);
@@ -250,4 +254,175 @@ void BufferCurrentExpMultiplierName(void)
         StringAppend(gStringVar1, sText_ExpX);
         break;
     }
+}
+// --- LOGICA IV BOOSTER NPC ---
+
+static u8 sIvBoosterPartySlot;
+static u8 sIvBoosterRemainingPoints;
+static u8 sIvBoosterSelectedStat;
+
+// Ordine MON_DATA_*_IV: HP, ATK, DEF, SPATK, SPDEF, SPEED
+static const u8 sIvStatMonData[6] = {
+    MON_DATA_HP_IV,
+    MON_DATA_ATK_IV,
+    MON_DATA_DEF_IV,
+    MON_DATA_SPATK_IV,
+    MON_DATA_SPDEF_IV,
+    MON_DATA_SPEED_IV
+};
+
+static const u8 sIvStatName_HP[]    = _("PS");
+static const u8 sIvStatName_ATK[]   = _("Attacco");
+static const u8 sIvStatName_DEF[]   = _("Difesa");
+static const u8 sIvStatName_SPATK[] = _("Att. Sp.");
+static const u8 sIvStatName_SPDEF[] = _("Dif. Sp.");
+static const u8 sIvStatName_SPD[]   = _("Velocita'");
+
+static const u8 *const sIvStatNames[6] = {
+    sIvStatName_HP,
+    sIvStatName_ATK,
+    sIvStatName_DEF,
+    sIvStatName_SPATK,
+    sIvStatName_SPDEF,
+    sIvStatName_SPD
+};
+
+static const u8 sIvText_Max[]     = _("/31 MAX");
+static const u8 sIvText_Slash31[] = _("/31");
+static const u8 sIvText_Colon[]   = _(": ");
+static const u8 sIvText_Plus[]    = _("+");
+static const u8 sIvText_Punto[]   = _(" punto");
+static const u8 sIvText_Punti[]   = _(" punti");
+static const u8 sIvText_Esci[]    = _("Esci");
+static const u8 sIvText_Annulla[] = _("Annulla");
+
+void Script_IVBooster_Init(void)
+{
+    u8 partyCount = gPartiesCount[B_TRAINER_PLAYER];
+    u8 slot = (u8)gSpecialVar_0x8004;
+    if (slot >= partyCount)
+        slot = 0;
+    sIvBoosterPartySlot = slot;
+    sIvBoosterRemainingPoints = 5;
+    sIvBoosterSelectedStat = 0;
+    GetMonData(&gParties[B_TRAINER_PLAYER][sIvBoosterPartySlot], MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, sIvBoosterRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 1);
+    gSpecialVar_Result = sIvBoosterRemainingPoints;
+}
+
+void Script_IVBooster_GetRemainingPoints(void)
+{
+    GetMonData(&gParties[B_TRAINER_PLAYER][sIvBoosterPartySlot], MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, sIvBoosterRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 1);
+    gSpecialVar_Result = sIvBoosterRemainingPoints;
+}
+
+void Script_IVBooster_PushStatChoices(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sIvBoosterPartySlot];
+    u32 i;
+    for (i = 0; i < 6; i++)
+    {
+        u8 currentIv = (u8)GetMonData(mon, sIvStatMonData[i]);
+        u8 *buf = Alloc(64);
+        u8 *ptr;
+        struct ListMenuItem item;
+        ptr = StringCopy(buf, sIvStatNames[i]);
+        ptr = StringAppend(ptr, sIvText_Colon);
+        ptr = ConvertIntToDecimalStringN(ptr, currentIv, STR_CONV_MODE_LEFT_ALIGN, 2);
+        if (currentIv >= 31)
+            StringAppend(ptr, sIvText_Max);
+        else
+            StringAppend(ptr, sIvText_Slash31);
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+    {
+        u8 *bufExit = Alloc(32);
+        struct ListMenuItem exitItem;
+        StringCopy(bufExit, sIvText_Esci);
+        exitItem.name = bufExit;
+        exitItem.id = 6;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_IVBooster_SelectStat(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sIvBoosterPartySlot];
+    u8 statIndex = (u8)gSpecialVar_0x8005;
+    u8 currentIv;
+    u8 maxCanAdd;
+    if (statIndex > 5)
+        statIndex = 0;
+    sIvBoosterSelectedStat = statIndex;
+    currentIv = (u8)GetMonData(mon, sIvStatMonData[sIvBoosterSelectedStat]);
+    StringCopy(gStringVar1, sIvStatNames[sIvBoosterSelectedStat]);
+    ConvertIntToDecimalStringN(gStringVar2, currentIv, STR_CONV_MODE_LEFT_ALIGN, 2);
+    ConvertIntToDecimalStringN(gStringVar3, sIvBoosterRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 1);
+    if (currentIv >= 31)
+    {
+        gSpecialVar_Result = 0;
+    }
+    else
+    {
+        maxCanAdd = 31 - currentIv;
+        if (maxCanAdd > sIvBoosterRemainingPoints)
+            maxCanAdd = sIvBoosterRemainingPoints;
+        gSpecialVar_Result = maxCanAdd;
+    }
+}
+
+void Script_IVBooster_PushPointChoices(void)
+{
+    u8 maxCanAdd = (u8)gSpecialVar_Result;
+    u32 p;
+    if (maxCanAdd > 5)
+        maxCanAdd = 5;
+    for (p = 1; p <= maxCanAdd; p++)
+    {
+        u8 *buf = Alloc(32);
+        u8 *ptr;
+        struct ListMenuItem item;
+        ptr = StringCopy(buf, sIvText_Plus);
+        ptr = ConvertIntToDecimalStringN(ptr, p, STR_CONV_MODE_LEFT_ALIGN, 1);
+        if (p == 1)
+            StringAppend(ptr, sIvText_Punto);
+        else
+            StringAppend(ptr, sIvText_Punti);
+        item.name = buf;
+        item.id = (s32)p;
+        MultichoiceDynamic_PushElement(item);
+    }
+    {
+        u8 *bufCancel = Alloc(32);
+        struct ListMenuItem cancelItem;
+        StringCopy(bufCancel, sIvText_Annulla);
+        cancelItem.name = bufCancel;
+        cancelItem.id = 0;
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+}
+
+void Script_IVBooster_ApplyPoints(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sIvBoosterPartySlot];
+    u8 pointsToAdd = (u8)gSpecialVar_0x8005;
+    u8 currentIv = (u8)GetMonData(mon, sIvStatMonData[sIvBoosterSelectedStat]);
+    u8 newIv = currentIv + pointsToAdd;
+    if (newIv > 31)
+        newIv = 31;
+    SetMonData(mon, sIvStatMonData[sIvBoosterSelectedStat], &newIv);
+    CalculateMonStats(mon);
+    if (sIvBoosterRemainingPoints >= pointsToAdd)
+        sIvBoosterRemainingPoints -= pointsToAdd;
+    else
+        sIvBoosterRemainingPoints = 0;
+    StringCopy(gStringVar1, sIvStatNames[sIvBoosterSelectedStat]);
+    ConvertIntToDecimalStringN(gStringVar2, pointsToAdd, STR_CONV_MODE_LEFT_ALIGN, 1);
+    ConvertIntToDecimalStringN(gStringVar3, newIv, STR_CONV_MODE_LEFT_ALIGN, 2);
+    gSpecialVar_Result = sIvBoosterRemainingPoints;
 }
