@@ -95,6 +95,10 @@ static void ReloadMoveNames(enum BattlerId battler);
 static u32 CheckTypeEffectiveness(enum BattlerId battlerAtk, enum BattlerId battlerDef);
 static u32 CheckTargetTypeEffectiveness(enum BattlerId battler);
 static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum BattlerId battler);
+static void MoveSelectionDisplayStatStages(enum BattlerId battler);
+static bool8 sShowingStatStages;
+static bool32 ShouldShowTypeEffectiveness(u32 battlerDef);
+// KAIZO_BATTLE_UI_PATCH
 
 static void (*const sPlayerBufferCommands[CONTROLLER_CMDS_COUNT])(enum BattlerId battler) =
 {
@@ -878,6 +882,21 @@ void HandleInputChooseMove(enum BattlerId battler)
             gBattlerControllerFuncs[battler] = HandleMoveSwitching;
         }
     }
+    else if (JOY_NEW(R_BUTTON) && !gBattleStruct->zmove.viewing && !gBattleStruct->descriptionSubmenu)
+    {
+        if (!sShowingStatStages)
+        {
+            sShowingStatStages = TRUE;
+            MoveSelectionDisplayStatStages(battler);
+        }
+        else
+        {
+            sShowingStatStages = FALSE;
+            FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0xE));
+            ClearStdWindowAndFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
+            CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_GFX);
+        }
+    }
     else if (gBattleStruct->descriptionSubmenu)
     {
         if (JOY_NEW(B_MOVE_DESCRIPTION_BUTTON) || JOY_NEW(A_BUTTON) || JOY_NEW(B_BUTTON))
@@ -889,6 +908,7 @@ void HandleInputChooseMove(enum BattlerId battler)
                 gCategoryIconSpriteId = 0xFF;
             }
 
+            sShowingStatStages = FALSE;
             FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0));
             ClearStdWindowAndFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
             CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_GFX);
@@ -1664,8 +1684,46 @@ static void MoveSelectionDisplayMoveNames(enum BattlerId battler)
             StringCopy(gDisplayedStringBattle, GetMoveName(GetMaxMove(battler, moveInfo->moves[i])));
         else
             StringCopy(gDisplayedStringBattle, GetMoveName(moveInfo->moves[i]));
-        // Prints on windows B_WIN_MOVE_NAME_1, B_WIN_MOVE_NAME_2, B_WIN_MOVE_NAME_3, B_WIN_MOVE_NAME_4
-        BattlePutTextOnWindow(gDisplayedStringBattle, i + B_WIN_MOVE_NAME_1);
+        // KAIZO: colora nome mossa per efficacia (palette diretta slot 13)
+        {
+            u16 kaizoOrigFg = gPlttBufferUnfaded[BG_PLTT_ID(5) + 13];
+            if (B_SHOW_EFFECTIVENESS && moveInfo->moves[i] != MOVE_NONE
+                && !IsBattleMoveStatus(moveInfo->moves[i]))
+            {
+                enum BattlerId foe = GetOppositeBattler(battler);
+                struct DamageContext ctx = {0};
+                ctx.battlerAtk = battler;
+                ctx.battlerDef = foe;
+                ctx.move = moveInfo->moves[i];
+                ctx.moveType = CheckDynamicMoveType(GetBattlerMon(battler), ctx.move, battler, MON_IN_BATTLE);
+                ctx.updateFlags = FALSE;
+                ctx.weather = GetWeather();
+                ctx.terrain = gFieldTimers.terrain;
+                ctx.abilities[battler] = GetBattlerAbility(battler);
+                ctx.abilities[foe]     = GetBattlerAbility(foe);
+                ctx.holdEffects[battler] = GetBattlerHoldEffect(battler);
+                ctx.holdEffects[foe]     = GetBattlerHoldEffect(foe);
+                if (ShouldShowTypeEffectiveness((u32)foe))
+                {
+                    uq4_12_t mod = CalcTypeEffectivenessMultiplier(&ctx);
+                    u16 newFgColor = 0;
+                    if      (mod >= UQ_4_12(4.0))  newFgColor = RGB_BLUE;
+                    else if (mod >= UQ_4_12(2.0))  newFgColor = RGB(4, 24, 4);
+                    else if (mod <= UQ_4_12(0.25)) newFgColor = RGB(28, 4, 4);
+                    else if (mod <= UQ_4_12(0.5))  newFgColor = RGB_PURPLE;
+                    if (newFgColor != 0)
+                    {
+                        gPlttBufferUnfaded[BG_PLTT_ID(5) + 13] = newFgColor;
+                        gPlttBufferFaded[BG_PLTT_ID(5) + 13]   = newFgColor;
+                    }
+                }
+            }
+            // Prints on windows B_WIN_MOVE_NAME_1, B_WIN_MOVE_NAME_2, B_WIN_MOVE_NAME_3, B_WIN_MOVE_NAME_4
+            BattlePutTextOnWindow(gDisplayedStringBattle, i + B_WIN_MOVE_NAME_1);
+            // Ripristina colore originale
+            gPlttBufferUnfaded[BG_PLTT_ID(5) + 13] = kaizoOrigFg;
+            gPlttBufferFaded[BG_PLTT_ID(5) + 13]   = kaizoOrigFg;
+        }
         if (moveInfo->moves[i] != MOVE_NONE)
             gNumberOfMovesToChoose++;
     }
@@ -2470,4 +2528,74 @@ static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum Bat
     }
 
     BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP);
+}
+
+// KAIZO: mostra stat stages premendo R durante la selezione mosse
+static void MoveSelectionDisplayStatStages(enum BattlerId battler)
+{
+    static const u8 sText_StageTitle[] = _("ATK DEF SPA SPD SPE ACC EVA");
+    static const u8 sText_PlayerLabel[] = _("TUO:");
+    static const u8 sText_FoeLabel[]    = _("AVV:");
+    static const u8 sText_Plus[]        = _("+");
+    static const u8 sText_Zero[]        = _("0");
+    static const u8 sText_Space[]       = _(" ");
+
+    enum BattlerId foe = GetOppositeBattler(battler);
+    // Stat order: ATK, DEF, SPATK, SPDEF, SPEED, ACC, EVA
+    static const u8 sStatOrder[7] = { STAT_ATK, STAT_DEF, STAT_SPATK, STAT_SPDEF, STAT_SPEED, STAT_ACC, STAT_EVASION };
+    u8 i;
+    u8 *ptr;
+
+    LoadMessageBoxAndBorderGfx();
+    DrawStdWindowFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
+
+    // Riga 1: header
+    StringCopy(gDisplayedStringBattle, sText_StageTitle);
+    StringAppend(gDisplayedStringBattle, gText_NewLine);
+
+    // Riga 2: TUO
+    ptr = StringAppend(gDisplayedStringBattle, sText_PlayerLabel);
+    for (i = 0; i < 7; i++)
+    {
+        s8 stage = gBattleMons[battler].statStages[sStatOrder[i]] - DEFAULT_STAT_STAGE;
+        if (stage > 0)
+        {
+            ptr = StringAppend(ptr, sText_Plus);
+            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 1);
+        }
+        else if (stage < 0)
+        {
+            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 2);
+        }
+        else
+        {
+            ptr = StringAppend(ptr, sText_Zero);
+        }
+        ptr = StringAppend(ptr, sText_Space);
+    }
+    ptr = StringAppend(ptr, gText_NewLine);
+
+    // Riga 3: AVV
+    ptr = StringAppend(ptr, sText_FoeLabel);
+    for (i = 0; i < 7; i++)
+    {
+        s8 stage = gBattleMons[foe].statStages[sStatOrder[i]] - DEFAULT_STAT_STAGE;
+        if (stage > 0)
+        {
+            ptr = StringAppend(ptr, sText_Plus);
+            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 1);
+        }
+        else if (stage < 0)
+        {
+            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 2);
+        }
+        else
+        {
+            ptr = StringAppend(ptr, sText_Zero);
+        }
+        ptr = StringAppend(ptr, sText_Space);
+    }
+
+    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_DESCRIPTION);
+    CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_FULL);
 }
