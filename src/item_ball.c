@@ -1,37 +1,34 @@
 #include "global.h"
 #include "item_ball.h"
 #include "event_data.h"
+#include "event_object_movement.h"
 #include "constants/event_objects.h"
 #include "constants/items.h"
 #include "kaizo_randomizer.h"
 
-static u32 GetItemBallAmountFromTemplate(u32);
-static u32 GetItemBallIdFromTemplate(u32);
-
-static u32 GetItemBallAmountFromTemplate(u32 itemBallId)
-{
-    u32 amount = gMapHeader.events->objectEvents[itemBallId].movementRangeX;
-
-    if (amount > MAX_BAG_ITEM_CAPACITY)
-        return MAX_BAG_ITEM_CAPACITY;
-
-    return (amount == 0) ? 1 : amount;
-}
-
-static u32 GetItemBallIdFromTemplate(u32 itemBallId)
-{
-    enum Item itemId = gMapHeader.events->objectEvents[itemBallId].trainerRange_berryTreeId;
-
-    if (itemId >= ITEMS_COUNT)
-        itemId = (ITEM_NONE + 1);
-
-    // RESTITUISCE SUBITO L'ITEM RANDOMIZZATO:
-    return GetKaizoRandomizedItem(itemId);
-}
-
 void GetItemBallIdAndAmountFromTemplate(void)
 {
-    u32 itemBallId = (gSpecialVar_LastTalked - 1);
-    gSpecialVar_Result = GetItemBallIdFromTemplate(itemBallId);
-    gSpecialVar_0x8009 = GetItemBallAmountFromTemplate(itemBallId);
+    const struct ObjectEventTemplate *template = GetObjectEventTemplateByLocalIdAndMap(
+        gSpecialVar_LastTalked,
+        gSaveBlock1Ptr->location.mapNum,
+        gSaveBlock1Ptr->location.mapGroup
+    );
+
+    u16 itemId = ITEM_NONE + 1;
+    u16 quantity = 1;
+
+    if (template != NULL)
+    {
+        itemId = template->trainerRange_berryTreeId;
+        quantity = template->movementRangeX;
+        if (quantity == 0)
+            quantity = 1;
+        if (quantity > MAX_BAG_ITEM_CAPACITY)
+            quantity = MAX_BAG_ITEM_CAPACITY;
+        if (itemId >= ITEMS_COUNT)
+            itemId = ITEM_NONE + 1;
+    }
+
+    gSpecialVar_Result = GetKaizoRandomizedItem(itemId);
+    gSpecialVar_0x8009 = quantity;
 }

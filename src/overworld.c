@@ -545,7 +545,7 @@ void ApplyNewEncryptionKeyToGameStats(u32 newKey)
 #define BG_EVENT_HIDDEN_ITEM 7
 #endif
 
-extern const u8 EventScript_FindItem[];
+extern const u8 Common_EventScript_FindItem[];
 
 void LoadObjEventTemplatesFromHeader(void)
 {
@@ -600,11 +600,11 @@ void LoadObjEventTemplatesFromHeader(void)
                     template->y = bgEvents[b].y;
                     template->elevation = 3;
                     template->movementType = MOVEMENT_TYPE_LOOK_AROUND;
-                    template->movementRangeX = 0;
+                    template->movementRangeX = bgEvents[b].bgUnion.hiddenItem.quantity;
                     template->movementRangeY = 0;
                     template->trainerType = 0;
-                    template->trainerRange_berryTreeId = 0;
-                    template->script = NULL;
+                    template->trainerRange_berryTreeId = bgEvents[b].bgUnion.hiddenItem.item;
+                    template->script = Common_EventScript_FindItem;
                     template->flagId = itemFlag;
                     template->kind = OBJ_KIND_NORMAL;
                     i++;
@@ -625,6 +625,8 @@ void LoadSaveblockObjEventScripts(void)
     {
         if (i < headerCount)
             savObjTemplates[i].script = mapHeaderObjTemplates[i].script;
+        else if (savObjTemplates[i].graphicsId == OBJ_EVENT_GFX_ITEM_BALL)
+            savObjTemplates[i].script = Common_EventScript_FindItem;
         else
             savObjTemplates[i].script = NULL;
     }

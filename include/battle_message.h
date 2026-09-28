@@ -1,6 +1,8 @@
 #ifndef GUARD_BATTLE_MESSAGE_H
 #define GUARD_BATTLE_MESSAGE_H
 
+extern u8 gMoveNameColors[4];
+
 #include "constants/abilities.h"
 #include "constants/battle.h"
 #include "constants/battle_string_ids.h"

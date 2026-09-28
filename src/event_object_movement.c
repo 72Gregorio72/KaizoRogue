@@ -3701,7 +3701,7 @@ const struct ObjectEventTemplate *GetObjectEventTemplateByLocalIdAndMap(u8 local
     if (gSaveBlock1Ptr->location.mapNum == mapNum && gSaveBlock1Ptr->location.mapGroup == mapGroup)
     {
         templates = gSaveBlock1Ptr->objectEventTemplates;
-        count = gMapHeader.events->objectEventCount;
+        count = OBJECT_EVENT_TEMPLATES_COUNT;
     }
     else
     {

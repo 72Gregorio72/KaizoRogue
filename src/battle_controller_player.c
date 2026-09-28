@@ -753,6 +753,11 @@ void HandleInputChooseMove(enum BattlerId battler)
         {
         case 0:
         default:
+            if (sShowingStatStages)
+            {
+                sShowingStatStages = FALSE;
+                ClearStdWindowAndFrameToTransparent(B_WIN_MOVE_DESCRIPTION, TRUE);
+            }
             if (gBattleStruct->gimmick.playerSelect)
                 BtlController_EmitTwoReturnValues(battler, B_COMM_TO_ENGINE, B_ACTION_EXEC_SCRIPT, gMoveSelectionCursor[battler] | RET_GIMMICK | (gMultiUsePlayerCursor << 8));
             else
@@ -786,6 +791,11 @@ void HandleInputChooseMove(enum BattlerId battler)
     else if ((JOY_NEW(B_BUTTON) || gPlayerDpadHoldFrames > 59)  && !gBattleStruct->descriptionSubmenu)
     {
         PlaySE(SE_SELECT);
+        if (sShowingStatStages)
+        {
+            sShowingStatStages = FALSE;
+            ClearStdWindowAndFrameToTransparent(B_WIN_MOVE_DESCRIPTION, TRUE);
+        }
         gBattleStruct->gimmick.playerSelect = FALSE;
         if (gBattleStruct->zmove.viewing)
         {
@@ -892,9 +902,7 @@ void HandleInputChooseMove(enum BattlerId battler)
         else
         {
             sShowingStatStages = FALSE;
-            FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0xE));
-            ClearStdWindowAndFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
-            CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_GFX);
+            ClearStdWindowAndFrameToTransparent(B_WIN_MOVE_DESCRIPTION, TRUE);
         }
     }
     else if (gBattleStruct->descriptionSubmenu)
@@ -908,10 +916,17 @@ void HandleInputChooseMove(enum BattlerId battler)
                 gCategoryIconSpriteId = 0xFF;
             }
 
-            sShowingStatStages = FALSE;
-            FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0));
-            ClearStdWindowAndFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
-            CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_GFX);
+            if (sShowingStatStages)
+            {
+                sShowingStatStages = FALSE;
+                ClearStdWindowAndFrameToTransparent(B_WIN_MOVE_DESCRIPTION, TRUE);
+            }
+            else
+            {
+                FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0));
+                ClearStdWindowAndFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
+                CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_GFX);
+            }
             PlaySE(SE_SELECT);
             if (B_SHOW_EFFECTIVENESS)
                 MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
@@ -1671,11 +1686,48 @@ static void PlayerHandleYesNoInput(enum BattlerId battler)
     }
 }
 
+static uq4_12_t GetMoveEffectivenessAgainstBattler(enum Move move, enum BattlerId battlerAtk, enum BattlerId battlerDef)
+{
+    if (move == MOVE_NONE || IsBattleMoveStatus(move))
+        return UQ_4_12(1.0);
+
+    enum Type moveType = GetMoveType(move);
+    moveType = CheckDynamicMoveType(GetBattlerMon(battlerAtk), move, battlerAtk, MON_IN_BATTLE);
+
+    enum Type foeTypes[3];
+    GetBattlerTypes(battlerDef, FALSE, foeTypes);
+
+    uq4_12_t mult = UQ_4_12(1.0);
+    u32 t;
+
+    for (t = 0; t < 3; t++)
+    {
+        enum Type defType = foeTypes[t];
+        if (defType < NUMBER_OF_MON_TYPES)
+        {
+            uq4_12_t eff = gTypeEffectivenessTable[moveType][defType];
+            mult = uq4_12_multiply(mult, eff);
+        }
+    }
+
+    return mult;
+}
+
 static void MoveSelectionDisplayMoveNames(enum BattlerId battler)
 {
     s32 i;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
     gNumberOfMovesToChoose = 0;
+
+    // Load move effectiveness text colors into palette 5 slots 5, 6, 7, 8
+    gPlttBufferUnfaded[BG_PLTT_ID(5) + 5] = RGB(0, 24, 0);   // 5: Green (x2)
+    gPlttBufferUnfaded[BG_PLTT_ID(5) + 6] = RGB(0, 16, 31);  // 6: Blue (x4)
+    gPlttBufferUnfaded[BG_PLTT_ID(5) + 7] = RGB(31, 0, 0);   // 7: Red (x1/4)
+    gPlttBufferUnfaded[BG_PLTT_ID(5) + 8] = RGB(22, 0, 26);  // 8: Purple (x1/2)
+
+    CpuCopy16(&gPlttBufferUnfaded[BG_PLTT_ID(5) + 5], &gPlttBufferFaded[BG_PLTT_ID(5) + 5], PLTT_SIZEOF(4));
+
+    enum BattlerId foe = GetOppositeBattler(battler);
 
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
@@ -1684,46 +1736,24 @@ static void MoveSelectionDisplayMoveNames(enum BattlerId battler)
             StringCopy(gDisplayedStringBattle, GetMoveName(GetMaxMove(battler, moveInfo->moves[i])));
         else
             StringCopy(gDisplayedStringBattle, GetMoveName(moveInfo->moves[i]));
-        // KAIZO: colora nome mossa per efficacia (palette diretta slot 13)
+
+        u8 colorIndex = 13; // Default normal text color
+        if (B_SHOW_EFFECTIVENESS && moveInfo->moves[i] != MOVE_NONE
+            && !IsBattleMoveStatus(moveInfo->moves[i]))
         {
-            u16 kaizoOrigFg = gPlttBufferUnfaded[BG_PLTT_ID(5) + 13];
-            if (B_SHOW_EFFECTIVENESS && moveInfo->moves[i] != MOVE_NONE
-                && !IsBattleMoveStatus(moveInfo->moves[i]))
+            if (ShouldShowTypeEffectiveness((u32)foe))
             {
-                enum BattlerId foe = GetOppositeBattler(battler);
-                struct DamageContext ctx = {0};
-                ctx.battlerAtk = battler;
-                ctx.battlerDef = foe;
-                ctx.move = moveInfo->moves[i];
-                ctx.moveType = CheckDynamicMoveType(GetBattlerMon(battler), ctx.move, battler, MON_IN_BATTLE);
-                ctx.updateFlags = FALSE;
-                ctx.weather = GetWeather();
-                ctx.terrain = gFieldTimers.terrain;
-                ctx.abilities[battler] = GetBattlerAbility(battler);
-                ctx.abilities[foe]     = GetBattlerAbility(foe);
-                ctx.holdEffects[battler] = GetBattlerHoldEffect(battler);
-                ctx.holdEffects[foe]     = GetBattlerHoldEffect(foe);
-                if (ShouldShowTypeEffectiveness((u32)foe))
-                {
-                    uq4_12_t mod = CalcTypeEffectivenessMultiplier(&ctx);
-                    u16 newFgColor = 0;
-                    if      (mod >= UQ_4_12(4.0))  newFgColor = RGB_BLUE;
-                    else if (mod >= UQ_4_12(2.0))  newFgColor = RGB(4, 24, 4);
-                    else if (mod <= UQ_4_12(0.25)) newFgColor = RGB(28, 4, 4);
-                    else if (mod <= UQ_4_12(0.5))  newFgColor = RGB_PURPLE;
-                    if (newFgColor != 0)
-                    {
-                        gPlttBufferUnfaded[BG_PLTT_ID(5) + 13] = newFgColor;
-                        gPlttBufferFaded[BG_PLTT_ID(5) + 13]   = newFgColor;
-                    }
-                }
+                uq4_12_t mod = GetMoveEffectivenessAgainstBattler(moveInfo->moves[i], battler, foe);
+                if      (mod >= UQ_4_12(4.0))  colorIndex = 6; // Blue (x4)
+                else if (mod >= UQ_4_12(2.0))  colorIndex = 5; // Green (x2)
+                else if (mod <= UQ_4_12(0.25)) colorIndex = 7; // Red (x1/4)
+                else if (mod <= UQ_4_12(0.5))  colorIndex = 8; // Purple (x1/2)
             }
-            // Prints on windows B_WIN_MOVE_NAME_1, B_WIN_MOVE_NAME_2, B_WIN_MOVE_NAME_3, B_WIN_MOVE_NAME_4
-            BattlePutTextOnWindow(gDisplayedStringBattle, i + B_WIN_MOVE_NAME_1);
-            // Ripristina colore originale
-            gPlttBufferUnfaded[BG_PLTT_ID(5) + 13] = kaizoOrigFg;
-            gPlttBufferFaded[BG_PLTT_ID(5) + 13]   = kaizoOrigFg;
         }
+
+        gMoveNameColors[i] = colorIndex;
+
+        BattlePutTextOnWindow(gDisplayedStringBattle, i + B_WIN_MOVE_NAME_1);
         if (moveInfo->moves[i] != MOVE_NONE)
             gNumberOfMovesToChoose++;
     }
@@ -2422,12 +2452,6 @@ static bool32 ShouldShowTypeEffectiveness(u32 targetId)
 {
     if (IsGhostBattleWithoutScope())
         return FALSE;
-
-    if (B_SHOW_EFFECTIVENESS == SHOW_EFFECTIVENESS_CAUGHT)
-        return GetSetPokedexFlag(SpeciesToNationalPokedexNum(gBattleMons[targetId].species), FLAG_GET_CAUGHT);
-
-    if (B_SHOW_EFFECTIVENESS == SHOW_EFFECTIVENESS_SEEN)
-        return GetSetPokedexFlag(SpeciesToNationalPokedexNum(gBattleMons[targetId].species), FLAG_GET_SEEN);
 
     return TRUE;
 }

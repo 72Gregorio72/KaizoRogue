@@ -4,6 +4,8 @@
 #include "battle_ai_record.h"
 #include "battle_controllers.h"
 #include "battle_message.h"
+
+u8 gMoveNameColors[4];
 #include "battle_setup.h"
 #include "battle_special.h"
 #include "battle_z_move.h"
@@ -2399,7 +2401,7 @@ static const struct BattleWindowText sTextOnWindowsInfo_Arena[] =
         .color.shadow = 3,
     },
     [B_WIN_MOVE_DESCRIPTION] = {
-        .fillValue = PIXEL_FILL(0xE),
+        .fillValue = PIXEL_FILL(0x1),
         .fontId = FONT_NARROW,
         .x = 0,
         .y = 1,
@@ -3876,6 +3878,10 @@ void BattlePutTextOnWindow(const u8 *text, u8 windowId)
 
     if (B_WIN_MOVE_NAME_1 <= windowId && windowId <= B_WIN_MOVE_NAME_4)
     {
+        u8 moveIdx = windowId - B_WIN_MOVE_NAME_1;
+        if (gMoveNameColors[moveIdx] != 0)
+            printerTemplate.color.foreground = gMoveNameColors[moveIdx];
+
         // We cannot check the actual width of the window because
         // B_WIN_MOVE_NAME_1 and B_WIN_MOVE_NAME_3 are 16 wide for
         // Z-move details.
