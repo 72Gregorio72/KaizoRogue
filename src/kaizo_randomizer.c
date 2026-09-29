@@ -13,6 +13,7 @@
 #include "malloc.h"
 #include "script_menu.h"
 #include "constants/battle.h"
+#include "data/kaizo_item_pool.h"
 
 
 // --- PROTOTIPI GENERALI ---
@@ -36,32 +37,23 @@ u16 GetKaizoRandomizedItem(u16 originalItem)
     if (gItemsInfo[originalItem].pocket == POCKET_KEY_ITEMS)
         return originalItem;
 
+    if (ARRAY_COUNT(sKaizoItemPool) == 0)
+        return originalItem;
+
     u32 seed = gSaveBlock2Ptr->randomizerSeed;
     if (seed == 0)
         seed = 0x54321678;
 
-    // Rimescolamento basato su mappa e item
+    // Rimescolamento deterministico basato su seed, mappa e item
     u32 itemSeed = seed ^ (originalItem * 7919)
                         ^ (gSaveBlock1Ptr->location.mapGroup << 16)
                         ^ (gSaveBlock1Ptr->location.mapNum << 8);
 
     u32 rng = itemSeed;
-    u16 candidate;
+    rng = 1103515245 * rng + 12345;
+    u16 index = (rng >> 16) % ARRAY_COUNT(sKaizoItemPool);
 
-    for (int attempts = 0; attempts < 100; attempts++)
-    {
-        rng = 1103515245 * rng + 12345;
-        candidate = 1 + ((rng >> 16) % (ITEMS_COUNT - 1));
-
-        if (candidate == ITEM_NONE || candidate >= ITEMS_COUNT)
-            continue;
-        if (gItemsInfo[candidate].pocket == POCKET_KEY_ITEMS)
-            continue;
-
-        return candidate;
-    }
-
-    return ITEM_SUPER_POTION;
+    return sKaizoItemPool[index];
 }
 
 void Script_RandomizeFindItemResult(void)
@@ -425,4 +417,292 @@ void Script_IVBooster_ApplyPoints(void)
     ConvertIntToDecimalStringN(gStringVar2, pointsToAdd, STR_CONV_MODE_LEFT_ALIGN, 1);
     ConvertIntToDecimalStringN(gStringVar3, newIv, STR_CONV_MODE_LEFT_ALIGN, 2);
     gSpecialVar_Result = sIvBoosterRemainingPoints;
+}
+
+// --- LOGICA EV MANAGER NPC ---
+
+static u8 sEvManagerPartySlot;
+static u16 sEvManagerRemainingPoints;
+static u8 sEvManagerSelectedStat;
+static u8 sEvManagerWorkingEVs[6];
+static u8 sEvManagerOriginalEVs[6];
+
+static const u8 sEvStatMonData[6] = {
+    MON_DATA_HP_EV,
+    MON_DATA_ATK_EV,
+    MON_DATA_DEF_EV,
+    MON_DATA_SPATK_EV,
+    MON_DATA_SPDEF_EV,
+    MON_DATA_SPEED_EV
+};
+
+static const u8 sEvText_Slash252[]     = _("/252");
+static const u8 sEvText_Slash252Max[]  = _("/252 MAX");
+static const u8 sEvText_Colon[]        = _(": ");
+static const u8 sEvText_Plus[]         = _("+");
+static const u8 sEvText_Minus[]        = _("-");
+static const u8 sEvText_EV[]           = _(" EV");
+static const u8 sEvText_EVMax[]        = _(" EV (MAX)");
+static const u8 sEvText_AllRemaining[] = _("Tutto (+");
+static const u8 sEvText_CloseParen[]   = _(" EV)");
+static const u8 sEvText_ClearStat[]    = _("Azzera stat (0 EV)");
+static const u8 sEvText_SaveApply[]    = _("Salva e Applica");
+static const u8 sEvText_CancelAll[]    = _("Annulla Modifiche");
+
+void Script_EVManager_Init(void)
+{
+    u8 partyCount = gPartiesCount[B_TRAINER_PLAYER];
+    u8 slot = (u8)gSpecialVar_0x8004;
+    u32 i;
+    u16 totalEv = 0;
+    struct Pokemon *mon;
+
+    if (slot >= partyCount)
+        slot = 0;
+    sEvManagerPartySlot = slot;
+    mon = &gParties[B_TRAINER_PLAYER][sEvManagerPartySlot];
+
+    for (i = 0; i < 6; i++)
+    {
+        sEvManagerOriginalEVs[i] = (u8)GetMonData(mon, sEvStatMonData[i]);
+        sEvManagerWorkingEVs[i] = 0;
+        totalEv += sEvManagerOriginalEVs[i];
+    }
+
+    sEvManagerRemainingPoints = totalEv;
+    sEvManagerSelectedStat = 0;
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, totalEv, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = totalEv;
+}
+
+void Script_EVManager_GetRemainingPoints(void)
+{
+    GetMonData(&gParties[B_TRAINER_PLAYER][sEvManagerPartySlot], MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, sEvManagerRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = sEvManagerRemainingPoints;
+}
+
+void Script_EVManager_PushStatChoices(void)
+{
+    u32 i;
+    for (i = 0; i < 6; i++)
+    {
+        u8 currentEv = sEvManagerWorkingEVs[i];
+        u8 *buf = Alloc(64);
+        u8 *ptr;
+        struct ListMenuItem item;
+        ptr = StringCopy(buf, sIvStatNames[i]);
+        ptr = StringAppend(ptr, sEvText_Colon);
+        ptr = ConvertIntToDecimalStringN(ptr, currentEv, STR_CONV_MODE_LEFT_ALIGN, 3);
+        if (currentEv >= 252)
+            StringAppend(ptr, sEvText_Slash252Max);
+        else
+            StringAppend(ptr, sEvText_Slash252);
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+    {
+        u8 *bufSave = Alloc(32);
+        struct ListMenuItem saveItem;
+        StringCopy(bufSave, sEvText_SaveApply);
+        saveItem.name = bufSave;
+        saveItem.id = 6;
+        MultichoiceDynamic_PushElement(saveItem);
+    }
+    {
+        u8 *bufCancel = Alloc(32);
+        struct ListMenuItem cancelItem;
+        StringCopy(bufCancel, sEvText_CancelAll);
+        cancelItem.name = bufCancel;
+        cancelItem.id = 7;
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+}
+
+void Script_EVManager_SelectStat(void)
+{
+    u8 statIndex = (u8)gSpecialVar_0x8005;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sEvManagerPartySlot];
+    u32 i;
+
+    if (statIndex == 6) // Salva e Applica
+    {
+        for (i = 0; i < 6; i++)
+        {
+            SetMonData(mon, sEvStatMonData[i], &sEvManagerWorkingEVs[i]);
+        }
+        CalculateMonStats(mon);
+        GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+        StringGet_Nickname(gStringVar1);
+        gSpecialVar_Result = 1; // Success
+        return;
+    }
+    else if (statIndex == 7) // Annulla
+    {
+        gSpecialVar_Result = 2; // Cancelled
+        return;
+    }
+
+    if (statIndex > 5)
+        statIndex = 0;
+    sEvManagerSelectedStat = statIndex;
+    StringCopy(gStringVar1, sIvStatNames[sEvManagerSelectedStat]);
+    ConvertIntToDecimalStringN(gStringVar2, sEvManagerWorkingEVs[sEvManagerSelectedStat], STR_CONV_MODE_LEFT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar3, sEvManagerRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = 0; // Show point choices
+}
+
+void Script_EVManager_PushPointChoices(void)
+{
+    u8 currentEv = sEvManagerWorkingEVs[sEvManagerSelectedStat];
+    u16 remaining = sEvManagerRemainingPoints;
+    u16 maxCanAdd = 252 - currentEv;
+    static const u8 sAddAmounts[] = { 4, 16, 32, 64, 128 };
+    static const u8 sSubAmounts[] = { 4, 16, 32, 64, 128 };
+    u32 i;
+
+    // Positive additions
+    for (i = 0; i < ARRAY_COUNT(sAddAmounts); i++)
+    {
+        u8 amt = sAddAmounts[i];
+        if (remaining >= amt && maxCanAdd >= amt)
+        {
+            u8 *buf = Alloc(32);
+            u8 *ptr = StringCopy(buf, sEvText_Plus);
+            ptr = ConvertIntToDecimalStringN(ptr, amt, STR_CONV_MODE_LEFT_ALIGN, 3);
+            StringAppend(ptr, sEvText_EV);
+            struct ListMenuItem item;
+            item.name = buf;
+            item.id = (s32)amt;
+            MultichoiceDynamic_PushElement(item);
+        }
+    }
+
+    // Max out stat (up to 252) if possible
+    if (maxCanAdd > 0 && remaining >= maxCanAdd && maxCanAdd != 4 && maxCanAdd != 16 && maxCanAdd != 32 && maxCanAdd != 64 && maxCanAdd != 128)
+    {
+        u8 *bufMax = Alloc(32);
+        u8 *ptr = StringCopy(bufMax, sEvText_Plus);
+        ptr = ConvertIntToDecimalStringN(ptr, maxCanAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
+        StringAppend(ptr, sEvText_EVMax);
+        struct ListMenuItem maxItem;
+        maxItem.name = bufMax;
+        maxItem.id = 252;
+        MultichoiceDynamic_PushElement(maxItem);
+    }
+    else if (remaining > 0 && remaining < maxCanAdd && remaining != 4 && remaining != 16 && remaining != 32 && remaining != 64 && remaining != 128)
+    {
+        u8 *bufRem = Alloc(32);
+        u8 *ptr = StringCopy(bufRem, sEvText_AllRemaining);
+        ptr = ConvertIntToDecimalStringN(ptr, remaining, STR_CONV_MODE_LEFT_ALIGN, 3);
+        StringAppend(ptr, sEvText_CloseParen);
+        struct ListMenuItem remItem;
+        remItem.name = bufRem;
+        remItem.id = 999;
+        MultichoiceDynamic_PushElement(remItem);
+    }
+
+    // Negative subtractions
+    for (i = 0; i < ARRAY_COUNT(sSubAmounts); i++)
+    {
+        u8 amt = sSubAmounts[i];
+        if (currentEv >= amt)
+        {
+            u8 *buf = Alloc(32);
+            u8 *ptr = StringCopy(buf, sEvText_Minus);
+            ptr = ConvertIntToDecimalStringN(ptr, amt, STR_CONV_MODE_LEFT_ALIGN, 3);
+            StringAppend(ptr, sEvText_EV);
+            struct ListMenuItem item;
+            item.name = buf;
+            item.id = -(s32)amt;
+            MultichoiceDynamic_PushElement(item);
+        }
+    }
+
+    // Reset this stat to 0
+    if (currentEv > 0 && currentEv != 4 && currentEv != 16 && currentEv != 32 && currentEv != 64 && currentEv != 128)
+    {
+        u8 *bufClear = Alloc(32);
+        struct ListMenuItem clearItem;
+        StringCopy(bufClear, sEvText_ClearStat);
+        clearItem.name = bufClear;
+        clearItem.id = -999;
+        MultichoiceDynamic_PushElement(clearItem);
+    }
+
+    {
+        u8 *bufBack = Alloc(32);
+        struct ListMenuItem backItem;
+        StringCopy(bufBack, sIvText_Annulla);
+        backItem.name = bufBack;
+        backItem.id = 0;
+        MultichoiceDynamic_PushElement(backItem);
+    }
+}
+
+void Script_EVManager_ApplyPoints(void)
+{
+    s32 delta = (s32)gSpecialVar_0x8005;
+    u8 currentEv = sEvManagerWorkingEVs[sEvManagerSelectedStat];
+    u16 maxCanAdd = 252 - currentEv;
+
+    if (delta == 252) // Max out
+    {
+        u16 toAdd = (sEvManagerRemainingPoints < maxCanAdd) ? sEvManagerRemainingPoints : maxCanAdd;
+        sEvManagerWorkingEVs[sEvManagerSelectedStat] += (u8)toAdd;
+        sEvManagerRemainingPoints -= toAdd;
+    }
+    else if (delta == 999) // Add all remaining
+    {
+        u16 toAdd = (sEvManagerRemainingPoints < maxCanAdd) ? sEvManagerRemainingPoints : maxCanAdd;
+        sEvManagerWorkingEVs[sEvManagerSelectedStat] += (u8)toAdd;
+        sEvManagerRemainingPoints -= toAdd;
+    }
+    else if (delta == -999) // Clear stat
+    {
+        sEvManagerRemainingPoints += currentEv;
+        sEvManagerWorkingEVs[sEvManagerSelectedStat] = 0;
+    }
+    else if (delta > 0)
+    {
+        u16 toAdd = (u16)delta;
+        if (toAdd > maxCanAdd)
+            toAdd = maxCanAdd;
+        if (toAdd > sEvManagerRemainingPoints)
+            toAdd = sEvManagerRemainingPoints;
+        sEvManagerWorkingEVs[sEvManagerSelectedStat] += (u8)toAdd;
+        sEvManagerRemainingPoints -= toAdd;
+    }
+    else if (delta < 0)
+    {
+        u16 toSub = (u16)(-delta);
+        if (toSub > currentEv)
+            toSub = currentEv;
+        sEvManagerWorkingEVs[sEvManagerSelectedStat] -= (u8)toSub;
+        sEvManagerRemainingPoints += toSub;
+    }
+
+    StringCopy(gStringVar1, sIvStatNames[sEvManagerSelectedStat]);
+    ConvertIntToDecimalStringN(gStringVar2, sEvManagerWorkingEVs[sEvManagerSelectedStat], STR_CONV_MODE_LEFT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar3, sEvManagerRemainingPoints, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = sEvManagerRemainingPoints;
+}
+
+void Script_EVManager_ResetAllEVs(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sEvManagerPartySlot];
+    u8 zero = 0;
+    u32 i;
+    for (i = 0; i < 6; i++)
+    {
+        SetMonData(mon, sEvStatMonData[i], &zero);
+    }
+    CalculateMonStats(mon);
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
 }

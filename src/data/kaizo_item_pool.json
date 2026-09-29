@@ -1,0 +1,17 @@
+{
+  "items": [
+    { "id": "ITEM_POTION" },
+    { "id": "ITEM_SUPER_POTION" },
+    { "id": "ITEM_MAX_POTION" },
+    { "id": "ITEM_FULL_RESTORE" },
+    { "id": "ITEM_POKE_BALL" },
+    { "id": "ITEM_GREAT_BALL" },
+    { "id": "ITEM_ULTRA_BALL" },
+    { "id": "ITEM_FULL_HEAL" },
+    { "id": "ITEM_PARALYZE_HEAL" },
+    { "id": "ITEM_BURN_HEAL" },
+    { "id": "ITEM_AWAKENING" },
+    { "id": "ITEM_ANTIDOTE" },
+    { "id": "ITEM_ICE_HEAL" }
+  ]
+}

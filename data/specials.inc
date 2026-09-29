@@ -652,3 +652,11 @@ gSpecials::
 	def_special Script_IVBooster_SelectStat
 	def_special Script_IVBooster_PushPointChoices
 	def_special Script_IVBooster_ApplyPoints
+	def_special Script_EVManager_Init
+	def_special Script_EVManager_GetRemainingPoints
+	def_special Script_EVManager_PushStatChoices
+	def_special Script_EVManager_SelectStat
+	def_special Script_EVManager_PushPointChoices
+	def_special Script_EVManager_ApplyPoints
+	def_special Script_EVManager_ResetAllEVs
+

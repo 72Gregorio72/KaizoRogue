@@ -61,4 +61,13 @@ void Script_IVBooster_SelectStat(void);
 void Script_IVBooster_PushPointChoices(void);
 void Script_IVBooster_ApplyPoints(void);
 
+// EV Manager NPC
+void Script_EVManager_Init(void);
+void Script_EVManager_GetRemainingPoints(void);
+void Script_EVManager_PushStatChoices(void);
+void Script_EVManager_SelectStat(void);
+void Script_EVManager_PushPointChoices(void);
+void Script_EVManager_ApplyPoints(void);
+void Script_EVManager_ResetAllEVs(void);
+
 #endif // GUARD_FIELD_SPECIALS_H

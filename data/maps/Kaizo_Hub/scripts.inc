@@ -289,3 +289,103 @@ Kaizo_Hub_Text_IV_Goodbye:
 	.string "Capisco. Il mio lavoro qui è terminato.\n"
 	.string "Buona fortuna per la tua run!$"
 
+// --- NPC GESTORE / RIDISTRIBUTORE EV ---
+Kaizo_Hub_EventScript_EVManagerNPC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, CalculatePlayerPartyCount
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_EVManager_NoPokemon
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_EVManager_SingleMon
+	msgbox Kaizo_Hub_Text_EV_ChooseMon, MSGBOX_DEFAULT
+	special ChoosePartyMon
+	waitstate
+	goto_if_ge VAR_0x8004, PARTY_SIZE, Kaizo_Hub_EventScript_EVManager_Cancel
+	goto Kaizo_Hub_EventScript_EVManager_StartSession
+
+Kaizo_Hub_EventScript_EVManager_SingleMon::
+	setvar VAR_0x8004, 0
+
+Kaizo_Hub_EventScript_EVManager_StartSession::
+	special Script_EVManager_Init
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_EVManager_NoEVsEarned
+	msgbox Kaizo_Hub_Text_EV_Intro, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_EVManager_Cancel
+
+Kaizo_Hub_EventScript_EVManager_StatMenu::
+	special Script_EVManager_GetRemainingPoints
+	msgbox Kaizo_Hub_Text_EV_SelectStat, MSGBOX_DEFAULT
+	special Script_EVManager_PushStatChoices
+	dynmultistack 0, 0, FALSE, 8, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_EVManager_Cancel
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_EVManager_SelectStat
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_EVManager_Saved
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_EVManager_Cancel
+	msgbox Kaizo_Hub_Text_EV_AskPoints, MSGBOX_DEFAULT
+	special Script_EVManager_PushPointChoices
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_EVManager_StatMenu
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_EVManager_StatMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_EVManager_ApplyPoints
+	playse SE_PIN
+	goto Kaizo_Hub_EventScript_EVManager_StatMenu
+
+Kaizo_Hub_EventScript_EVManager_Saved::
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_EV_SavedSuccess, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_EVManager_NoEVsEarned::
+	msgbox Kaizo_Hub_Text_EV_NoEVs, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_EVManager_NoPokemon::
+	msgbox Kaizo_Hub_Text_EV_NoPokemon, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_EVManager_Cancel::
+	msgbox Kaizo_Hub_Text_EV_Goodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_EV_NoPokemon:
+	.string "Non hai nessun POKéMON con te!$"
+
+Kaizo_Hub_Text_EV_ChooseMon:
+	.string "Di quale POKéMON vuoi\n"
+	.string "ridistribuire i Punti EV?$"
+
+Kaizo_Hub_Text_EV_NoEVs:
+	.string "{STR_VAR_1} non ha ancora\n"
+	.string "guadagnato alcun Punto EV (0/510).\p"
+	.string "Sconfiggi altri POKéMON durante la\n"
+	.string "run per accumulare EV da ridistribuire!$"
+
+Kaizo_Hub_Text_EV_Intro:
+	.string "{STR_VAR_1} ha accumulato\n"
+	.string "{STR_VAR_2} Punti EV totali!\p"
+	.string "Vuoi resettarli e ridistribuirli\n"
+	.string "come preferisci tra le statistiche?$"
+
+Kaizo_Hub_Text_EV_SelectStat:
+	.string "Punti EV rimasti da assegnare: {STR_VAR_2}\n"
+	.string "Scegli una statistica su cui lavorare:$"
+
+Kaizo_Hub_Text_EV_AskPoints:
+	.string "Modifica EV per {STR_VAR_1}:\n"
+	.string "(Attuale: {STR_VAR_2}/252 - Rimasti: {STR_VAR_3})$"
+
+Kaizo_Hub_Text_EV_SavedSuccess:
+	.string "Gli EV di {STR_VAR_1} sono stati\n"
+	.string "ridistribuiti con successo!\p"
+	.string "Torna pure quando vuoi riorganizzarli!$"
+
+Kaizo_Hub_Text_EV_Goodbye:
+	.string "Nessuna modifica applicata agli EV.\n"
+	.string "Torna quando vuoi!$"
+
+

@@ -208,6 +208,10 @@
 #define CHAR_ID            0x07
 #define CHAR_NO            0x08
 #define CHAR_UNDERSCORE    0x09
+#define CHAR_CHEVRON_UP          0x1B
+#define CHAR_CHEVRON_DOUBLE_UP   0x1C
+#define CHAR_CHEVRON_DOWN        0x1D
+#define CHAR_CHEVRON_DOUBLE_DOWN 0x1E
 
 #define EXT_CTRL_CODE_COLOR                  0x01
 #define EXT_CTRL_CODE_HIGHLIGHT              0x02

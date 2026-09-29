@@ -56,34 +56,35 @@
 #define PSS_LABEL_WINDOW_POKEMON_INFO_TITLE 0
 #define PSS_LABEL_WINDOW_POKEMON_SKILLS_TITLE 1
 #define PSS_LABEL_WINDOW_IVS_TITLE 2
-#define PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE 3
+#define PSS_LABEL_WINDOW_EVS_TITLE 3
+#define PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE 4
 
 // Button control text (upper right)
-#define PSS_LABEL_WINDOW_PROMPT_UTILITY 4 // Handles "Switch", "Info", and "Cancel" prompts. Also handles the "Rename" and "IVs"/"EVs"/"STATS" prompts if P_SUMMARY_SCREEN_RENAME and P_SUMMARY_SCREEN_IV_EV_INFO are true, respectively
-#define PSS_LABEL_WINDOW_PROMPT_INFO 5 // unused
-#define PSS_LABEL_WINDOW_PROMPT_SWITCH 6 // unused
-#define PSS_LABEL_WINDOW_UNUSED1 7
+#define PSS_LABEL_WINDOW_PROMPT_UTILITY 5 // Handles "Switch", "Info", and "Cancel" prompts. Also handles the "Rename" and "IVs"/"EVs"/"STATS" prompts if P_SUMMARY_SCREEN_RENAME and P_SUMMARY_SCREEN_IV_EV_INFO are true, respectively
+#define PSS_LABEL_WINDOW_PROMPT_INFO 6 // unused
+#define PSS_LABEL_WINDOW_PROMPT_SWITCH 7 // unused
+#define PSS_LABEL_WINDOW_UNUSED1 8
 
 // Info screen
-#define PSS_LABEL_WINDOW_POKEMON_INFO_RENTAL 8
-#define PSS_LABEL_WINDOW_POKEMON_INFO_TYPE 9
+#define PSS_LABEL_WINDOW_POKEMON_INFO_RENTAL 9
+#define PSS_LABEL_WINDOW_POKEMON_INFO_TYPE 10
 
 // Skills screen
-#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_LEFT 10 // HP, Attack, Defense
-#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_RIGHT 11 // Sp. Attack, Sp. Defense, Speed
-#define PSS_LABEL_WINDOW_POKEMON_SKILLS_EXP 12 // EXP, Next Level
-#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATUS 13
+#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_LEFT 11 // HP, Attack, Defense
+#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATS_RIGHT 12 // Sp. Attack, Sp. Defense, Speed
+#define PSS_LABEL_WINDOW_POKEMON_SKILLS_EXP 13 // EXP, Next Level
+#define PSS_LABEL_WINDOW_POKEMON_SKILLS_STATUS 14
 
 // Moves screen
-#define PSS_LABEL_WINDOW_MOVES_POWER_ACC 14 // Also contains the power and accuracy values
-#define PSS_LABEL_WINDOW_MOVES_APPEAL_JAM 15
-#define PSS_LABEL_WINDOW_PROMPT_RELEARN 16
+#define PSS_LABEL_WINDOW_MOVES_POWER_ACC 15 // Also contains the power and accuracy values
+#define PSS_LABEL_WINDOW_MOVES_APPEAL_JAM 16
+#define PSS_LABEL_WINDOW_PROMPT_RELEARN 17
 
 // Above/below the Pokémon's portrait (left)
-#define PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER 17
-#define PSS_LABEL_WINDOW_PORTRAIT_NICKNAME 18 // The upper name
-#define PSS_LABEL_WINDOW_PORTRAIT_SPECIES 19 // The lower name
-#define PSS_LABEL_WINDOW_END 20
+#define PSS_LABEL_WINDOW_PORTRAIT_DEX_NUMBER 18
+#define PSS_LABEL_WINDOW_PORTRAIT_NICKNAME 19 // The upper name
+#define PSS_LABEL_WINDOW_PORTRAIT_SPECIES 20 // The lower name
+#define PSS_LABEL_WINDOW_END 21
 
 // Dynamic fields for the Pokémon Info page
 #define PSS_DATA_WINDOW_INFO_ORIGINAL_TRAINER 0
@@ -102,6 +103,11 @@
 #define PSS_DATA_WINDOW_IVS_HELD_ITEM 0
 #define PSS_DATA_WINDOW_IVS_RIBBON_COUNT 1
 #define PSS_DATA_WINDOW_IVS_RADAR_GRAPH 2
+
+// Dynamic fields for the Pokémon EVs page
+#define PSS_DATA_WINDOW_EVS_HELD_ITEM 0
+#define PSS_DATA_WINDOW_EVS_RIBBON_COUNT 1
+#define PSS_DATA_WINDOW_EVS_RADAR_GRAPH 2
 
 // Dynamic fields for the Battle Moves page
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
@@ -318,6 +324,9 @@ static void PrintExpPointsNextLevel(void);
 static void PrintIVsPageText(void);
 static void Task_PrintIVsPage(u8);
 static void DrawIVsPage(void);
+static void PrintEVsPageText(void);
+static void Task_PrintEVsPage(u8);
+static void DrawEVsPage(void);
 static void DrawRadarBackgroundPattern(u8);
 static void LoadRadarGraphPalette(void);
 static void PrintBattleMoves(void);
@@ -484,7 +493,7 @@ static const struct WindowTemplate sSummaryTemplate[] =
         .paletteNum = 6,
         .baseBlock = 45,
     },
-    [PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE] = {
+    [PSS_LABEL_WINDOW_EVS_TITLE] = {
         .bg = 0,
         .tilemapLeft = 0,
         .tilemapTop = 0,
@@ -493,6 +502,15 @@ static const struct WindowTemplate sSummaryTemplate[] =
         .paletteNum = 6,
         .baseBlock = 67,
     },
+    [PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE] = {
+        .bg = 0,
+        .tilemapLeft = 0,
+        .tilemapTop = 0,
+        .width = 11,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 89,
+    },
     [PSS_LABEL_WINDOW_PROMPT_UTILITY] = {
         .bg = 0,
         .tilemapLeft = 22,
@@ -500,7 +518,7 @@ static const struct WindowTemplate sSummaryTemplate[] =
         .width = 8,
         .height = 2,
         .paletteNum = 7,
-        .baseBlock = 89,
+        .baseBlock = 111,
     },
     [PSS_LABEL_WINDOW_PROMPT_INFO] = {
         .bg = 0,
@@ -756,6 +774,36 @@ static const struct WindowTemplate sPageIVsTemplate[] =
         .baseBlock = 507,
     },
 };
+static const struct WindowTemplate sPageEVsTemplate[] =
+{
+    [PSS_DATA_WINDOW_EVS_HELD_ITEM] = {
+        .bg = 0,
+        .tilemapLeft = 10,
+        .tilemapTop = 4,
+        .width = 10,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 467,
+    },
+    [PSS_DATA_WINDOW_EVS_RIBBON_COUNT] = {
+        .bg = 0,
+        .tilemapLeft = 20,
+        .tilemapTop = 4,
+        .width = 10,
+        .height = 2,
+        .paletteNum = 6,
+        .baseBlock = 487,
+    },
+    [PSS_DATA_WINDOW_EVS_RADAR_GRAPH] = {
+        .bg = 0,
+        .tilemapLeft = 10,
+        .tilemapTop = 6,
+        .width = 20,
+        .height = 14,
+        .paletteNum = 9,
+        .baseBlock = 507,
+    },
+};
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for battle moves
 {
     [PSS_DATA_WINDOW_MOVE_NAMES] = {
@@ -813,6 +861,7 @@ static void (*const sTextPrinterFunctions[])(void) =
     [PSS_PAGE_INFO] = PrintInfoPageText,
     [PSS_PAGE_SKILLS] = PrintSkillsPageText,
     [PSS_PAGE_IVS] = PrintIVsPageText,
+    [PSS_PAGE_EVS] = PrintEVsPageText,
     [PSS_PAGE_BATTLE_MOVES] = PrintBattleMoves,
 };
 
@@ -821,6 +870,7 @@ static const TaskFunc sTextPrinterTasks[] =
     [PSS_PAGE_INFO] = Task_PrintInfoPage,
     [PSS_PAGE_SKILLS] = Task_PrintSkillsPage,
     [PSS_PAGE_IVS] = Task_PrintIVsPage,
+    [PSS_PAGE_EVS] = Task_PrintEVsPage,
     [PSS_PAGE_BATTLE_MOVES] = Task_PrintBattleMoves,
 };
 
@@ -1514,36 +1564,40 @@ static bool8 DecompressGraphics(void)
         sMonSummaryScreen->switchCounter++;
         break;
     case 5:
-        DecompressDataWithHeaderWram(gSummaryPage_BattleMoves_Tilemap, sMonSummaryScreen->bgTilemapBuffers[PSS_PAGE_BATTLE_MOVES][1]);
+        DecompressDataWithHeaderWram(gSummaryPage_Skills_Tilemap, sMonSummaryScreen->bgTilemapBuffers[PSS_PAGE_EVS][1]);
         sMonSummaryScreen->switchCounter++;
         break;
     case 6:
+        DecompressDataWithHeaderWram(gSummaryPage_BattleMoves_Tilemap, sMonSummaryScreen->bgTilemapBuffers[PSS_PAGE_BATTLE_MOVES][1]);
+        sMonSummaryScreen->switchCounter++;
+        break;
+    case 7:
         LoadPalette(gSummaryScreen_Pal, BG_PLTT_ID(0), 8 * PLTT_SIZE_4BPP);
         LoadPalette(&gPPTextPalette, BG_PLTT_ID(8) + 1, PLTT_SIZEOF(16 - 1));
         LoadRadarGraphPalette();
         sMonSummaryScreen->switchCounter++;
         break;
-    case 7:
+    case 8:
         LoadCompressedSpriteSheet(&gSpriteSheet_MoveTypes);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 8:
+    case 9:
         LoadCompressedSpriteSheet(&sMoveSelectorSpriteSheet);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 9:
+    case 10:
         LoadCompressedSpriteSheet(&sStatusIconsSpriteSheet);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 10:
+    case 11:
         LoadSpritePalette(&sStatusIconsSpritePalette);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 11:
+    case 12:
         LoadSpritePalette(&sMoveSelectorSpritePal);
         sMonSummaryScreen->switchCounter++;
         break;
-    case 12:
+    case 13:
         LoadPalette(gMoveTypes_Pal, OBJ_PLTT_ID(13), 3 * PLTT_SIZE_4BPP);
         LoadCompressedSpriteSheet(&gSpriteSheet_CategoryIcons);
         LoadSpritePalette(&gSpritePal_CategoryIcons);
@@ -3172,14 +3226,14 @@ static void LoadRadarGraphPalette(void)
     pal[0]  = RGB(0, 0, 0);           // 0: Trasparente
     pal[1]  = RGB(4, 6, 9);           // 1: Sfondo Slate Scuro A
     pal[2]  = RGB(31, 31, 31);        // 2: Bianco puro (Testo, bordi, vertici)
-    pal[3]  = RGB(12, 24, 31);        // 3: Celeste brillante (Grafico)
+    pal[3]  = RGB(12, 24, 31);        // 3: Celeste brillante (Grafico IV)
     pal[4]  = RGB(14, 18, 24);        // 4: Assi/griglia radar
     pal[5]  = RGB(31, 4, 4);          // 5: Rosso acceso (Natura DOWN -)
     pal[6]  = RGB(4, 31, 6);          // 6: Verde acceso (Natura UP +)
     pal[7]  = RGB(1, 2, 3);           // 7: Ombra scura del testo
     pal[8]  = RGB(6, 8, 12);          // 8: Sfondo Slate B (scacchiera)
     pal[9]  = RGB(9, 13, 18);         // 9: Griglia sottile pattern
-    pal[10] = RGB(0, 0, 0);
+    pal[10] = RGB(31, 18, 4);         // 10: Arancione brillante (Grafico EV)
     pal[11] = RGB(0, 0, 0);
     pal[12] = RGB(0, 0, 0);
     pal[13] = RGB(0, 0, 0);
@@ -3422,6 +3476,195 @@ static void Task_PrintIVsPage(u8 taskId)
     data[0]++;
 }
 
+static void DrawEVRadarGraph(u8 windowId, struct Pokemon *mon)
+{
+    u8 evs[6];
+    s16 vx[6], vy[6];
+    s16 bgX[6], bgY[6];
+    s16 midX[6], midY[6];
+    s16 midRadius = GRAPH_MAX_RADIUS / 2;
+    u32 i;
+
+    u8 colorFill    = 10; // Arancione brillante (EV)
+    u8 colorGrid    = 4;  // Grigio assi
+    u8 colorOutline = 2;  // Bianco
+    u8 colorDots    = 2;  // Bianco
+
+    evs[0] = GetMonData(mon, MON_DATA_HP_EV);
+    evs[1] = GetMonData(mon, MON_DATA_ATK_EV);
+    evs[2] = GetMonData(mon, MON_DATA_DEF_EV);
+    evs[3] = GetMonData(mon, MON_DATA_SPEED_EV);
+    evs[4] = GetMonData(mon, MON_DATA_SPDEF_EV);
+    evs[5] = GetMonData(mon, MON_DATA_SPATK_EV);
+
+    for (i = 0; i < 6; i++)
+    {
+        // Un minimo di 3 pixel per evitare che a 0 EV collassi a punto singolo
+        s16 r = 3 + ((evs[i] * (GRAPH_MAX_RADIUS - 3)) / 252);
+        vx[i] = GRAPH_CENTER_X + ((sHexAxisVectors[i][0] * r) >> 8);
+        vy[i] = GRAPH_CENTER_Y + ((sHexAxisVectors[i][1] * r) >> 8);
+
+        bgX[i] = GRAPH_CENTER_X + ((sHexAxisVectors[i][0] * GRAPH_MAX_RADIUS) >> 8);
+        bgY[i] = GRAPH_CENTER_Y + ((sHexAxisVectors[i][1] * GRAPH_MAX_RADIUS) >> 8);
+
+        midX[i] = GRAPH_CENTER_X + ((sHexAxisVectors[i][0] * midRadius) >> 8);
+        midY[i] = GRAPH_CENTER_Y + ((sHexAxisVectors[i][1] * midRadius) >> 8);
+    }
+
+    // 1. Assi dal centro ai vertici massimi
+    for (i = 0; i < 6; i++)
+    {
+        DrawLine(windowId, GRAPH_CENTER_X, GRAPH_CENTER_Y, bgX[i], bgY[i], colorGrid);
+    }
+
+    // 2. Guida esagono intermedio (EV = 126)
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawLine(windowId, midX[i], midY[i], midX[next], midY[next], colorGrid);
+    }
+
+    // 3. Contorno dell'esagono massimo (EV = 252)
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawLine(windowId, bgX[i], bgY[i], bgX[next], bgY[next], colorGrid);
+    }
+
+    // 4. Riempimento del poligono arancione degli EV reali
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawFilledTriangle(windowId, GRAPH_CENTER_X, GRAPH_CENTER_Y, vx[i], vy[i], vx[next], vy[next], colorFill);
+    }
+
+    // 5. Bordo bianco attorno al poligono arancione
+    for (i = 0; i < 6; i++)
+    {
+        u8 next = (i + 1) % 6;
+        DrawLine(windowId, vx[i], vy[i], vx[next], vy[next], colorOutline);
+    }
+
+    // 6. Pallini bianchi sui 6 vertici massimi
+    for (i = 0; i < 6; i++)
+    {
+        DrawDot(windowId, bgX[i], bgY[i], colorDots);
+    }
+}
+
+static const u8 sText_Slash252Formatted[] = _("/252$");
+
+static void PrintStatLabelWithEVValue(u8 windowId, const u8 *statName, u8 ev, s8 natureMod, u8 x, u8 y)
+{
+    u8 strValue[16];
+    u8 strEVNum[4];
+
+    static const u8 sColorNormal[3] = {0, 2, 7}; // Bianco
+    static const u8 sColorUp[3]     = {0, 6, 7}; // Verde puro (Natura UP +)
+    static const u8 sColorDown[3]   = {0, 5, 7}; // Rosso puro (Natura DOWN -)
+
+    const u8 *textColor;
+
+    if (natureMod > 0)
+        textColor = sColorUp;    // Verde per Nature Up (+)
+    else if (natureMod < 0)
+        textColor = sColorDown;  // Rosso per Nature Down (-)
+    else
+        textColor = sColorNormal;// Bianco per Neutrale
+
+    // Stampa il nome della statistica
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y, 0, 0, textColor, 0, statName);
+
+    // Stampa "n/252"
+    ConvertIntToDecimalStringN(strEVNum, ev, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringCopy(strValue, strEVNum);
+    StringAppend(strValue, sText_Slash252Formatted);
+
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y + 10, 0, 0, sColorNormal, 0, strValue);
+}
+
+static void DrawEVsPage(void)
+{
+    u8 windowId = AddWindowFromTemplateList(sPageEVsTemplate, PSS_DATA_WINDOW_EVS_RADAR_GRAPH);
+    struct Pokemon *mon = &sMonSummaryScreen->currentMon;
+    u8 nature = sMonSummaryScreen->summary.nature;
+    u16 totalEv;
+    u8 strTot[24];
+    u8 *ptr;
+
+    static const u8 sColorNormal[3] = {0, 2, 7};
+
+    LoadRadarGraphPalette();
+    DrawRadarBackgroundPattern(windowId);
+    DrawEVRadarGraph(windowId, mon);
+
+    // HP (In alto al centro)
+    PrintStatLabelWithEVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_EV), 0, 68, 2);
+
+    // Attack (In alto a destra)
+    PrintStatLabelWithEVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_EV), GetNatureStatModifier(nature, 1), 118, 22);
+
+    // Defense (In basso a destra)
+    PrintStatLabelWithEVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_EV), GetNatureStatModifier(nature, 2), 118, 64);
+
+    // Speed (In basso al centro)
+    PrintStatLabelWithEVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_EV), GetNatureStatModifier(nature, 3), 66, 86);
+
+    // Sp. Def (In basso a sinistra)
+    PrintStatLabelWithEVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_EV), GetNatureStatModifier(nature, 4), 6, 64);
+
+    // Sp. Atk (In alto a sinistra)
+    PrintStatLabelWithEVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_EV), GetNatureStatModifier(nature, 5), 6, 22);
+
+    static const u8 sText_TotPrefix[] = _("TOT:");
+    static const u8 sText_Slash510Formatted[] = _("/510$");
+
+    // Totale EV
+    totalEv = GetMonData(mon, MON_DATA_HP_EV)
+            + GetMonData(mon, MON_DATA_ATK_EV)
+            + GetMonData(mon, MON_DATA_DEF_EV)
+            + GetMonData(mon, MON_DATA_SPEED_EV)
+            + GetMonData(mon, MON_DATA_SPDEF_EV)
+            + GetMonData(mon, MON_DATA_SPATK_EV);
+    ptr = StringCopy(strTot, sText_TotPrefix);
+    ptr = ConvertIntToDecimalStringN(ptr, totalEv, STR_CONV_MODE_LEFT_ALIGN, 3);
+    StringAppend(ptr, sText_Slash510Formatted);
+    AddTextPrinterParameterized4(windowId, FONT_SMALL_NARROW, 2, 2, 0, 0, sColorNormal, 0, strTot);
+
+    PutWindowTilemap(windowId);
+    CopyWindowToVram(windowId, COPYWIN_FULL);
+    ScheduleBgCopyTilemapToVram(0);
+}
+
+static void PrintEVsPageText(void)
+{
+    PrintHeldItemName();
+    PrintRibbonCount();
+    DrawEVsPage();
+}
+
+static void Task_PrintEVsPage(u8 taskId)
+{
+    s16 *data = gTasks[taskId].data;
+
+    switch (data[0])
+    {
+    case 1:
+        PrintHeldItemName();
+        break;
+    case 2:
+        PrintRibbonCount();
+        break;
+    case 3:
+        DrawEVsPage();
+        break;
+    case 4:
+        DestroyTask(taskId);
+        return;
+    }
+    data[0]++;
+}
+
 static void PrintTextOnWindow(u8 windowId, const u8 *string, u8 x, u8 y, u8 lineSpacing, u8 colorId)
 {
     PrintTextOnWindowWithFont(windowId, string, x, y, lineSpacing, colorId, FONT_NORMAL);
@@ -3534,11 +3777,13 @@ static void PrintAOrBButtonIcon(u8 windowId, bool8 bButton, u32 x)
 static void PrintPageNamesAndStats(void)
 {
     static const u8 sText_PkmnIVs[] = _("POKéMON IVS");
+    static const u8 sText_PkmnEVs[] = _("POKéMON EVS");
     int statsXPos;
 
     PrintTextOnWindow(PSS_LABEL_WINDOW_POKEMON_INFO_TITLE, gText_PkmnInfo, 2, 1, 0, 1);
     PrintTextOnWindow(PSS_LABEL_WINDOW_POKEMON_SKILLS_TITLE, gText_PkmnSkills, 2, 1, 0, 1);
     PrintTextOnWindow(PSS_LABEL_WINDOW_IVS_TITLE, sText_PkmnIVs, 2, 1, 0, 1);
+    PrintTextOnWindow(PSS_LABEL_WINDOW_EVS_TITLE, sText_PkmnEVs, 2, 1, 0, 1);
     PrintTextOnWindow(PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE, gText_BattleMoves, 2, 1, 0, 1);
 
     ShowUtilityPrompt(SUMMARY_MODE_NORMAL);
@@ -3571,6 +3816,7 @@ static void PutPageWindowTilemaps(u8 page)
     ClearWindowTilemap(PSS_LABEL_WINDOW_POKEMON_INFO_TITLE);
     ClearWindowTilemap(PSS_LABEL_WINDOW_POKEMON_SKILLS_TITLE);
     ClearWindowTilemap(PSS_LABEL_WINDOW_IVS_TITLE);
+    ClearWindowTilemap(PSS_LABEL_WINDOW_EVS_TITLE);
     ClearWindowTilemap(PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE);
 
     switch (page)
@@ -3592,6 +3838,9 @@ static void PutPageWindowTilemaps(u8 page)
         break;
     case PSS_PAGE_IVS:
         PutWindowTilemap(PSS_LABEL_WINDOW_IVS_TITLE);
+        break;
+    case PSS_PAGE_EVS:
+        PutWindowTilemap(PSS_LABEL_WINDOW_EVS_TITLE);
         break;
     case PSS_PAGE_BATTLE_MOVES:
         PutWindowTilemap(PSS_LABEL_WINDOW_BATTLE_MOVES_TITLE);
@@ -4032,8 +4281,24 @@ static void PrintHeldItemName(void)
     const u8 *text;
     u32 fontId;
     int x;
-    const struct WindowTemplate *template = (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS) ? sPageIVsTemplate : sPageSkillsTemplate;
-    u8 windowIndex = (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS) ? PSS_DATA_WINDOW_IVS_HELD_ITEM : PSS_DATA_WINDOW_SKILLS_HELD_ITEM;
+    const struct WindowTemplate *template;
+    u8 windowIndex;
+
+    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS)
+    {
+        template = sPageIVsTemplate;
+        windowIndex = PSS_DATA_WINDOW_IVS_HELD_ITEM;
+    }
+    else if (sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
+    {
+        template = sPageEVsTemplate;
+        windowIndex = PSS_DATA_WINDOW_EVS_HELD_ITEM;
+    }
+    else
+    {
+        template = sPageSkillsTemplate;
+        windowIndex = PSS_DATA_WINDOW_SKILLS_HELD_ITEM;
+    }
 
     if (sMonSummaryScreen->summary.item == ITEM_ENIGMA_BERRY_E_READER
         && IsMultiBattle() == TRUE
@@ -4060,8 +4325,24 @@ static void PrintRibbonCount(void)
 {
     const u8 *text;
     int x;
-    const struct WindowTemplate *template = (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS) ? sPageIVsTemplate : sPageSkillsTemplate;
-    u8 windowIndex = (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS) ? PSS_DATA_WINDOW_IVS_RIBBON_COUNT : PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT;
+    const struct WindowTemplate *template;
+    u8 windowIndex;
+
+    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS)
+    {
+        template = sPageIVsTemplate;
+        windowIndex = PSS_DATA_WINDOW_IVS_RIBBON_COUNT;
+    }
+    else if (sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
+    {
+        template = sPageEVsTemplate;
+        windowIndex = PSS_DATA_WINDOW_EVS_RIBBON_COUNT;
+    }
+    else
+    {
+        template = sPageSkillsTemplate;
+        windowIndex = PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT;
+    }
 
     if (sMonSummaryScreen->summary.ribbonCount == 0)
     {

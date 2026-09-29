@@ -1,0 +1,7 @@
+{{ doNotModifyHeader }}
+
+static const u16 sKaizoItemPool[] = {
+## for item in items
+    {{ item.id }},
+## endfor
+};

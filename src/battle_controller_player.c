@@ -968,8 +968,7 @@ static void ReloadMoveNames(enum BattlerId battler)
         MoveSelectionDestroyCursorAt(battler);
         MoveSelectionDisplayMoveNames(battler);
         MoveSelectionCreateCursorAt(gMoveSelectionCursor[battler], 0);
-        if (B_SHOW_EFFECTIVENESS)
-            MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
+        MoveSelectionDisplayPPString(battler);
         MoveSelectionDisplayPPNumber(battler);
         MoveSelectionDisplayMoveType(battler);
     }
@@ -1125,10 +1124,7 @@ void HandleMoveSwitching(enum BattlerId battler)
             gBattlerControllerFuncs[battler] = HandleInputChooseMove;
         gMoveSelectionCursor[battler] = gMultiUsePlayerCursor;
         MoveSelectionCreateCursorAt(gMoveSelectionCursor[battler], 0);
-        if (B_SHOW_EFFECTIVENESS)
-            MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
-        else
-            MoveSelectionDisplayPPString(battler);
+        MoveSelectionDisplayPPString(battler);
         MoveSelectionDisplayPPNumber(battler);
         MoveSelectionDisplayMoveType(battler);
         AssignUsableZMoves(battler, moveInfo->moves);
@@ -1144,10 +1140,7 @@ void HandleMoveSwitching(enum BattlerId battler)
         else
             gBattlerControllerFuncs[battler] = HandleInputChooseMove;
 
-        if (B_SHOW_EFFECTIVENESS)
-            MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
-        else
-            MoveSelectionDisplayPPString(battler);
+        MoveSelectionDisplayPPString(battler);
         MoveSelectionDisplayPPNumber(battler);
         MoveSelectionDisplayMoveType(battler);
     }
@@ -1744,10 +1737,10 @@ static void MoveSelectionDisplayMoveNames(enum BattlerId battler)
             if (ShouldShowTypeEffectiveness((u32)foe))
             {
                 uq4_12_t mod = GetMoveEffectivenessAgainstBattler(moveInfo->moves[i], battler, foe);
-                if      (mod >= UQ_4_12(4.0))  colorIndex = 6; // Blue (x4)
-                else if (mod >= UQ_4_12(2.0))  colorIndex = 5; // Green (x2)
-                else if (mod <= UQ_4_12(0.25)) colorIndex = 7; // Red (x1/4)
-                else if (mod <= UQ_4_12(0.5))  colorIndex = 8; // Purple (x1/2)
+                if (mod > UQ_4_12(1.0))
+                    colorIndex = 5; // Green (x2, x4)
+                else if (mod < UQ_4_12(1.0))
+                    colorIndex = 7; // Red (x1/2, x1/4, x0)
             }
         }
 
@@ -1782,12 +1775,10 @@ static void MoveSelectionDisplayPPNumber(enum BattlerId battler)
     BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP_REMAINING);
 }
 
-static void MoveSelectionDisplayMoveType(enum BattlerId battler)
+static enum Type GetCurrentMoveSelectedType(enum BattlerId battler)
 {
-    u8 *txtPtr, *end;
     enum Species speciesId = gBattleMons[battler].species;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
-    txtPtr = StringCopy(gDisplayedStringBattle, gText_MoveInterfaceType);
     enum Move move = moveInfo->moves[gMoveSelectionCursor[battler]];
     enum Type type = GetMoveType(move);
     enum BattleMoveEffects effect = GetMoveEffect(move);
@@ -1820,10 +1811,12 @@ static void MoveSelectionDisplayMoveType(enum BattlerId battler)
         struct Pokemon *mon = GetBattlerMon(battler);
         type = CheckDynamicMoveType(mon, move, battler, MON_IN_BATTLE);
     }
-    end = StringCopy(txtPtr, gTypesInfo[type].name);
+    return type;
+}
 
-    PrependFontIdToFit(txtPtr, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 25);
-    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
+static void MoveSelectionDisplayMoveType(enum BattlerId battler)
+{
+    MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
 }
 
 static void TryMoveSelectionDisplayMoveDescription(enum BattlerId battler)
@@ -2220,10 +2213,7 @@ void InitMoveSelectionsVarsAndStrings(enum BattlerId battler)
     MoveSelectionDisplayMoveNames(battler);
     gMultiUsePlayerCursor = 0xFF;
     MoveSelectionCreateCursorAt(gMoveSelectionCursor[battler], 0);
-    if (B_SHOW_EFFECTIVENESS)
-        MoveSelectionDisplayMoveEffectiveness(CheckTargetTypeEffectiveness(battler), battler);
-    else
-        MoveSelectionDisplayPPString(battler);
+    MoveSelectionDisplayPPString(battler);
     MoveSelectionDisplayPPNumber(battler);
     MoveSelectionDisplayMoveType(battler);
 }
@@ -2511,115 +2501,258 @@ static u32 CheckTargetTypeEffectiveness(enum BattlerId battler)
 static void MoveSelectionDisplayMoveEffectiveness(u32 foeEffectiveness, enum BattlerId battler)
 {
     static const u8 noIcon[] =  _("");
-    static const u8 effectiveIcon[] =  _("{CIRCLE_HOLLOW}");
-    static const u8 extremeleyEffectiveIcon[] =  _("{STAR}");
-    static const u8 superEffectiveIcon[] =  _("{CIRCLE_DOT}");
-    static const u8 notVeryEffectiveIcon[] =  _("{TRIANGLE}");
-    static const u8 mostlyIneffectiveIcon[] =  _("{TRIANGLE_UPSIDE_DOWN}");
-    static const u8 immuneIcon[] =  _("{BIG_MULT_X}");
+    static const u8 effectiveIcon[] =  _("");
+    static const u8 extremeleyEffectiveIcon[] =  _(" {CHEVRON_DOUBLE_UP}");
+    static const u8 superEffectiveIcon[] =  _(" {CHEVRON_UP}");
+    static const u8 notVeryEffectiveIcon[] =  _(" {CHEVRON_DOWN}");
+    static const u8 mostlyIneffectiveIcon[] =  _(" {CHEVRON_DOUBLE_DOWN}");
+    static const u8 immuneIcon[] =  _(" {BIG_MULT_X}");
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct *)(&gBattleResources->bufferA[battler][4]);
-    u8 *txtPtr;
+    u8 *txtPtr, *end;
+    enum Type type = GetCurrentMoveSelectedType(battler);
 
-    txtPtr = StringCopy(gDisplayedStringBattle, gText_MoveInterfacePP);
+    txtPtr = StringCopy(gDisplayedStringBattle, gText_MoveInterfaceType);
+    end = StringCopy(txtPtr, gTypesInfo[type].name);
 
-    if (!IsBattleMoveStatus(moveInfo->moves[gMoveSelectionCursor[battler]]))
+    if (B_SHOW_EFFECTIVENESS && !IsBattleMoveStatus(moveInfo->moves[gMoveSelectionCursor[battler]]))
     {
         switch (foeEffectiveness)
         {
         case EFFECTIVENESS_EXTREMELY_EFFECTIVE:
-            StringCopy(txtPtr, extremeleyEffectiveIcon);
+            end = StringCopy(end, extremeleyEffectiveIcon);
             break;
         case EFFECTIVENESS_SUPER_EFFECTIVE:
-            StringCopy(txtPtr, superEffectiveIcon);
+            end = StringCopy(end, superEffectiveIcon);
             break;
         case EFFECTIVENESS_NOT_VERY_EFFECTIVE:
-            StringCopy(txtPtr, notVeryEffectiveIcon);
+            end = StringCopy(end, notVeryEffectiveIcon);
             break;
         case EFFECTIVENESS_MOSTLY_INEFFECTIVE:
-            StringCopy(txtPtr, mostlyIneffectiveIcon);
+            end = StringCopy(end, mostlyIneffectiveIcon);
             break;
         case EFFECTIVENESS_NO_EFFECT:
-            StringCopy(txtPtr, immuneIcon);
+            end = StringCopy(end, immuneIcon);
             break;
         case EFFECTIVENESS_NORMAL:
-            StringCopy(txtPtr, effectiveIcon);
+            end = StringCopy(end, effectiveIcon);
             break;
         default:
         case EFFECTIVENESS_CANNOT_VIEW:
-            StringCopy(txtPtr, noIcon);
+            end = StringCopy(end, noIcon);
             break;
         }
     }
 
-    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_PP);
+    PrependFontIdToFit(txtPtr, end, FONT_NORMAL, WindowWidthPx(B_WIN_MOVE_TYPE) - 25);
+    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_TYPE);
+}
+
+static u16 CalculateModifiedStat(u16 baseStat, s8 stage)
+{
+    static const u8 sStatStageNumerators[13]   = { 10, 10, 10, 10, 10, 10, 10, 15, 20, 25, 30, 35, 40 };
+    static const u8 sStatStageDenominators[13] = { 40, 35, 30, 25, 20, 15, 10, 10, 10, 10, 10, 10, 10 };
+    u8 index = stage + DEFAULT_STAT_STAGE;
+    if (index > 12) index = 12;
+    return (baseStat * sStatStageNumerators[index]) / sStatStageDenominators[index];
+}
+
+static void DrawStatStageChevrons(u8 windowId, u8 x, u8 y, s8 stage)
+{
+    static const u8 sChevronUp[]   = _("{CHEVRON_UP}");
+    static const u8 sChevronDown[] = _("{CHEVRON_DOWN}");
+    static const u8 sTextColor_Normal[] = { 0, 13, 15 };
+    static const u8 sTextColor_Boost[]  = { 0,  5, 15 };
+    static const u8 sTextColor_Drop[]   = { 0,  7, 15 };
+
+    if (stage == 0)
+        return;
+
+    const u8 *chevron = (stage > 0) ? sChevronUp : sChevronDown;
+    const u8 *colorActive = (stage > 0) ? sTextColor_Boost : sTextColor_Drop;
+    u8 absStage = (stage < 0) ? -stage : stage;
+    if (absStage > 6)
+        absStage = 6;
+
+    if (absStage == 1)
+    {
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y, sTextColor_Normal, TEXT_SKIP_DRAW, chevron);
+    }
+    else if (absStage == 2)
+    {
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y - 1, sTextColor_Normal, TEXT_SKIP_DRAW, chevron);
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y + 1, sTextColor_Normal, TEXT_SKIP_DRAW, chevron);
+    }
+    else // absStage >= 3 (3, 4, 5, 6)
+    {
+        const u8 *topColor = sTextColor_Normal;
+        const u8 *midColor = sTextColor_Normal;
+        const u8 *botColor = sTextColor_Normal;
+
+        if (stage > 0)
+        {
+            if (absStage == 4)
+            {
+                topColor = colorActive;
+            }
+            else if (absStage == 5)
+            {
+                topColor = colorActive;
+                midColor = colorActive;
+            }
+            else if (absStage >= 6)
+            {
+                topColor = colorActive;
+                midColor = colorActive;
+                botColor = colorActive;
+            }
+        }
+        else // stage < 0
+        {
+            if (absStage == 4)
+            {
+                botColor = colorActive;
+            }
+            else if (absStage == 5)
+            {
+                botColor = colorActive;
+                midColor = colorActive;
+            }
+            else if (absStage >= 6)
+            {
+                topColor = colorActive;
+                midColor = colorActive;
+                botColor = colorActive;
+            }
+        }
+
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y - 2, topColor, TEXT_SKIP_DRAW, chevron);
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y,     midColor, TEXT_SKIP_DRAW, chevron);
+        AddTextPrinterParameterized3(windowId, FONT_SMALL_NARROW, x, y + 2, botColor, TEXT_SKIP_DRAW, chevron);
+    }
 }
 
 // KAIZO: mostra stat stages premendo R durante la selezione mosse
 static void MoveSelectionDisplayStatStages(enum BattlerId battler)
 {
-    static const u8 sText_StageTitle[] = _("ATK DEF SPA SPD SPE ACC EVA");
-    static const u8 sText_PlayerLabel[] = _("TUO:");
-    static const u8 sText_FoeLabel[]    = _("AVV:");
-    static const u8 sText_Plus[]        = _("+");
-    static const u8 sText_Zero[]        = _("0");
-    static const u8 sText_Space[]       = _(" ");
+    static const u8 sTextColor_Normal[] = { 0, 13, 15 };
+    static const u8 sTextColor_Boost[]  = { 0,  5, 15 };
+    static const u8 sTextColor_Drop[]   = { 0,  7, 15 };
 
-    enum BattlerId foe = GetOppositeBattler(battler);
-    // Stat order: ATK, DEF, SPATK, SPDEF, SPEED, ACC, EVA
-    static const u8 sStatOrder[7] = { STAT_ATK, STAT_DEF, STAT_SPATK, STAT_SPDEF, STAT_SPEED, STAT_ACC, STAT_EVASION };
+    static const u8 sText_HP[]  = _("HP");
+    static const u8 sText_ATK[] = _("ATK");
+    static const u8 sText_DEF[] = _("DEF");
+    static const u8 sText_SPA[] = _("SPA");
+    static const u8 sText_SPD[] = _("SPD");
+    static const u8 sText_SPE[] = _("SPE");
+    static const u8 sText_ACC[] = _("ACC");
+    static const u8 sText_EVA[] = _("EVA");
+
+    static const u8 sText_Plus[] = _("+");
+
+    static const u8 sYCoords[4] = { 2, 13, 24, 35 };
+
+    u8 strBuf[32];
+    u8 *txtPtr;
     u8 i;
-    u8 *ptr;
+
+    u8 nature = GetNatureFromPersonality(gBattleMons[battler].personality);
+    s8 statUp = gNaturesInfo[nature].statUp;
+    s8 statDown = gNaturesInfo[nature].statDown;
 
     LoadMessageBoxAndBorderGfx();
     DrawStdWindowFrame(B_WIN_MOVE_DESCRIPTION, FALSE);
+    FillWindowPixelBuffer(B_WIN_MOVE_DESCRIPTION, PIXEL_FILL(0xE));
 
-    // Riga 1: header
-    StringCopy(gDisplayedStringBattle, sText_StageTitle);
-    StringAppend(gDisplayedStringBattle, gText_NewLine);
+    // --- LEFT COLUMN ---
+    // Row 0 (y = 2): HP
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 6, sYCoords[0], sTextColor_Normal, TEXT_SKIP_DRAW, sText_HP);
+    txtPtr = ConvertIntToDecimalStringN(strBuf, gBattleMons[battler].hp, STR_CONV_MODE_LEFT_ALIGN, 3);
+    *(txtPtr)++ = CHAR_SLASH;
+    ConvertIntToDecimalStringN(txtPtr, gBattleMons[battler].maxHP, STR_CONV_MODE_LEFT_ALIGN, 3);
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 30, sYCoords[0], sTextColor_Normal, TEXT_SKIP_DRAW, strBuf);
 
-    // Riga 2: TUO
-    ptr = StringAppend(gDisplayedStringBattle, sText_PlayerLabel);
-    for (i = 0; i < 7; i++)
+    // Rows 1-3: ATK, DEF, SPA
+    static const u8 *const sLeftStatNames[3] = { sText_ATK, sText_DEF, sText_SPA };
+    static const u8 sLeftStatIds[3] = { STAT_ATK, STAT_DEF, STAT_SPATK };
+    for (i = 0; i < 3; i++)
     {
-        s8 stage = gBattleMons[battler].statStages[sStatOrder[i]] - DEFAULT_STAT_STAGE;
-        if (stage > 0)
-        {
-            ptr = StringAppend(ptr, sText_Plus);
-            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 1);
-        }
-        else if (stage < 0)
-        {
-            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 2);
-        }
-        else
-        {
-            ptr = StringAppend(ptr, sText_Zero);
-        }
-        ptr = StringAppend(ptr, sText_Space);
-    }
-    ptr = StringAppend(ptr, gText_NewLine);
+        u8 yPos = sYCoords[i + 1];
+        s8 stage = gBattleMons[battler].statStages[sLeftStatIds[i]] - DEFAULT_STAT_STAGE;
+        const u8 *color = (stage > 0) ? sTextColor_Boost : ((stage < 0) ? sTextColor_Drop : sTextColor_Normal);
 
-    // Riga 3: AVV
-    ptr = StringAppend(ptr, sText_FoeLabel);
-    for (i = 0; i < 7; i++)
-    {
-        s8 stage = gBattleMons[foe].statStages[sStatOrder[i]] - DEFAULT_STAT_STAGE;
-        if (stage > 0)
+        u16 baseStat = 0;
+        switch (sLeftStatIds[i])
         {
-            ptr = StringAppend(ptr, sText_Plus);
-            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 1);
+        case STAT_ATK:   baseStat = gBattleMons[battler].attack; break;
+        case STAT_DEF:   baseStat = gBattleMons[battler].defense; break;
+        case STAT_SPATK: baseStat = gBattleMons[battler].spAttack; break;
         }
-        else if (stage < 0)
-        {
-            ptr = ConvertIntToDecimalStringN(ptr, stage, STR_CONV_MODE_LEFT_ALIGN, 2);
-        }
-        else
-        {
-            ptr = StringAppend(ptr, sText_Zero);
-        }
-        ptr = StringAppend(ptr, sText_Space);
+        u16 modifiedStat = CalculateModifiedStat(baseStat, stage);
+
+        // Name with Nature
+        txtPtr = StringCopy(strBuf, sLeftStatNames[i]);
+        if (statUp == sLeftStatIds[i] && statDown != sLeftStatIds[i])
+            txtPtr = StringAppend(txtPtr, sText_Plus);
+        else if (statDown == sLeftStatIds[i] && statUp != sLeftStatIds[i])
+            *(txtPtr)++ = CHAR_HYPHEN;
+        *txtPtr = EOS;
+        AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 6, yPos, color, TEXT_SKIP_DRAW, strBuf);
+
+        // Chevrons (x = 28)
+        DrawStatStageChevrons(B_WIN_MOVE_DESCRIPTION, 28, yPos, stage);
+
+        // Stat value
+        ConvertIntToDecimalStringN(strBuf, modifiedStat, STR_CONV_MODE_LEFT_ALIGN, 3);
+        AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 38, yPos, color, TEXT_SKIP_DRAW, strBuf);
     }
 
-    BattlePutTextOnWindow(gDisplayedStringBattle, B_WIN_MOVE_DESCRIPTION);
+    // --- RIGHT COLUMN ---
+    // Rows 0-1: SPD, SPE
+    static const u8 *const sRightStatNames[2] = { sText_SPD, sText_SPE };
+    static const u8 sRightStatIds[2] = { STAT_SPDEF, STAT_SPEED };
+    for (i = 0; i < 2; i++)
+    {
+        u8 yPos = sYCoords[i];
+        s8 stage = gBattleMons[battler].statStages[sRightStatIds[i]] - DEFAULT_STAT_STAGE;
+        const u8 *color = (stage > 0) ? sTextColor_Boost : ((stage < 0) ? sTextColor_Drop : sTextColor_Normal);
+
+        u16 baseStat = (sRightStatIds[i] == STAT_SPDEF) ? gBattleMons[battler].spDefense : gBattleMons[battler].speed;
+        u16 modifiedStat = CalculateModifiedStat(baseStat, stage);
+
+        // Name with Nature
+        txtPtr = StringCopy(strBuf, sRightStatNames[i]);
+        if (statUp == sRightStatIds[i] && statDown != sRightStatIds[i])
+            txtPtr = StringAppend(txtPtr, sText_Plus);
+        else if (statDown == sRightStatIds[i] && statUp != sRightStatIds[i])
+            *(txtPtr)++ = CHAR_HYPHEN;
+        *txtPtr = EOS;
+        AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 74, yPos, color, TEXT_SKIP_DRAW, strBuf);
+
+        // Chevrons (x = 96)
+        DrawStatStageChevrons(B_WIN_MOVE_DESCRIPTION, 96, yPos, stage);
+
+        // Stat value
+        ConvertIntToDecimalStringN(strBuf, modifiedStat, STR_CONV_MODE_LEFT_ALIGN, 3);
+        AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 106, yPos, color, TEXT_SKIP_DRAW, strBuf);
+    }
+
+    // Row 2 (y = 24): ACC
+    s8 accStage = gBattleMons[battler].statStages[STAT_ACC] - DEFAULT_STAT_STAGE;
+    const u8 *accColor = (accStage > 0) ? sTextColor_Boost : ((accStage < 0) ? sTextColor_Drop : sTextColor_Normal);
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 74, sYCoords[2], accColor, TEXT_SKIP_DRAW, sText_ACC);
+    DrawStatStageChevrons(B_WIN_MOVE_DESCRIPTION, 96, sYCoords[2], accStage);
+    if (accStage > 0) { txtPtr = StringCopy(strBuf, sText_Plus); ConvertIntToDecimalStringN(txtPtr, accStage, STR_CONV_MODE_LEFT_ALIGN, 1); }
+    else ConvertIntToDecimalStringN(strBuf, accStage, STR_CONV_MODE_LEFT_ALIGN, 2);
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 106, sYCoords[2], accColor, TEXT_SKIP_DRAW, strBuf);
+
+    // Row 3 (y = 35): EVA
+    s8 evaStage = gBattleMons[battler].statStages[STAT_EVASION] - DEFAULT_STAT_STAGE;
+    const u8 *evaColor = (evaStage > 0) ? sTextColor_Boost : ((evaStage < 0) ? sTextColor_Drop : sTextColor_Normal);
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 74, sYCoords[3], evaColor, TEXT_SKIP_DRAW, sText_EVA);
+    DrawStatStageChevrons(B_WIN_MOVE_DESCRIPTION, 96, sYCoords[3], evaStage);
+    if (evaStage > 0) { txtPtr = StringCopy(strBuf, sText_Plus); ConvertIntToDecimalStringN(txtPtr, evaStage, STR_CONV_MODE_LEFT_ALIGN, 1); }
+    else ConvertIntToDecimalStringN(strBuf, evaStage, STR_CONV_MODE_LEFT_ALIGN, 2);
+    AddTextPrinterParameterized3(B_WIN_MOVE_DESCRIPTION, FONT_SMALL_NARROW, 106, sYCoords[3], evaColor, TEXT_SKIP_DRAW, strBuf);
+
     CopyWindowToVram(B_WIN_MOVE_DESCRIPTION, COPYWIN_FULL);
 }
