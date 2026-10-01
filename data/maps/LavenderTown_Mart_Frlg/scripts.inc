@@ -16,6 +16,12 @@ LavenderTown_Mart_EventScript_Youngster::
 LavenderTown_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, LavenderTown_Mart_EventScript_BuyItems
+	release
+	end
+
+LavenderTown_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart LavenderTown_Mart_Items

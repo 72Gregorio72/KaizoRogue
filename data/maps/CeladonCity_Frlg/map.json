@@ -3,7 +3,6 @@
   "name": "CeladonCity_Frlg",
   "layout": "LAYOUT_CELADON_CITY",
   "music": "MUS_RG_CELADON",
-  "region": "REGION_KANTO",
   "region_map_section": "MAPSEC_CELADON_CITY",
   "requires_flash": false,
   "weather": "WEATHER_SUNNY",
@@ -209,8 +208,8 @@
     {
       "type": "object",
       "graphics_id": "OBJ_EVENT_GFX_ITEM_BALL",
-      "x": 5,
-      "y": 3,
+      "x": 51,
+      "y": 11,
       "elevation": 3,
       "movement_type": "MOVEMENT_TYPE_FACE_DOWN",
       "movement_range_x": 1,
@@ -396,13 +395,14 @@
     },
     {
       "type": "hidden_item",
-      "x": 55,
-      "y": 20,
+      "x": 42,
+      "y": 16,
       "elevation": 3,
       "item": "ITEM_PP_UP",
       "flag": "FLAG_HIDDEN_ITEM_CELADON_CITY_PP_UP",
       "quantity": 1,
       "underfoot": false
     }
-  ]
+  ],
+  "region": "REGION_KANTO"
 }

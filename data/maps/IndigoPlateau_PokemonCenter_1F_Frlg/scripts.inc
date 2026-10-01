@@ -41,6 +41,12 @@ IndigoPlateau_PokemonCenter_1F_EventScript_GymGuy::
 IndigoPlateau_PokemonCenter_1F_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, IndigoPlateau_PokemonCenter_1F_EventScript_BuyItems
+	release
+	end
+
+IndigoPlateau_PokemonCenter_1F_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart IndigoPlateau_PokemonCenter_1F_Items

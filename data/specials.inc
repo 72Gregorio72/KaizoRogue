@@ -663,4 +663,19 @@ gSpecials::
 	def_special Script_NatureChanger_Apply
 	def_special Script_AbilityChanger_Init
 	def_special Script_AbilityChanger_Apply
+	def_special Script_MartBuild_CheckCanUse
+	def_special Script_MartBuild_Consume
+	def_special Script_MartBuild_InitSession
+	def_special Script_MartBuild_PushMainMenuChoices
+	def_special Script_MartBuild_SelectOption
+	def_special Script_MartBuild_MarkOptionUsed
+	def_special Script_MartBuild_ExitSession
+	def_special Script_StatPoints_Init
+	def_special Script_StatPoints_GetRemainingPoints
+	def_special Script_StatPoints_PushStatChoices
+	def_special Script_StatPoints_SelectStat
+	def_special Script_StatPoints_PushAmountChoices
+	def_special Script_StatPoints_Apply
+	def_special Script_MoveDraft_Roll
+	def_special Script_MoveDraft_Select
 

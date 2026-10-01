@@ -796,6 +796,7 @@ void GiveMonInitialMoveset(struct Pokemon *mon);
 void GiveBoxMonInitialMoveset(struct BoxPokemon *boxMon);
 void GiveMonDefaultMove(struct Pokemon *mon, u32 slot);
 void GiveBoxMonDefaultMove(struct BoxPokemon *boxMon, u32 slot);
+enum Move GetKaizoLevelUpMappedMove(enum Move baseMove, enum Species species, u32 level, u32 personality);
 enum Move MonTryLearningNewMoveAtLevel(struct Pokemon *mon, bool32 firstMove, u32 level);
 enum Move MonTryLearningNewMove(struct Pokemon *mon, bool8 firstMove);
 void DeleteFirstMoveAndGiveMoveToMon(struct Pokemon *mon, enum Move move);

@@ -2257,10 +2257,51 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
     Free(trainerGen);
 }
 
+static enum Type GetTrainerRequiredType(u16 trainerNum)
+{
+    switch (trainerNum)
+    {
+    case TRAINER_LEADER_BROCK:
+        return TYPE_ROCK;
+    case TRAINER_LEADER_MISTY:
+        return TYPE_WATER;
+    case TRAINER_LEADER_LT_SURGE:
+        return TYPE_ELECTRIC;
+    case TRAINER_LEADER_ERIKA:
+        return TYPE_GRASS;
+    case TRAINER_LEADER_KOGA:
+        return TYPE_POISON;
+    case TRAINER_LEADER_SABRINA:
+        return TYPE_PSYCHIC;
+    case TRAINER_LEADER_BLAINE:
+        return TYPE_FIRE;
+    case TRAINER_LEADER_GIOVANNI:
+    case TRAINER_BOSS_GIOVANNI:
+    case TRAINER_BOSS_GIOVANNI_2:
+        return TYPE_GROUND;
+    case TRAINER_ELITE_FOUR_LORELEI:
+    case TRAINER_ELITE_FOUR_LORELEI_2:
+        return TYPE_ICE;
+    case TRAINER_ELITE_FOUR_BRUNO:
+    case TRAINER_ELITE_FOUR_BRUNO_2:
+        return TYPE_FIGHTING;
+    case TRAINER_ELITE_FOUR_AGATHA:
+    case TRAINER_ELITE_FOUR_AGATHA_2:
+        return TYPE_GHOST;
+    case TRAINER_ELITE_FOUR_LANCE:
+    case TRAINER_ELITE_FOUR_LANCE_2:
+        return TYPE_DRAGON;
+    default:
+        return TYPE_NONE;
+    }
+}
+
 static u16 GetKaizoRandomTrainerSpecies(u16 originalSpecies, u16 trainerNum, u8 monIndex)
 {
     if (originalSpecies == SPECIES_NONE || originalSpecies == SPECIES_EGG)
         return SPECIES_NONE;
+
+    enum Type requiredType = GetTrainerRequiredType(trainerNum);
 
     u32 seed = gSaveBlock2Ptr->randomizerSeed ^ (trainerNum * 7919) ^ (monIndex * 131);
     if (seed == 0)
@@ -2274,7 +2315,8 @@ static u16 GetKaizoRandomTrainerSpecies(u16 originalSpecies, u16 trainerNum, u8 
     } while (!IsSpeciesEnabled(newSpecies) 
              || gSpeciesInfo[newSpecies].isMegaEvolution 
              || gSpeciesInfo[newSpecies].isUltraBeast
-             || newSpecies == SPECIES_EGG);
+             || newSpecies == SPECIES_EGG
+             || (requiredType != TYPE_NONE && gSpeciesInfo[newSpecies].types[0] != requiredType && gSpeciesInfo[newSpecies].types[1] != requiredType));
 
     return newSpecies;
 }

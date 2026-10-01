@@ -78,4 +78,21 @@ void Script_NatureChanger_Apply(void);
 void Script_AbilityChanger_Init(void);
 void Script_AbilityChanger_Apply(void);
 
+// Poké Mart Build Hub & Stat Points
+void Script_MartBuild_CheckCanUse(void);
+void Script_MartBuild_Consume(void);
+void Script_MartBuild_InitSession(void);
+void Script_MartBuild_PushMainMenuChoices(void);
+void Script_MartBuild_SelectOption(void);
+void Script_MartBuild_MarkOptionUsed(void);
+void Script_MartBuild_ExitSession(void);
+void Script_StatPoints_Init(void);
+void Script_StatPoints_GetRemainingPoints(void);
+void Script_StatPoints_PushStatChoices(void);
+void Script_StatPoints_SelectStat(void);
+void Script_StatPoints_PushAmountChoices(void);
+void Script_StatPoints_Apply(void);
+void Script_MoveDraft_Roll(void);
+void Script_MoveDraft_Select(void);
+
 #endif // GUARD_FIELD_SPECIALS_H

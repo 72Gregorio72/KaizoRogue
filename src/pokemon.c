@@ -1410,7 +1410,11 @@ void CalculateMonStatsCont(struct Pokemon *mon, bool32 updateSpeedStat)
         if (i == STAT_HP)
             continue;
 
-        u8 baseStat = GetSpeciesBaseStat(species, i);
+        u16 baseStat = GetSpeciesBaseStat(species, i);
+        if (gSaveBlock2Ptr != NULL && (mon == &gParties[B_TRAINER_PLAYER][0] || (gSaveBlock1Ptr != NULL && mon == &gSaveBlock1Ptr->playerParty[0])))
+        {
+            baseStat += gSaveBlock2Ptr->customStatPoints[i];
+        }
         s32 n = (((2 * baseStat + iv[i] + ev[i] / 4) * level) / 100) + 5;
         n = ModifyStatByNature(nature, n, i);
         if (B_FRIENDSHIP_BOOST == TRUE)
@@ -1429,7 +1433,12 @@ void CalculateMonStatsCont(struct Pokemon *mon, bool32 updateSpeedStat)
     }
     else
     {
-        s32 n = 2 * GetSpeciesBaseHP(species) + iv[STAT_HP];
+        u16 baseHP = GetSpeciesBaseHP(species);
+        if (gSaveBlock2Ptr != NULL && (mon == &gParties[B_TRAINER_PLAYER][0] || (gSaveBlock1Ptr != NULL && mon == &gSaveBlock1Ptr->playerParty[0])))
+        {
+            baseHP += gSaveBlock2Ptr->customStatPoints[STAT_HP];
+        }
+        s32 n = 2 * baseHP + iv[STAT_HP];
         newMaxHP = (((n + ev[STAT_HP] / 4) * level) / 100) + level + 10;
     }
 
@@ -1571,53 +1580,59 @@ void GiveMonInitialMoveset(struct Pokemon *mon)
 
 void GiveBoxMonInitialMoveset(struct BoxPokemon *boxMon)
 {
-    enum Species species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
-    u32 personality = GetBoxMonData(boxMon, MON_DATA_PERSONALITY);
-
-    u32 runSeed = gSaveBlock2Ptr->randomizerSeed;
-    if (runSeed == 0)
-        runSeed = 0x12345678;
-
-    SeedKaizoRng(runSeed ^ personality ^ (species * 0x1F3D));
-
-    enum Move moves[MAX_MON_MOVES] = {MOVE_NONE};
-    u8 count = 0;
-
-    while (count < MAX_MON_MOVES)
-    {
-        enum Move candidate = 1 + (NextKaizoRng() % (MOVES_COUNT - 1));
-
-        if (candidate == MOVE_STRUGGLE || candidate == MOVE_NONE)
-            continue;
-
-        bool32 duplicate = FALSE;
-        for (u32 j = 0; j < count; j++)
-        {
-            if (moves[j] == candidate)
-            {
-                duplicate = TRUE;
-                break;
-            }
-        }
-
-        if (!duplicate)
-        {
-            moves[count] = candidate;
-            count++;
-        }
-    }
-
-    for (u32 i = 0; i < MAX_MON_MOVES; i++)
-    {
-        SetBoxMonData(boxMon, MON_DATA_MOVE1 + i, &moves[i]);
-        u32 pp = GetMovePP(moves[i]);
-        SetBoxMonData(boxMon, MON_DATA_PP1 + i, &pp);
-    }
+    s32 i;
+    for (i = 0; i < MAX_MON_MOVES; i++)
+        GiveBoxMonDefaultMove(boxMon, i);
 }
 
 void GiveMonDefaultMove(struct Pokemon *mon, u32 slot)
 {
     GiveBoxMonDefaultMove(&mon->box, slot);
+}
+
+enum Move GetKaizoLevelUpMappedMove(enum Move baseMove, enum Species species, u32 level, u32 personality)
+{
+    if (baseMove == MOVE_NONE || baseMove >= MOVES_COUNT || baseMove == MOVE_STRUGGLE)
+        return baseMove;
+
+    u32 seed = (gSaveBlock2Ptr != NULL && gSaveBlock2Ptr->randomizerSeed != 0) ? gSaveBlock2Ptr->randomizerSeed : 0x54321678;
+    u32 rng = seed ^ (species * 1013) ^ (level * 313) ^ (baseMove * 7919) ^ (personality & 0xFFFF);
+    rng = 1103515245 * rng + 12345;
+
+    bool32 isStatus = (gMovesInfo[baseMove].category == DAMAGE_CATEGORY_STATUS || gMovesInfo[baseMove].power == 0);
+    enum Type reqType = gMovesInfo[baseMove].type;
+
+    u16 candidatePool[128];
+    u32 count = 0;
+
+    for (u32 m = 1; m < MOVES_COUNT && count < ARRAY_COUNT(candidatePool); m++)
+    {
+        if (m == MOVE_STRUGGLE)
+            continue;
+        if (gMovesInfo[m].name[0] == 0 || gMovesInfo[m].name[0] == '-')
+            continue;
+
+        if (isStatus)
+        {
+            if (gMovesInfo[m].category == DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power == 0)
+            {
+                candidatePool[count++] = m;
+            }
+        }
+        else
+        {
+            if (gMovesInfo[m].type == reqType && gMovesInfo[m].category != DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power > 0)
+            {
+                candidatePool[count++] = m;
+            }
+        }
+    }
+
+    if (count == 0)
+        return baseMove;
+
+    u32 choice = (rng >> 16) % count;
+    return candidatePool[choice];
 }
 
 void GiveBoxMonDefaultMove(struct BoxPokemon *boxMon, u32 slot)
@@ -1626,6 +1641,8 @@ void GiveBoxMonDefaultMove(struct BoxPokemon *boxMon, u32 slot)
     enum Species species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
     const struct LevelUpMove *learnset = GetSpeciesLevelUpLearnset(species);
     s32 level = GetLevelFromBoxMonExp(boxMon);
+    u32 personality = GetBoxMonData(boxMon, MON_DATA_PERSONALITY);
+
     for (u32 i = 0; learnset[i].move != LEVEL_UP_MOVE_END; i++)
     {
         s32 j;
@@ -1636,16 +1653,18 @@ void GiveBoxMonDefaultMove(struct BoxPokemon *boxMon, u32 slot)
         if (learnset[i].level == 0)
             continue;
 
+        enum Move candMove = GetKaizoLevelUpMappedMove(learnset[i].move, species, learnset[i].level, personality);
+
         for (j = 0; j < slot; j++)
         {
-            if (GetBoxMonData(boxMon, MON_DATA_MOVE1 + j) == learnset[i].move)
+            if (GetBoxMonData(boxMon, MON_DATA_MOVE1 + j) == candMove)
             {
                 alreadyKnown = TRUE;
                 break;
             }
         }
         if (!alreadyKnown)
-            move = learnset[i].move;
+            move = candMove;
     }
 
     SetBoxMonData(boxMon, MON_DATA_MOVE1 + slot, &move);
@@ -1699,7 +1718,8 @@ enum Move MonTryLearningNewMoveAtLevel(struct Pokemon *mon, bool32 firstMove, u3
 
     if (learnset[sLearningMoveTableID].level == level)
     {
-        gMoveToLearn = learnset[sLearningMoveTableID].move;
+        enum Move baseMove = learnset[sLearningMoveTableID].move;
+        gMoveToLearn = GetKaizoLevelUpMappedMove(baseMove, species, level, GetMonData(mon, MON_DATA_PERSONALITY));
         sLearningMoveTableID++;
         retVal = GiveMoveToMon(mon, gMoveToLearn);
     }
@@ -4980,15 +5000,9 @@ bool8 TryIncrementMonLevel(struct Pokemon *mon)
 
 bool32 CanLearnTeachableMove(enum Species species, enum Move move)
 {
-    const u16 *teachableLearnset = GetSpeciesTeachableLearnset(species);
-    if (species == SPECIES_EGG)
+    if (species == SPECIES_EGG || species == SPECIES_NONE)
         return FALSE;
-    for (u32 i = 0; teachableLearnset[i] != MOVE_UNAVAILABLE; i++)
-    {
-        if (teachableLearnset[i] == move)
-            return TRUE;
-    }
-    return FALSE;
+    return TRUE;
 }
 
 u16 SpeciesToPokedexNum(enum Species species)

@@ -13,6 +13,9 @@
 #include "malloc.h"
 #include "script_menu.h"
 #include "constants/battle.h"
+#include "constants/flags.h"
+#include "constants/region_map_sections.h"
+#include "move.h"
 #include "data/kaizo_item_pool.h"
 
 
@@ -263,12 +266,12 @@ static const u8 sIvStatMonData[6] = {
     MON_DATA_SPEED_IV
 };
 
-static const u8 sIvStatName_HP[]    = _("PS");
-static const u8 sIvStatName_ATK[]   = _("Attacco");
-static const u8 sIvStatName_DEF[]   = _("Difesa");
-static const u8 sIvStatName_SPATK[] = _("Att. Sp.");
-static const u8 sIvStatName_SPDEF[] = _("Dif. Sp.");
-static const u8 sIvStatName_SPD[]   = _("Velocita'");
+static const u8 sIvStatName_HP[]    = _("HP");
+static const u8 sIvStatName_ATK[]   = _("Attack");
+static const u8 sIvStatName_DEF[]   = _("Defense");
+static const u8 sIvStatName_SPATK[] = _("Sp. Atk");
+static const u8 sIvStatName_SPDEF[] = _("Sp. Def");
+static const u8 sIvStatName_SPD[]   = _("Speed");
 
 static const u8 *const sIvStatNames[6] = {
     sIvStatName_HP,
@@ -283,10 +286,10 @@ static const u8 sIvText_Max[]     = _("/31 MAX");
 static const u8 sIvText_Slash31[] = _("/31");
 static const u8 sIvText_Colon[]   = _(": ");
 static const u8 sIvText_Plus[]    = _("+");
-static const u8 sIvText_Punto[]   = _(" punto");
-static const u8 sIvText_Punti[]   = _(" punti");
-static const u8 sIvText_Esci[]    = _("Esci");
-static const u8 sIvText_Annulla[] = _("Annulla");
+static const u8 sIvText_Punto[]   = _(" Point");
+static const u8 sIvText_Punti[]   = _(" Points");
+static const u8 sIvText_Esci[]    = _("Done / Back");
+static const u8 sIvText_Annulla[] = _("Cancel");
 
 void Script_IVBooster_Init(void)
 {
@@ -443,11 +446,11 @@ static const u8 sEvText_Plus[]         = _("+");
 static const u8 sEvText_Minus[]        = _("-");
 static const u8 sEvText_EV[]           = _(" EV");
 static const u8 sEvText_EVMax[]        = _(" EV (MAX)");
-static const u8 sEvText_AllRemaining[] = _("Tutto (+");
+static const u8 sEvText_AllRemaining[] = _("All (+");
 static const u8 sEvText_CloseParen[]   = _(" EV)");
-static const u8 sEvText_ClearStat[]    = _("Azzera stat (0 EV)");
-static const u8 sEvText_SaveApply[]    = _("Salva e Applica");
-static const u8 sEvText_CancelAll[]    = _("Annulla Modifiche");
+static const u8 sEvText_ClearStat[]    = _("Reset stat (0 EV)");
+static const u8 sEvText_SaveApply[]    = _("Save & Apply");
+static const u8 sEvText_CancelAll[]    = _("Cancel Changes");
 
 void Script_EVManager_Init(void)
 {
@@ -781,4 +784,517 @@ void Script_AbilityChanger_Apply(void)
     StringGet_Nickname(gStringVar1);
     StringCopy(gStringVar2, gAbilitiesInfo[newAbility].name);
 }
+
+// --- POKÉ MART BUILD HUB LIMIT (1 PER CITTÀ) ---
+
+static u8 GetCurrentCityMartIndex(void)
+{
+    u8 mapSec = gMapHeader.regionMapSectionId;
+    switch (mapSec)
+    {
+    case MAPSEC_VIRIDIAN_CITY: return 0;
+    case MAPSEC_PEWTER_CITY: return 1;
+    case MAPSEC_CERULEAN_CITY: return 2;
+    case MAPSEC_VERMILION_CITY: return 3;
+    case MAPSEC_LAVENDER_TOWN: return 4;
+    case MAPSEC_CELADON_CITY: return 5;
+    case MAPSEC_SAFFRON_CITY: return 6;
+    case MAPSEC_FUCHSIA_CITY: return 7;
+    case MAPSEC_CINNABAR_ISLAND: return 8;
+    case MAPSEC_INDIGO_PLATEAU:
+    case MAPSEC_POKEMON_LEAGUE: return 9;
+    case MAPSEC_ONE_ISLAND: return 10;
+    case MAPSEC_TWO_ISLAND: return 11;
+    case MAPSEC_THREE_ISLAND: return 12;
+    case MAPSEC_FOUR_ISLAND: return 13;
+    case MAPSEC_FIVE_ISLAND: return 14;
+    case MAPSEC_SIX_ISLAND:
+    case MAPSEC_SEVEN_ISLAND: return 15;
+    default: return 0;
+    }
+}
+
+void Script_MartBuild_CheckCanUse(void)
+{
+    u8 city = GetCurrentCityMartIndex();
+    if (gSaveBlock2Ptr->martBuildUsedBitfield & (1 << city))
+        gSpecialVar_Result = 0; // Already used for this city
+    else
+        gSpecialVar_Result = 1; // Available
+}
+
+void Script_MartBuild_Consume(void)
+{
+    u8 city = GetCurrentCityMartIndex();
+    gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
+}
+
+// --- SESSION TRACKING FOR BUILD HUB (DISALLOW RE-CHOOSING AN OPTION) ---
+
+static u8 sMartBuildSessionUsed = 0;
+
+void Script_MartBuild_InitSession(void)
+{
+    sMartBuildSessionUsed = 0;
+}
+
+static const u8 sMartMenuText_StatPoints[]      = _("Stat Points");
+static const u8 sMartMenuText_MoveDraft[]       = _("Draft Random Move");
+static const u8 sMartMenuText_MoveRelearner[]   = _("Remember Move");
+static const u8 sMartMenuText_IVBooster[]       = _("Modify IVs");
+static const u8 sMartMenuText_EVManager[]       = _("Train EVs");
+static const u8 sMartMenuText_NatureChanger[]   = _("Change Nature");
+static const u8 sMartMenuText_AbilityChanger[]  = _("Change Ability");
+static const u8 sMartMenuText_Shop[]            = _("Buy Items");
+static const u8 sMartMenuText_Exit[]            = _("Done / Exit");
+
+static const u8 sMartMenuText_RedPrefix[]       = _("{COLOR RED}{SHADOW LIGHT_RED}");
+static const u8 sMartMenuText_UsedSuffix[]      = _(" (Used)");
+
+void Script_MartBuild_PushMainMenuChoices(void)
+{
+    static const u8 *const sOptionNames[] = {
+        sMartMenuText_StatPoints,
+        sMartMenuText_MoveDraft,
+        sMartMenuText_MoveRelearner,
+        sMartMenuText_IVBooster,
+        sMartMenuText_EVManager,
+        sMartMenuText_NatureChanger,
+        sMartMenuText_AbilityChanger,
+    };
+
+    for (u32 i = 0; i < ARRAY_COUNT(sOptionNames); i++)
+    {
+        u8 *buf = Alloc(64);
+        if (sMartBuildSessionUsed & (1 << i))
+        {
+            u8 *ptr = StringCopy(buf, sMartMenuText_RedPrefix);
+            ptr = StringAppend(ptr, sOptionNames[i]);
+            StringAppend(ptr, sMartMenuText_UsedSuffix);
+        }
+        else
+        {
+            StringCopy(buf, sOptionNames[i]);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufShop = Alloc(32);
+        StringCopy(bufShop, sMartMenuText_Shop);
+        struct ListMenuItem shopItem;
+        shopItem.name = bufShop;
+        shopItem.id = 7;
+        MultichoiceDynamic_PushElement(shopItem);
+    }
+
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sMartMenuText_Exit);
+        struct ListMenuItem exitItem;
+        exitItem.name = bufExit;
+        exitItem.id = 8;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_MartBuild_SelectOption(void)
+{
+    u8 option = (u8)gSpecialVar_0x8005;
+    if (option < 7 && (sMartBuildSessionUsed & (1 << option)))
+    {
+        gSpecialVar_Result = 100; // Already used
+        return;
+    }
+    gSpecialVar_Result = option;
+}
+
+void Script_MartBuild_MarkOptionUsed(void)
+{
+    u8 option = (u8)gSpecialVar_0x8005;
+    if (option < 7)
+        sMartBuildSessionUsed |= (1 << option);
+}
+
+void Script_MartBuild_ExitSession(void)
+{
+    if (sMartBuildSessionUsed != 0)
+    {
+        u8 city = GetCurrentCityMartIndex();
+        gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
+        gSpecialVar_Result = 1; // Modifications were made, city token consumed!
+    }
+    else
+    {
+        gSpecialVar_Result = 0; // Exited without making any modifications
+    }
+}
+
+// --- LOGIC STAT POINTS (+20 PER BADGE UP TO 500 BST) ---
+
+static u8 sStatPointsPartySlot = 0;
+static u8 sStatPointsSelectedStat = 0;
+
+static const u8 sStatPointNames[6][16] = {
+    _("HP"),
+    _("Attack"),
+    _("Defense"),
+    _("Speed"),
+    _("Sp. Atk"),
+    _("Sp. Def")
+};
+
+static const u8 sStatPointsText_Colon[]         = _(": ");
+static const u8 sStatPointsText_OpenParenPlus[] = _(" (+");
+static const u8 sStatPointsText_CloseParen[]    = _(")");
+static const u8 sStatPointsText_Exit[]          = _("Done / Back");
+static const u8 sStatPointsText_Plus[]          = _("+");
+static const u8 sStatPointsText_Minus[]         = _("-");
+static const u8 sStatPointsText_Points[]        = _(" Points");
+static const u8 sStatPointsText_AllRemaining[]  = _("+All (");
+static const u8 sStatPointsText_Reset[]         = _("Reset stat bonus");
+static const u8 sStatPointsText_Back[]          = _("Back");
+static const u8 sDraftText_Cancel[]             = _("Cancel");
+
+static u16 GetPlayerBadgesCount(void)
+{
+    u16 count = 0;
+    for (u32 i = FLAG_BADGE01_GET; i < FLAG_BADGE01_GET + NUM_BADGES; i++)
+    {
+        if (FlagGet(i))
+            count++;
+    }
+    return count;
+}
+
+static u16 GetTotalCustomStatPointsAllocated(void)
+{
+    u16 total = 0;
+    for (int i = 0; i < 6; i++)
+        total += gSaveBlock2Ptr->customStatPoints[i];
+    return total;
+}
+
+void Script_StatPoints_Init(void)
+{
+    u8 slot = (u8)VarGet(VAR_0x8004);
+    if (slot >= PARTY_SIZE)
+        slot = 0;
+    sStatPointsPartySlot = slot;
+
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 badges = GetPlayerBadgesCount();
+    u16 totalEarned = badges * 20;
+    u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, effectiveBST, STR_CONV_MODE_LEFT_ALIGN, 3);
+
+    if (naturalBST >= 500 || effectiveBST >= 500)
+    {
+        gSpecialVar_Result = 1; // BST naturale >= 500 o già a 500
+        return;
+    }
+
+    if (totalEarned <= totalUsed)
+    {
+        ConvertIntToDecimalStringN(gStringVar3, badges, STR_CONV_MODE_LEFT_ALIGN, 2);
+        gSpecialVar_Result = 2; // Nessun punto da distribuire
+        return;
+    }
+
+    u16 remainingEarned = totalEarned - totalUsed;
+    u16 maxCanAdd = 500 - effectiveBST;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+
+    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = 0; // Pronto per distribuire
+}
+
+void Script_StatPoints_GetRemainingPoints(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 badges = GetPlayerBadgesCount();
+    u16 totalEarned = badges * 20;
+    u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    ConvertIntToDecimalStringN(gStringVar2, effectiveBST, STR_CONV_MODE_LEFT_ALIGN, 3);
+
+    u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
+    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+
+    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = availableToAdd;
+}
+
+void Script_StatPoints_PushStatChoices(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+
+    for (int i = 0; i < 6; i++)
+    {
+        u16 baseStat = (i == STAT_HP) ? GetSpeciesBaseHP(species) : GetSpeciesBaseStat(species, i);
+        u8 customBonus = gSaveBlock2Ptr->customStatPoints[i];
+        u16 totalBase = baseStat + customBonus;
+
+        u8 *buf = Alloc(64);
+        u8 *ptr = StringCopy(buf, sStatPointNames[i]);
+        ptr = StringAppend(ptr, sStatPointsText_Colon);
+        ptr = ConvertIntToDecimalStringN(ptr, totalBase, STR_CONV_MODE_LEFT_ALIGN, 3);
+        if (customBonus > 0)
+        {
+            ptr = StringAppend(ptr, sStatPointsText_OpenParenPlus);
+            ptr = ConvertIntToDecimalStringN(ptr, customBonus, STR_CONV_MODE_LEFT_ALIGN, 3);
+            ptr = StringAppend(ptr, sStatPointsText_CloseParen);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sStatPointsText_Exit);
+        struct ListMenuItem exitItem;
+        exitItem.name = bufExit;
+        exitItem.id = 6;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_StatPoints_SelectStat(void)
+{
+    u8 statIndex = (u8)gSpecialVar_0x8005;
+    if (statIndex >= 6)
+    {
+        gSpecialVar_Result = 1; // Esci
+        return;
+    }
+
+    sStatPointsSelectedStat = statIndex;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 baseStat = (statIndex == STAT_HP) ? GetSpeciesBaseHP(species) : GetSpeciesBaseStat(species, statIndex);
+    u8 customBonus = gSaveBlock2Ptr->customStatPoints[statIndex];
+
+    StringCopy(gStringVar1, sStatPointNames[statIndex]);
+    ConvertIntToDecimalStringN(gStringVar2, baseStat + customBonus, STR_CONV_MODE_LEFT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar3, customBonus, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = 0;
+}
+
+void Script_StatPoints_PushAmountChoices(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 badges = GetPlayerBadgesCount();
+    u16 totalEarned = badges * 20;
+    u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
+    u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
+    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+    u8 customBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
+
+    static const u8 sAddAmounts[] = { 1, 5, 10, 20 };
+    for (int i = 0; i < ARRAY_COUNT(sAddAmounts); i++)
+    {
+        u8 amt = sAddAmounts[i];
+        if (availableToAdd >= amt)
+        {
+            u8 *buf = Alloc(32);
+            u8 *ptr = StringCopy(buf, sStatPointsText_Plus);
+            ptr = ConvertIntToDecimalStringN(ptr, amt, STR_CONV_MODE_LEFT_ALIGN, 2);
+            ptr = StringAppend(ptr, sStatPointsText_Points);
+            struct ListMenuItem item;
+            item.name = buf;
+            item.id = amt;
+            MultichoiceDynamic_PushElement(item);
+        }
+    }
+
+    if (availableToAdd > 0 && availableToAdd != 1 && availableToAdd != 5 && availableToAdd != 10 && availableToAdd != 20)
+    {
+        u8 *bufAll = Alloc(32);
+        u8 *ptr = StringCopy(bufAll, sStatPointsText_AllRemaining);
+        ptr = ConvertIntToDecimalStringN(ptr, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
+        ptr = StringAppend(ptr, sStatPointsText_CloseParen);
+        struct ListMenuItem allItem;
+        allItem.name = bufAll;
+        allItem.id = 999;
+        MultichoiceDynamic_PushElement(allItem);
+    }
+
+    // Sottrazioni / Riassegnazioni
+    static const u8 sSubAmounts[] = { 1, 5, 10, 20 };
+    for (int i = 0; i < ARRAY_COUNT(sSubAmounts); i++)
+    {
+        u8 amt = sSubAmounts[i];
+        if (customBonus >= amt)
+        {
+            u8 *buf = Alloc(32);
+            u8 *ptr = StringCopy(buf, sStatPointsText_Minus);
+            ptr = ConvertIntToDecimalStringN(ptr, amt, STR_CONV_MODE_LEFT_ALIGN, 2);
+            ptr = StringAppend(ptr, sStatPointsText_Points);
+            struct ListMenuItem item;
+            item.name = buf;
+            item.id = -(s32)amt;
+            MultichoiceDynamic_PushElement(item);
+        }
+    }
+
+    if (customBonus > 0 && customBonus != 1 && customBonus != 5 && customBonus != 10 && customBonus != 20)
+    {
+        u8 *bufReset = Alloc(32);
+        StringCopy(bufReset, sStatPointsText_Reset);
+        struct ListMenuItem resetItem;
+        resetItem.name = bufReset;
+        resetItem.id = -999;
+        MultichoiceDynamic_PushElement(resetItem);
+    }
+
+    {
+        u8 *bufBack = Alloc(32);
+        StringCopy(bufBack, sStatPointsText_Back);
+        struct ListMenuItem backItem;
+        backItem.name = bufBack;
+        backItem.id = 0;
+        MultichoiceDynamic_PushElement(backItem);
+    }
+}
+
+void Script_StatPoints_Apply(void)
+{
+    s32 delta = (s32)gSpecialVar_0x8005;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
+    u16 badges = GetPlayerBadgesCount();
+    u16 totalEarned = badges * 20;
+    u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
+    u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
+    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+    u8 currentBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
+
+    if (delta == 999)
+    {
+        gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat] += (u8)availableToAdd;
+    }
+    else if (delta == -999)
+    {
+        gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat] = 0;
+    }
+    else if (delta > 0)
+    {
+        u16 toAdd = (u16)delta;
+        if (toAdd > availableToAdd)
+            toAdd = availableToAdd;
+        gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat] += (u8)toAdd;
+    }
+    else if (delta < 0)
+    {
+        u16 toSub = (u16)(-delta);
+        if (toSub > currentBonus)
+            toSub = currentBonus;
+        gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat] -= (u8)toSub;
+    }
+
+    CalculateMonStats(mon);
+}
+
+// --- LOGICA MOVE DRAFT (5 MOSSE RANDOM) ---
+
+static u16 sDraftedMoves[5];
+
+void Script_MoveDraft_Roll(void)
+{
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+    u16 monMoves[4];
+    for (int i = 0; i < 4; i++)
+        monMoves[i] = GetMonData(mon, MON_DATA_MOVE1 + i);
+
+    for (int i = 0; i < 5; i++)
+    {
+        u16 move;
+        bool32 valid;
+        int tries = 0;
+        do {
+            valid = TRUE;
+            move = (Random() % (MOVES_COUNT - 1)) + 1;
+            if (move == MOVE_NONE || move == MOVE_STRUGGLE || move >= MOVES_COUNT)
+                valid = FALSE;
+            else if (gMovesInfo[move].name[0] == 0 || gMovesInfo[move].name[0] == '-')
+                valid = FALSE;
+            
+            for (int m = 0; m < 4; m++)
+            {
+                if (monMoves[m] == move)
+                {
+                    valid = FALSE;
+                    break;
+                }
+            }
+
+            for (int d = 0; d < i; d++)
+            {
+                if (sDraftedMoves[d] == move)
+                {
+                    valid = FALSE;
+                    break;
+                }
+            }
+            tries++;
+        } while (!valid && tries < 3000);
+
+        sDraftedMoves[i] = move;
+
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gMovesInfo[move].name);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sDraftText_Cancel);
+        struct ListMenuItem cancelItem;
+        cancelItem.name = bufCancel;
+        cancelItem.id = 5;
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+}
+
+void Script_MoveDraft_Select(void)
+{
+    u8 choice = (u8)gSpecialVar_0x8005;
+    if (choice >= 5)
+    {
+        gSpecialVar_Result = 0;
+        return;
+    }
+    u16 move = sDraftedMoves[choice];
+    gSpecialVar_0x8005 = move;
+    gSpecialVar_Result = move;
+}
+
 

@@ -12,6 +12,12 @@ CinnabarIsland_Mart_EventScript_Scientist::
 CinnabarIsland_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, CinnabarIsland_Mart_EventScript_BuyItems
+	release
+	end
+
+CinnabarIsland_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart CinnabarIsland_Mart_Items

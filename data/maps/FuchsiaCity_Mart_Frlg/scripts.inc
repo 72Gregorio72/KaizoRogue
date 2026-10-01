@@ -12,6 +12,12 @@ FuchsiaCity_Mart_EventScript_Gentleman::
 FuchsiaCity_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, FuchsiaCity_Mart_EventScript_BuyItems
+	release
+	end
+
+FuchsiaCity_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart FuchsiaCity_Mart_Items

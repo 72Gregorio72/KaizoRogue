@@ -1057,6 +1057,7 @@ gStdScripts_End::
 
 	.include "data/scripts/config.inc"
 	.include "data/scripts/debug.inc"
+	.include "data/scripts/pokemart_build_hub.inc"
 
 EventScript_WhiteOut::
 	call EverGrandeCity_HallOfFame_EventScript_ResetEliteFour

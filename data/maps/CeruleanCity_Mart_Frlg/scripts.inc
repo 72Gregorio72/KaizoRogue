@@ -12,6 +12,12 @@ CeruleanCity_Mart_EventScript_Woman::
 CeruleanCity_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, CeruleanCity_Mart_EventScript_BuyItems
+	release
+	end
+
+CeruleanCity_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart CeruleanCity_Mart_Items

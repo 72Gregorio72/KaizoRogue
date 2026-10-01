@@ -919,23 +919,26 @@ static u32 GetRelearnerLevelUpMoves(struct BoxPokemon *mon, u16 *moves)
     do
     {
         const struct LevelUpMove *learnset = GetSpeciesLevelUpLearnset(species);
+        u32 personality = GetBoxMonData(mon, MON_DATA_PERSONALITY);
 
         for (u32 i = 0; learnset[i].move != LEVEL_UP_MOVE_END; i++)
         {
             if (learnset[i].level > level)
                 break;
 
-            if (BoxMonKnowsMove(mon, learnset[i].move))
+            enum Move mappedMove = GetKaizoLevelUpMappedMove(learnset[i].move, species, learnset[i].level, personality);
+
+            if (BoxMonKnowsMove(mon, mappedMove))
                 continue;
 
             bool32 alreadyInList = FALSE;
             for (u32 j = 0; j < numMoves; j++)
             {
-                if (learnset[i].move == moves[j])
+                if (mappedMove == moves[j])
                     alreadyInList = TRUE;
             }
             if (!alreadyInList)
-                moves[numMoves++] = learnset[i].move;
+                moves[numMoves++] = mappedMove;
         }
 
         species = (P_PRE_EVO_MOVES ? GetSpeciesPreEvolution(species) : SPECIES_NONE);
@@ -1041,13 +1044,16 @@ static bool32 HasRelearnerLevelUpMoves(struct BoxPokemon *boxMon)
     do
     {
         const struct LevelUpMove *learnset = GetSpeciesLevelUpLearnset(species);
+        u32 personality = GetBoxMonData(boxMon, MON_DATA_PERSONALITY);
 
         for (u32 i = 0; learnset[i].move != LEVEL_UP_MOVE_END; i++)
         {
             if (learnset[i].level > level)
                 break;
 
-            if (!BoxMonKnowsMove(boxMon, learnset[i].move))
+            enum Move mappedMove = GetKaizoLevelUpMappedMove(learnset[i].move, species, learnset[i].level, personality);
+
+            if (!BoxMonKnowsMove(boxMon, mappedMove))
                 return TRUE;
         }
 

@@ -16,6 +16,12 @@ CeladonCity_DepartmentStore_2F_EventScript_FloorSign::
 CeladonCity_DepartmentStore_2F_EventScript_ClerkItems::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, CeladonCity_DepartmentStore_2F_EventScript_BuyItems
+	release
+	end
+
+CeladonCity_DepartmentStore_2F_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart CeladonCity_DepartmentStore_2F_Items

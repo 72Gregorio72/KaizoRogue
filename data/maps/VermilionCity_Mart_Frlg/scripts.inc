@@ -12,6 +12,12 @@ VermilionCity_Mart_EventScript_BaldingMan::
 VermilionCity_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, VermilionCity_Mart_EventScript_BuyItems
+	release
+	end
+
+VermilionCity_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart VermilionCity_Mart_Items

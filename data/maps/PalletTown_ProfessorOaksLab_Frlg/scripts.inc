@@ -467,9 +467,21 @@ PalletTown_ProfessorOaksLab_EventScript_EndRivalBattle::
 	call_if_eq VAR_TEMP_2, 3, PalletTown_ProfessorOaksLab_EventScript_RivalExitAfterBattleRight
 	removeobject LOCALID_OAKS_LAB_RIVAL
 	playse SE_EXIT
-	fadedefaultbgm
-	setvar VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 4
+	setvar VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 6
 	setflag FLAG_BEAT_RIVAL_IN_OAKS_LAB
+	setflag FLAG_SYS_POKEDEX_GET
+	special SetUnlockedPokedexFlags
+	special EnableNationalPokedex
+	setflag FLAG_SYS_B_DASH
+	setflag FLAG_HIDE_POKEDEX
+	removeobject LOCALID_POKEDEX_1
+	removeobject LOCALID_POKEDEX_2
+	setvar VAR_MAP_SCENE_VIRIDIAN_CITY_OLD_MAN, 2
+	setvar VAR_MAP_SCENE_VIRIDIAN_CITY_MART, 2
+	setvar VAR_MAP_SCENE_POKEMON_CENTER_TEALA, 1
+	giveitem ITEM_POKE_BALL, 5
+	giveitem ITEM_TOWN_MAP, 1
+	msgbox PalletTown_ProfessorOaksLab_Text_ReceivedPokedexFromOak, MSGBOX_DEFAULT
 	releaseall
 	end
 

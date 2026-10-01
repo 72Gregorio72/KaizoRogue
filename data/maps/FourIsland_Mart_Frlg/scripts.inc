@@ -4,6 +4,12 @@ FourIsland_Mart_Frlg_MapScripts::
 FourIsland_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, FourIsland_Mart_EventScript_BuyItems
+	release
+	end
+
+FourIsland_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart FourIsland_Mart_Items

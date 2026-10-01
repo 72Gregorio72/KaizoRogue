@@ -4,6 +4,12 @@ ThreeIsland_Mart_Frlg_MapScripts::
 ThreeIsland_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, ThreeIsland_Mart_EventScript_BuyItems
+	release
+	end
+
+ThreeIsland_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart ThreeIsland_Mart_Items

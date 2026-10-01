@@ -12,6 +12,12 @@ PewterCity_Mart_EventScript_Boy::
 PewterCity_Mart_EventScript_Clerk::
 	lock
 	faceplayer
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, PewterCity_Mart_EventScript_BuyItems
+	release
+	end
+
+PewterCity_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart PewterCity_Mart_Items

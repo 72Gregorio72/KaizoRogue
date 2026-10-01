@@ -53,6 +53,12 @@ ViridianCity_Mart_EventScript_Clerk::
 	lock
 	faceplayer
 	goto_if_eq VAR_MAP_SCENE_VIRIDIAN_CITY_MART, 1, ViridianCity_Mart_EventScript_SayHiToOak
+	call Common_EventScript_PokemartBuildHub
+	goto_if_eq VAR_RESULT, 99, ViridianCity_Mart_EventScript_BuyItems
+	release
+	end
+
+ViridianCity_Mart_EventScript_BuyItems::
 	message gText_HowMayIServeYou
 	waitmessage
 	pokemart ViridianCity_Mart_Items
