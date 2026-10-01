@@ -32,8 +32,8 @@
 #include "constants/battle_anim.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
-#include "constants/items.h"
 #include "caps.h"
+#include "type_icons.h"
 
 #define HEALTHBOX_BG_INDEX 2
 
@@ -697,6 +697,7 @@ u8 CreateBattlerHealthboxSprites(enum BattlerId battler)
     healthBarSpritePtr->invisible = TRUE;
 
     CreateIndicatorSprite(battler);
+    CreateBattlerTypeIcons(battler);
 
     gBattleStruct->ballSpriteIds[0] = MAX_SPRITES;
     gBattleStruct->ballSpriteIds[1] = MAX_SPRITES;
@@ -2139,6 +2140,7 @@ void UpdateHealthboxAttribute(u8 healthboxSpriteId, struct Pokemon *mon, u8 elem
         if (elementId == HEALTHBOX_STATUS_ICON || elementId == HEALTHBOX_ALL)
             UpdateStatusIconInHealthbox(healthboxSpriteId);
     }
+    UpdateBattlerTypeIcons(battler);
 }
 
 #define B_EXPBAR_PIXELS 64

@@ -706,3 +706,79 @@ void Script_EVManager_ResetAllEVs(void)
     GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
     StringGet_Nickname(gStringVar1);
 }
+
+// --- NPC CAMBIO NATURA RANDOM ---
+void Script_NatureChanger_Init(void)
+{
+    u8 slot = VarGet(VAR_0x8004);
+    if (slot >= PARTY_SIZE)
+        slot = 0;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+
+    u8 nature = GetMonData(mon, MON_DATA_HIDDEN_NATURE);
+    if (nature >= NUM_NATURES)
+        nature = GetNature(mon);
+
+    StringCopy(gStringVar2, gNaturesInfo[nature].name);
+}
+
+void Script_NatureChanger_Apply(void)
+{
+    u8 slot = VarGet(VAR_0x8004);
+    if (slot >= PARTY_SIZE)
+        slot = 0;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+
+    u8 currentNature = GetMonData(mon, MON_DATA_HIDDEN_NATURE);
+    if (currentNature >= NUM_NATURES)
+        currentNature = GetNature(mon);
+
+    u8 newNature = (currentNature + 1 + (Random() % (NUM_NATURES - 1))) % NUM_NATURES;
+    u8 hiddenNature = newNature;
+    SetMonData(mon, MON_DATA_HIDDEN_NATURE, &hiddenNature);
+    CalculateMonStats(mon);
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    StringCopy(gStringVar2, gNaturesInfo[newNature].name);
+}
+
+// --- NPC CAMBIO ABILITÀ RANDOM ---
+void Script_AbilityChanger_Init(void)
+{
+    u8 slot = VarGet(VAR_0x8004);
+    if (slot >= PARTY_SIZE)
+        slot = 0;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+
+    enum Ability ability = GetMonAbility(mon);
+    StringCopy(gStringVar2, gAbilitiesInfo[ability].name);
+}
+
+void Script_AbilityChanger_Apply(void)
+{
+    u8 slot = VarGet(VAR_0x8004);
+    if (slot >= PARTY_SIZE)
+        slot = 0;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+
+    enum Ability currentAbility = GetMonAbility(mon);
+    enum Ability newAbility;
+    u32 tries = 0;
+    do {
+        newAbility = (Random() % (ABILITIES_COUNT - 1)) + 1;
+        tries++;
+    } while ((newAbility == currentAbility || gAbilitiesInfo[newAbility].name[0] == '-' || gAbilitiesInfo[newAbility].name[0] == 0) && tries < 1000);
+
+    u16 customAbility = newAbility;
+    SetMonData(mon, MON_DATA_CUSTOM_ABILITY, &customAbility);
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
+    StringGet_Nickname(gStringVar1);
+    StringCopy(gStringVar2, gAbilitiesInfo[newAbility].name);
+}
+

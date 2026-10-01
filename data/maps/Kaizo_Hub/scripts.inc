@@ -388,4 +388,118 @@ Kaizo_Hub_Text_EV_Goodbye:
 	.string "Nessuna modifica applicata agli EV.\n"
 	.string "Torna quando vuoi!$"
 
+// --- NPC CAMBIO NATURA RANDOM ---
+Kaizo_Hub_EventScript_NatureChangerNPC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, CalculatePlayerPartyCount
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_Nature_NoPokemon
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_Nature_SingleMon
+	msgbox Kaizo_Hub_Text_Nature_ChooseMon, MSGBOX_DEFAULT
+	special ChoosePartyMon
+	goto_if_ge VAR_0x8004, PARTY_SIZE, Kaizo_Hub_EventScript_Nature_Cancel
+	goto Kaizo_Hub_EventScript_Nature_Confirm
+
+Kaizo_Hub_EventScript_Nature_SingleMon::
+	setvar VAR_0x8004, 0
+
+Kaizo_Hub_EventScript_Nature_Confirm::
+	special Script_NatureChanger_Init
+	msgbox Kaizo_Hub_Text_Nature_AskReroll, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_Nature_Cancel
+	special Script_NatureChanger_Apply
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_Nature_Success, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_Nature_NoPokemon::
+	msgbox Kaizo_Hub_Text_Nature_NoPokemon, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_Nature_Cancel::
+	msgbox Kaizo_Hub_Text_Nature_Goodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_Nature_NoPokemon:
+	.string "Non hai nessun POKéMON con te!$"
+
+Kaizo_Hub_Text_Nature_ChooseMon:
+	.string "Di quale POKéMON vuoi\n"
+	.string "cambiare la Natura?$"
+
+Kaizo_Hub_Text_Nature_AskReroll:
+	.string "Vuoi cambiare la Natura di {STR_VAR_1}?\n"
+	.string "(Natura attuale: {STR_VAR_2})\p"
+	.string "Ne ricevera' una nuova casuale!$"
+
+Kaizo_Hub_Text_Nature_Success:
+	.string "La Natura di {STR_VAR_1} e' cambiata in:\n"
+	.string "{STR_VAR_2}!\p"
+	.string "Le sue statistiche sono state aggiornate.\n"
+	.string "Torna quando vuoi per un altro reroll!$"
+
+Kaizo_Hub_Text_Nature_Goodbye:
+	.string "Nessuna modifica alla Natura.\n"
+	.string "Torna pure quando vuoi!$"
+
+// --- NPC CAMBIO ABILITA RANDOM ---
+Kaizo_Hub_EventScript_AbilityChangerNPC::
+	lock
+	faceplayer
+	specialvar VAR_RESULT, CalculatePlayerPartyCount
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_Ability_NoPokemon
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_Ability_SingleMon
+	msgbox Kaizo_Hub_Text_Ability_ChooseMon, MSGBOX_DEFAULT
+	special ChoosePartyMon
+	goto_if_ge VAR_0x8004, PARTY_SIZE, Kaizo_Hub_EventScript_Ability_Cancel
+	goto Kaizo_Hub_EventScript_Ability_Confirm
+
+Kaizo_Hub_EventScript_Ability_SingleMon::
+	setvar VAR_0x8004, 0
+
+Kaizo_Hub_EventScript_Ability_Confirm::
+	special Script_AbilityChanger_Init
+	msgbox Kaizo_Hub_Text_Ability_AskReroll, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_Ability_Cancel
+	special Script_AbilityChanger_Apply
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_Ability_Success, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_Ability_NoPokemon::
+	msgbox Kaizo_Hub_Text_Ability_NoPokemon, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_Ability_Cancel::
+	msgbox Kaizo_Hub_Text_Ability_Goodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_Ability_NoPokemon:
+	.string "Non hai nessun POKéMON con te!$"
+
+Kaizo_Hub_Text_Ability_ChooseMon:
+	.string "Di quale POKéMON vuoi\n"
+	.string "cambiare l'Abilita'?$"
+
+Kaizo_Hub_Text_Ability_AskReroll:
+	.string "Vuoi cambiare l'Abilita' di {STR_VAR_1}?\n"
+	.string "(Abilita' attuale: {STR_VAR_2})\p"
+	.string "Ne ricevera' una casuale da tutto il gioco!$"
+
+Kaizo_Hub_Text_Ability_Success:
+	.string "L'Abilita' di {STR_VAR_1} e' cambiata in:\n"
+	.string "{STR_VAR_2}!\p"
+	.string "Torna quando vuoi per un altro reroll!$"
+
+Kaizo_Hub_Text_Ability_Goodbye:
+	.string "Nessuna modifica all'Abilita'.\n"
+	.string "Torna pure quando vuoi!$"
+
+
 

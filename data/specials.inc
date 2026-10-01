@@ -659,4 +659,8 @@ gSpecials::
 	def_special Script_EVManager_PushPointChoices
 	def_special Script_EVManager_ApplyPoints
 	def_special Script_EVManager_ResetAllEVs
+	def_special Script_NatureChanger_Init
+	def_special Script_NatureChanger_Apply
+	def_special Script_AbilityChanger_Init
+	def_special Script_AbilityChanger_Apply
 

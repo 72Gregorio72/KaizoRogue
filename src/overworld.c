@@ -198,9 +198,6 @@ static void CameraCB_CreditsPan(struct CameraObject *camera);
 static void Task_OvwldCredits_FadeOut(u8 taskId);
 static void Task_OvwldCredits_WaitFade(u8 taskId);
 
-
-void SpawnHiddenItemSprites(void);
-
 static u8 sPlayerLinkStates[MAX_LINK_PLAYERS];
 // This callback is called with a player's key code. It then returns an
 // adjusted key code, effectively intercepting the input before anything
@@ -2675,8 +2672,6 @@ static void InitObjectEventsLocal(void)
     FollowerNPC_HandleSprite();
     UpdateFollowingPokemon();
     TryRunOnWarpIntoMapScript();
-
-    SpawnHiddenItemSprites();
 }
 
 static void InitObjectEventsReturnToField(void)
@@ -2684,7 +2679,6 @@ static void InitObjectEventsReturnToField(void)
     SpawnObjectEventsOnReturnToField(0, 0);
     RotatingGate_InitPuzzleAndGraphics();
     RunOnReturnToFieldMapScript();
-    SpawnHiddenItemSprites();
 }
 
 static void SetCameraToTrackPlayer(void)
@@ -4111,56 +4105,4 @@ static void ResetKaizoRogueRun(void)
     SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
                        MAP_NUM(MAP_KAIZO_HUB),
                        WARP_ID_NONE, 10, 7);
-}
-
-#ifndef BG_EVENT_HIDDEN_ITEM
-#define BG_EVENT_HIDDEN_ITEM 7
-#endif
-
-void SpawnHiddenItemSprites(void)
-{
-    u32 i;
-    const struct BgEvent *bgEvents;
-    u8 count;
-    u16 camX, camY;
-
-    if (gMapHeader.events == NULL)
-        return;
-
-    bgEvents = gMapHeader.events->bgEvents;
-    count = gMapHeader.events->bgEventCount;
-
-    if (bgEvents == NULL)
-        return;
-
-    // u16 corrisponde alla firma di GetCameraFocusCoords(u16 *x, u16 *y)
-    GetCameraFocusCoords(&camX, &camY);
-
-    for (i = 0; i < count; i++)
-    {
-        if (bgEvents[i].kind == BG_EVENT_HIDDEN_ITEM)
-        {
-            u16 itemFlag = bgEvents[i].bgUnion.hiddenItem.hiddenItemId;
-
-            if (!FlagGet(itemFlag))
-            {
-                struct ObjectEventTemplate template;
-
-                template.localId = 0xFF;
-                template.graphicsId = OBJ_EVENT_GFX_ITEM_BALL;
-                template.x = bgEvents[i].x;
-                template.y = bgEvents[i].y;
-                template.elevation = 3;
-                template.movementType = MOVEMENT_TYPE_LOOK_AROUND;
-                template.movementRangeX = 0;
-                template.movementRangeY = 0;
-                template.trainerType = 0; // 0 equivale a nessun trainer
-                template.trainerRange_berryTreeId = 0;
-                template.script = NULL;
-                template.flagId = 0;
-
-                TrySpawnObjectEventTemplate(&template, gSaveBlock1Ptr->location.mapNum, gSaveBlock1Ptr->location.mapGroup, (s16)camX, (s16)camY);
-            }
-        }
-    }
 }

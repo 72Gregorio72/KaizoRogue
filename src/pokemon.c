@@ -2260,26 +2260,17 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
         case MON_DATA_EFFORT_RIBBON:
             retVal = GetSubstruct3(boxMon)->effortRibbon;
             break;
+        case MON_DATA_CUSTOM_ABILITY:
+            retVal = GetSubstruct3(boxMon)->customAbility;
+            break;
         case MON_DATA_MARINE_RIBBON:
-            retVal = GetSubstruct3(boxMon)->marineRibbon;
-            break;
         case MON_DATA_LAND_RIBBON:
-            retVal = GetSubstruct3(boxMon)->landRibbon;
-            break;
         case MON_DATA_SKY_RIBBON:
-            retVal = GetSubstruct3(boxMon)->skyRibbon;
-            break;
         case MON_DATA_COUNTRY_RIBBON:
-            retVal = GetSubstruct3(boxMon)->countryRibbon;
-            break;
         case MON_DATA_NATIONAL_RIBBON:
-            retVal = GetSubstruct3(boxMon)->nationalRibbon;
-            break;
         case MON_DATA_EARTH_RIBBON:
-            retVal = GetSubstruct3(boxMon)->earthRibbon;
-            break;
         case MON_DATA_WORLD_RIBBON:
-            retVal = GetSubstruct3(boxMon)->worldRibbon;
+            retVal = 0;
             break;
         case MON_DATA_MODERN_FATEFUL_ENCOUNTER:
             retVal = GetSubstruct3(boxMon)->modernFatefulEncounter;
@@ -2334,13 +2325,6 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
                 retVal += substruct3->victoryRibbon;
                 retVal += substruct3->artistRibbon;
                 retVal += substruct3->effortRibbon;
-                retVal += substruct3->marineRibbon;
-                retVal += substruct3->landRibbon;
-                retVal += substruct3->skyRibbon;
-                retVal += substruct3->countryRibbon;
-                retVal += substruct3->nationalRibbon;
-                retVal += substruct3->earthRibbon;
-                retVal += substruct3->worldRibbon;
             }
             break;
         case MON_DATA_RIBBONS:
@@ -2356,14 +2340,7 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
                        | (substruct3->winningRibbon << 16)
                        | (substruct3->victoryRibbon << 17)
                        | (substruct3->artistRibbon << 18)
-                       | (substruct3->effortRibbon << 19)
-                       | (substruct3->marineRibbon << 20)
-                       | (substruct3->landRibbon << 21)
-                       | (substruct3->skyRibbon << 22)
-                       | (substruct3->countryRibbon << 23)
-                       | (substruct3->nationalRibbon << 24)
-                       | (substruct3->earthRibbon << 25)
-                       | (substruct3->worldRibbon << 26);
+                       | (substruct3->effortRibbon << 19);
             }
             break;
         case MON_DATA_HYPER_TRAINED_HP:
@@ -2385,7 +2362,7 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
             retVal = GetSubstruct1(boxMon)->hyperTrainedSpDefense;
             break;
         case MON_DATA_IS_SHADOW:
-            retVal = GetSubstruct3(boxMon)->isShadow;
+            retVal = 0;
             break;
         case MON_DATA_DYNAMAX_LEVEL:
             retVal = GetSubstruct3(boxMon)->dynamaxLevel;
@@ -2776,26 +2753,16 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
         case MON_DATA_EFFORT_RIBBON:
             SET8(GetSubstruct3(boxMon)->effortRibbon);
             break;
+        case MON_DATA_CUSTOM_ABILITY:
+            SET16(GetSubstruct3(boxMon)->customAbility);
+            break;
         case MON_DATA_MARINE_RIBBON:
-            SET8(GetSubstruct3(boxMon)->marineRibbon);
-            break;
         case MON_DATA_LAND_RIBBON:
-            SET8(GetSubstruct3(boxMon)->landRibbon);
-            break;
         case MON_DATA_SKY_RIBBON:
-            SET8(GetSubstruct3(boxMon)->skyRibbon);
-            break;
         case MON_DATA_COUNTRY_RIBBON:
-            SET8(GetSubstruct3(boxMon)->countryRibbon);
-            break;
         case MON_DATA_NATIONAL_RIBBON:
-            SET8(GetSubstruct3(boxMon)->nationalRibbon);
-            break;
         case MON_DATA_EARTH_RIBBON:
-            SET8(GetSubstruct3(boxMon)->earthRibbon);
-            break;
         case MON_DATA_WORLD_RIBBON:
-            SET8(GetSubstruct3(boxMon)->worldRibbon);
             break;
         case MON_DATA_MODERN_FATEFUL_ENCOUNTER:
             SET8(GetSubstruct3(boxMon)->modernFatefulEncounter);
@@ -2832,7 +2799,6 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
             SET8(GetSubstruct1(boxMon)->hyperTrainedSpDefense);
             break;
         case MON_DATA_IS_SHADOW:
-            SET8(GetSubstruct3(boxMon)->isShadow);
             break;
         case MON_DATA_DYNAMAX_LEVEL:
             SET8(GetSubstruct3(boxMon)->dynamaxLevel);
@@ -3098,6 +3064,10 @@ enum Ability GetAbilityBySpecies(enum Species species, u8 abilityNum)
 
 enum Ability GetMonAbility(struct Pokemon *mon)
 {
+    u16 customAbility = GetMonData(mon, MON_DATA_CUSTOM_ABILITY);
+    if (customAbility != ABILITY_NONE && customAbility < ABILITIES_COUNT)
+        return customAbility;
+
     enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u8 abilityNum = GetMonData(mon, MON_DATA_ABILITY_NUM);
     return GetAbilityBySpecies(species, abilityNum);
@@ -3389,7 +3359,7 @@ void PokemonToBattleMon(struct Pokemon *src, struct BattlePokemon *dst)
     dst->types[2] = TYPE_MYSTERY;
     dst->isShiny = IsMonShiny(src);
     dst->affectionHearts = GetMonAffectionHearts(src);
-    dst->ability = GetAbilityBySpecies(dst->species, dst->abilityNum);
+    dst->ability = GetMonAbility(src);
     GetMonData(src, MON_DATA_NICKNAME, nickname);
     StringCopy_Nickname(dst->nickname, nickname);
     GetMonData(src, MON_DATA_OT_NAME, dst->otName);
@@ -4048,7 +4018,7 @@ u8 GetItemEffectParamOffset(enum BattlerId battler, enum Item itemId, u8 effectB
 
 u8 GetNature(struct Pokemon *mon)
 {
-    return GetMonData(mon, MON_DATA_PERSONALITY, 0) % NUM_NATURES;
+    return GetMonData(mon, MON_DATA_HIDDEN_NATURE);
 }
 
 u8 GetNatureFromPersonality(u32 personality)

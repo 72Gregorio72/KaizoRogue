@@ -70,4 +70,12 @@ void Script_EVManager_PushPointChoices(void);
 void Script_EVManager_ApplyPoints(void);
 void Script_EVManager_ResetAllEVs(void);
 
+// Nature Changer NPC
+void Script_NatureChanger_Init(void);
+void Script_NatureChanger_Apply(void);
+
+// Ability Changer NPC
+void Script_AbilityChanger_Init(void);
+void Script_AbilityChanger_Apply(void);
+
 #endif // GUARD_FIELD_SPECIALS_H
