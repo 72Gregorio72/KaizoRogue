@@ -11,6 +11,7 @@
 #include "field_player_avatar.h"
 #include "fieldmap.h"
 #include "follower_npc.h"
+#include "item.h"
 #include "menu.h"
 #include "metatile_behavior.h"
 #include "oras_dowse.h"
@@ -1619,6 +1620,9 @@ bool8 PartyHasMonWithSurf(void)
 
     if (!TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
     {
+        if (CheckBagHasItem(ITEM_HM03, 1))
+            return TRUE;
+
         for (i = 0; i < PARTY_SIZE; i++)
         {
             if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) == SPECIES_NONE)

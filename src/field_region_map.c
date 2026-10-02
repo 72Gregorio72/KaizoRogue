@@ -2,8 +2,10 @@
 #include "bg.h"
 #include "event_data.h"
 #include "field_effect.h"
+#include "field_move.h"
 #include "gpu_regs.h"
 #include "international_string_util.h"
+#include "item.h"
 #include "main.h"
 #include "malloc.h"
 #include "menu.h"
@@ -15,6 +17,8 @@
 #include "text.h"
 #include "text_window.h"
 #include "window.h"
+#include "constants/field_move.h"
+#include "constants/items.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 
@@ -43,6 +47,7 @@ static EWRAM_DATA struct {
     u32 unused;
     struct RegionMap regionMap;
     u16 state;
+    bool8 choseFlyLocation;
 } *sFieldRegionMapHandler = NULL;
 
 static void MCB2_InitRegionMapRegisters(void);
@@ -183,7 +188,21 @@ static void FieldUpdateRegionMap(void)
                 PrintTitleWindowText();
                 break;
         case MAP_INPUT_A_BUTTON:
+                if ((sFieldRegionMapHandler->regionMap.mapSecType == MAPSECTYPE_CITY_CANFLY || sFieldRegionMapHandler->regionMap.mapSecType == MAPSECTYPE_BATTLE_FRONTIER)
+                    && IsFieldMoveUnlocked(FIELD_MOVE_FLY)
+                    && (CheckBagHasItem(ITEM_HM02, 1) || CheckBagHasItem(ITEM_TOWN_MAP, 1))
+                    && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
+                {
+                    PlaySE(SE_SELECT);
+                    sFieldRegionMapHandler->choseFlyLocation = TRUE;
+                    sFieldRegionMapHandler->state++;
+                    break;
+                }
+                sFieldRegionMapHandler->choseFlyLocation = FALSE;
+                sFieldRegionMapHandler->state++;
+                break;
         case MAP_INPUT_B_BUTTON:
+                sFieldRegionMapHandler->choseFlyLocation = FALSE;
                 sFieldRegionMapHandler->state++;
                 break;
         case MAP_INPUT_R_BUTTON:
@@ -191,9 +210,9 @@ static void FieldUpdateRegionMap(void)
                     && FlagGet(OW_FLAG_POKE_RIDER) && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
                 {
                     PlaySE(SE_SELECT);
-                    SetFlyDestination(&sFieldRegionMapHandler->regionMap);
-                    gSkipShowMonAnim = TRUE;
-                    ReturnToFieldFromFlyMapSelect();
+                    sFieldRegionMapHandler->choseFlyLocation = TRUE;
+                    sFieldRegionMapHandler->state++;
+                    break;
                 }
         }
         break;
@@ -205,7 +224,16 @@ static void FieldUpdateRegionMap(void)
         if (!gPaletteFade.active)
         {
             FreeRegionMapIconResources();
-            SetMainCallback2(sFieldRegionMapHandler->callback);
+            if (sFieldRegionMapHandler->choseFlyLocation)
+            {
+                SetFlyDestination(&sFieldRegionMapHandler->regionMap);
+                gSkipShowMonAnim = TRUE;
+                ReturnToFieldFromFlyMapSelect();
+            }
+            else
+            {
+                SetMainCallback2(sFieldRegionMapHandler->callback);
+            }
             TRY_FREE_AND_SET_NULL(sFieldRegionMapHandler);
             FreeAllWindowBuffers();
         }
@@ -230,7 +258,7 @@ static void PrintRegionMapSecName(void)
 
 static void PrintTitleWindowText(void)
 {
-    static const u8 FlyPromptText[] = _("{R_BUTTON} FLY");
+    static const u8 FlyPromptText[] = _("{A_BUTTON} FLY");
     const u8 *region;
     if (IS_FRLG)
         region = gText_Kanto;
@@ -241,8 +269,10 @@ static void PrintTitleWindowText(void)
 
     FillWindowPixelBuffer(WIN_TITLE, PIXEL_FILL(1));
 
-    if (sFieldRegionMapHandler->regionMap.mapSecType == MAPSECTYPE_CITY_CANFLY
-        && FlagGet(OW_FLAG_POKE_RIDER) && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
+    if ((sFieldRegionMapHandler->regionMap.mapSecType == MAPSECTYPE_CITY_CANFLY || sFieldRegionMapHandler->regionMap.mapSecType == MAPSECTYPE_BATTLE_FRONTIER)
+        && ((IsFieldMoveUnlocked(FIELD_MOVE_FLY) && (CheckBagHasItem(ITEM_HM02, 1) || CheckBagHasItem(ITEM_TOWN_MAP, 1)))
+            || FlagGet(OW_FLAG_POKE_RIDER))
+        && Overworld_MapTypeAllowsTeleportAndFly(gMapHeader.mapType) == TRUE)
     {
         AddTextPrinterParameterized(WIN_TITLE, FONT_NORMAL, FlyPromptText, flyOffset, 1, 0, NULL);
         ScheduleBgCopyTilemapToVram(WIN_TITLE);

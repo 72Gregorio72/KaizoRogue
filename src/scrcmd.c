@@ -2312,11 +2312,24 @@ bool8 ScrCmd_setmonmove(struct ScriptContext *ctx)
     return FALSE;
 }
 
+static const u16 sFieldMoveHMItems[FIELD_MOVES_COUNT] =
+{
+    [FIELD_MOVE_CUT] = ITEM_HM01,
+    [FIELD_MOVE_FLASH] = ITEM_HM05,
+    [FIELD_MOVE_ROCK_SMASH] = ITEM_HM06,
+    [FIELD_MOVE_STRENGTH] = ITEM_HM04,
+    [FIELD_MOVE_SURF] = ITEM_HM03,
+    [FIELD_MOVE_FLY] = ITEM_HM02,
+    [FIELD_MOVE_DIVE] = ITEM_HM08,
+    [FIELD_MOVE_WATERFALL] = ITEM_HM07,
+};
+
 bool8 ScrCmd_checkfieldmove(struct ScriptContext *ctx)
 {
     enum FieldMove fieldMove = ScriptReadByte(ctx);
     bool32 doUnlockedCheck = ScriptReadByte(ctx);
     enum Move move;
+    u16 hmItem = (fieldMove < FIELD_MOVES_COUNT) ? sFieldMoveHMItems[fieldMove] : ITEM_NONE;
 
     Script_RequestEffects(SCREFF_V1);
 
@@ -2334,7 +2347,17 @@ bool8 ScrCmd_checkfieldmove(struct ScriptContext *ctx)
         {
             gSpecialVar_Result = i;
             gSpecialVar_0x8004 = species;
-            break;
+            return FALSE;
+        }
+    }
+
+    if (hmItem != ITEM_NONE && CheckBagHasItem(hmItem, 1))
+    {
+        enum Species leadSpecies = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SPECIES);
+        if (leadSpecies != SPECIES_NONE && !GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_IS_EGG))
+        {
+            gSpecialVar_Result = 0;
+            gSpecialVar_0x8004 = leadSpecies;
         }
     }
 

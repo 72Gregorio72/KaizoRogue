@@ -5634,7 +5634,7 @@ static void Task_LearnNextMoveOrClosePartyMenu(u8 taskId)
         }
         else
         {
-            if (gPartyMenu.data1 == 2) // never occurs
+            if (gPartyMenu.learnMoveState == 2)
                 gSpecialVar_Result = TRUE;
             Task_ClosePartyMenu(taskId);
         }

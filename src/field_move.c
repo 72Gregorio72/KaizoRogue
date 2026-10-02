@@ -3,9 +3,11 @@
 #include "field_move.h"
 #include "fldeff.h"
 #include "fldeff_misc.h"
+#include "item.h"
 #include "party_menu.h"
 #include "strings.h"
 #include "constants/field_move.h"
+#include "constants/items.h"
 #include "constants/moves.h"
 #include "constants/party_menu.h"
 
@@ -19,8 +21,25 @@ static bool32 IsAlwaysTrue(enum FieldMove fieldMove)
     return TRUE;
 }
 
+static const u16 sFieldMoveHMItems[FIELD_MOVES_COUNT] =
+{
+    [FIELD_MOVE_CUT] = ITEM_HM01,
+    [FIELD_MOVE_FLASH] = ITEM_HM05,
+    [FIELD_MOVE_ROCK_SMASH] = ITEM_HM06,
+    [FIELD_MOVE_STRENGTH] = ITEM_HM04,
+    [FIELD_MOVE_SURF] = ITEM_HM03,
+    [FIELD_MOVE_FLY] = ITEM_HM02,
+    [FIELD_MOVE_DIVE] = ITEM_HM08,
+    [FIELD_MOVE_WATERFALL] = ITEM_HM07,
+};
+
 static bool32 HasBadgeForFieldMove(enum FieldMove fieldMove)
 {
+    if (fieldMove < FIELD_MOVES_COUNT && sFieldMoveHMItems[fieldMove] != ITEM_NONE)
+    {
+        if (CheckBagHasItem(sFieldMoveHMItems[fieldMove], 1))
+            return TRUE;
+    }
     return FlagGet(gFieldMoveInfo[fieldMove].arg + FLAG_BADGE01_GET);
 }
 

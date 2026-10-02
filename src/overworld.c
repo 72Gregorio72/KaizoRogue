@@ -25,8 +25,11 @@
 #include "field_tasks.h"
 #include "field_weather.h"
 #include "fieldmap.h"
+#include "field_move.h"
 #include "fldeff.h"
 #include "follower_npc.h"
+#include "constants/field_move.h"
+#include "constants/items.h"
 #include "gpu_regs.h"
 #include "heal_location.h"
 #include "io_reg.h"
@@ -78,11 +81,15 @@
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
 #include "constants/layouts.h"
+#include "constants/map_groups.h"
 #include "constants/region_map_sections.h"
 #include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/trainer_hill.h"
+#include "constants/trainer_types.h"
 #include "constants/weather.h"
+#include "constants/opponents.h"
+#include "constants/script_commands.h"
 #include "new_game.h"
 
 STATIC_ASSERT((B_FLAG_FOLLOWERS_DISABLED == 0 || OW_FOLLOWERS_ENABLED), FollowersFlagAssignedWithoutEnablingThem);
@@ -544,18 +551,120 @@ void ApplyNewEncryptionKeyToGameStats(u32 newKey)
 
 extern const u8 Common_EventScript_FindItem[];
 
+// Whitelist: trainer IDs that will ALWAYS be kept active across all runs (100% essential)
+static const u16 sAlwaysActiveTrainers[] = {
+    TRAINER_SUPER_NERD_MIGUEL,
+    TRAINER_TEAM_ROCKET_GRUNT_5,  // Cerulean Dig TM Grunt
+    TRAINER_TEAM_ROCKET_GRUNT_6,  // Nugget Bridge Boss
+    TRAINER_TEAM_ROCKET_GRUNT_9,  // Rocket Hideout Lift Key
+    TRAINER_TEAM_ROCKET_GRUNT_19, // Pokemon Tower 7F
+    TRAINER_TEAM_ROCKET_GRUNT_20, // Pokemon Tower 7F
+    TRAINER_TEAM_ROCKET_GRUNT_21, // Pokemon Tower 7F
+    TRAINER_TEAM_ROCKET_GRUNT_41, // Silph Co. 11F Boss Guard
+    TRAINER_TEAM_ROCKET_ADMIN,
+    TRAINER_TEAM_ROCKET_ADMIN_2,
+};
+
+static u16 GetTrainerIdFromTemplate(const struct ObjectEventTemplate *template)
+{
+    if (template->script == NULL)
+        return TRAINER_NONE;
+
+    const u8 *script = template->script;
+    if (script[0] == SCR_OP_TRAINERBATTLE)
+    {
+        return (u16)(script[3] | (script[4] << 8));
+    }
+    return TRAINER_NONE;
+}
+
+static bool32 IsTrainerAlwaysActive(const struct ObjectEventTemplate *template)
+{
+    u16 trainerId = GetTrainerIdFromTemplate(template);
+    if (trainerId == TRAINER_NONE)
+        return FALSE;
+
+    // All Rival battles throughout the game
+    if (trainerId >= TRAINER_RIVAL_OAKS_LAB_SQUIRTLE && trainerId <= TRAINER_RIVAL_CERULEAN_CHARMANDER)
+        return TRUE;
+    if (trainerId >= TRAINER_RIVAL_SS_ANNE_SQUIRTLE && trainerId <= TRAINER_RIVAL_ROUTE22_LATE_CHARMANDER)
+        return TRUE;
+
+    // Giovanni / Bosses
+    if (trainerId == TRAINER_BOSS_GIOVANNI || trainerId == TRAINER_BOSS_GIOVANNI_2 || trainerId == TRAINER_LEADER_GIOVANNI)
+        return TRUE;
+
+    // Gym Leaders
+    if (trainerId >= TRAINER_LEADER_BROCK && trainerId <= TRAINER_LEADER_SABRINA)
+        return TRUE;
+
+    // Essential Story Grunts and NPCs
+    for (u32 w = 0; w < ARRAY_COUNT(sAlwaysActiveTrainers); w++)
+    {
+        if (sAlwaysActiveTrainers[w] != 0 && trainerId == sAlwaysActiveTrainers[w])
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
+// Configurable min/max trainers to keep per map
+struct MapTrainerLimit {
+    u8 mapGroup;
+    u8 mapNum;
+    u8 minKeep; // 0 = default (trainerCount / 2 + random 0..2)
+    u8 maxKeep; // 0 = default trainerCount
+};
+
+static const struct MapTrainerLimit sMapTrainerLimits[] = {
+    // Aggiungi qui eventuali limiti personalizzati per mappe specifiche, es:
+    // {MAP_GROUP(MAP_VIRIDIAN_FOREST), MAP_NUM(MAP_VIRIDIAN_FOREST), 2, 3},
+};
+
+static bool32 IsMapEligibleForTrainerFiltering(u8 mapGroup, u8 mapNum)
+{
+    // Never filter in Gyms
+    if (mapGroup == MAP_GROUP(MAP_PEWTER_CITY_GYM) && mapNum == MAP_NUM(MAP_PEWTER_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_CERULEAN_CITY_GYM) && mapNum == MAP_NUM(MAP_CERULEAN_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_VERMILION_CITY_GYM) && mapNum == MAP_NUM(MAP_VERMILION_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_CELADON_CITY_GYM) && mapNum == MAP_NUM(MAP_CELADON_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_FUCHSIA_CITY_GYM) && mapNum == MAP_NUM(MAP_FUCHSIA_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_SAFFRON_CITY_GYM) && mapNum == MAP_NUM(MAP_SAFFRON_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_CINNABAR_ISLAND_GYM) && mapNum == MAP_NUM(MAP_CINNABAR_ISLAND_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_VIRIDIAN_CITY_GYM) && mapNum == MAP_NUM(MAP_VIRIDIAN_CITY_GYM)) return FALSE;
+
+    // Never filter in Pokemon League / Champion / Battle Frontier
+    if (mapGroup == MAP_GROUP(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && (mapNum >= MAP_NUM(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && mapNum <= MAP_NUM(MAP_POKEMON_LEAGUE_CHAMPIONS_ROOM))) return FALSE;
+
+    // Only filter on Routes, Ocean Routes, Underground/Caves, and Indoor Dungeons
+    if (gMapHeader.mapType != MAP_TYPE_ROUTE 
+     && gMapHeader.mapType != MAP_TYPE_OCEAN_ROUTE 
+     && gMapHeader.mapType != MAP_TYPE_UNDERGROUND
+     && gMapHeader.mapType != MAP_TYPE_INDOOR)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 void LoadObjEventTemplatesFromHeader(void)
 {
     u32 i;
     u32 objCount = gMapHeader.events->objectEventCount;
     const struct BgEvent *bgEvents = gMapHeader.events->bgEvents;
     u8 bgCount = gMapHeader.events->bgEventCount;
+    u8 curMapGroup = gSaveBlock1Ptr->location.mapGroup;
+    u8 curMapNum = gSaveBlock1Ptr->location.mapNum;
 
     // Pulisce i template esistenti nel saveblock
     CpuFill32(0, gSaveBlock1Ptr->objectEventTemplates, sizeof(gSaveBlock1Ptr->objectEventTemplates));
 
+    // 1. Carica tutti i normali object event della mappa alle loro posizioni originali
     for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
     {
+        struct ObjectEventTemplate template;
+
         if (gMapHeader.events->objectEvents[i].kind == OBJ_KIND_CLONE)
         {
             u8 localId = gMapHeader.events->objectEvents[i].targetLocalId;
@@ -563,25 +672,146 @@ void LoadObjEventTemplatesFromHeader(void)
             u8 mapGroup = gMapHeader.events->objectEvents[i].targetMapGroup;
             const struct MapHeader *connectionMap = Overworld_GetMapHeaderByGroupAndId(mapGroup, mapNum);
 
-            gSaveBlock1Ptr->objectEventTemplates[i] = connectionMap->events->objectEvents[localId - 1];
-            gSaveBlock1Ptr->objectEventTemplates[i].localId = gMapHeader.events->objectEvents[i].localId;
-            gSaveBlock1Ptr->objectEventTemplates[i].x = gMapHeader.events->objectEvents[i].x;
-            gSaveBlock1Ptr->objectEventTemplates[i].y = gMapHeader.events->objectEvents[i].y;
-            gSaveBlock1Ptr->objectEventTemplates[i].targetLocalId = localId;
-            gSaveBlock1Ptr->objectEventTemplates[i].targetMapNum = mapNum;
-            gSaveBlock1Ptr->objectEventTemplates[i].targetMapGroup = mapGroup;
-            gSaveBlock1Ptr->objectEventTemplates[i].kind = OBJ_KIND_CLONE;
+            template = connectionMap->events->objectEvents[localId - 1];
+            template.localId = gMapHeader.events->objectEvents[i].localId;
+            template.x = gMapHeader.events->objectEvents[i].x;
+            template.y = gMapHeader.events->objectEvents[i].y;
+            template.targetLocalId = localId;
+            template.targetMapNum = mapNum;
+            template.targetMapGroup = mapGroup;
+            template.kind = OBJ_KIND_CLONE;
         }
         else
         {
-            gSaveBlock1Ptr->objectEventTemplates[i] = gMapHeader.events->objectEvents[i];
+            template = gMapHeader.events->objectEvents[i];
+        }
+
+        gSaveBlock1Ptr->objectEventTemplates[i] = template;
+    }
+
+    // Filtra dinamicamente i trainer dei percorsi e dungeon dimezzandoli (-50%) con 0..2 extra random
+    if (IsMapEligibleForTrainerFiltering(curMapGroup, curMapNum))
+    {
+        u8 trainerIndices[OBJECT_EVENT_TEMPLATES_COUNT];
+        u32 trainerScores[OBJECT_EVENT_TEMPLATES_COUNT];
+        u8 trainerCount = 0;
+
+        for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
+        {
+            if (gSaveBlock1Ptr->objectEventTemplates[i].trainerType != TRAINER_TYPE_NONE)
+            {
+                trainerIndices[trainerCount] = (u8)i;
+                trainerCount++;
+            }
+        }
+
+        if (trainerCount > 0)
+        {
+            u8 minKeep = 0;
+            u8 maxKeep = 0;
+            bool32 hasCustomLimit = FALSE;
+
+            // Controlla tabella limiti custom per mappa
+            for (u32 m = 0; m < ARRAY_COUNT(sMapTrainerLimits); m++)
+            {
+                if (sMapTrainerLimits[m].mapGroup == curMapGroup && sMapTrainerLimits[m].mapNum == curMapNum)
+                {
+                    minKeep = sMapTrainerLimits[m].minKeep;
+                    maxKeep = sMapTrainerLimits[m].maxKeep;
+                    hasCustomLimit = TRUE;
+                    break;
+                }
+            }
+
+            u32 seed = gSaveBlock2Ptr->randomizerSeed;
+            if (seed == 0)
+                seed = 0x54321678;
+
+            u32 mapSeed = seed ^ (curMapGroup << 24) ^ (curMapNum << 16) ^ 0x9e3779b9;
+            mapSeed = 1103515245 * mapSeed + 12345;
+
+            u32 numToKeep;
+            if (hasCustomLimit)
+            {
+                if (minKeep == 0) minKeep = (trainerCount + 1) / 2;
+                if (maxKeep == 0) maxKeep = trainerCount;
+                if (minKeep > trainerCount) minKeep = trainerCount;
+                if (maxKeep > trainerCount) maxKeep = trainerCount;
+                if (minKeep > maxKeep) maxKeep = minKeep;
+
+                numToKeep = minKeep;
+                if (maxKeep > minKeep)
+                    numToKeep += (mapSeed >> 16) % (maxKeep - minKeep + 1);
+            }
+            else
+            {
+                // Taglio al 50% (arrotondato per eccesso, es. 5 trainer -> 3) + bonus random da 0 a 2 trainer
+                u32 baseKeep = (trainerCount + 1) / 2;
+                if (baseKeep == 0)
+                    baseKeep = 1;
+
+                u32 extra = (mapSeed >> 16) % 3; // 0, 1 o 2 trainer extra per variazione exp
+                numToKeep = baseKeep + extra;
+                if (numToKeep > trainerCount)
+                    numToKeep = trainerCount;
+                if (numToKeep < 1)
+                    numToKeep = 1;
+            }
+
+            for (u32 t = 0; t < trainerCount; t++)
+            {
+                u8 idx = trainerIndices[t];
+                struct ObjectEventTemplate *tmpl = &gSaveBlock1Ptr->objectEventTemplates[idx];
+
+                if (IsTrainerAlwaysActive(tmpl))
+                {
+                    trainerScores[t] = 0xFFFFFFFF; // Massima priorità: trainer essenziale al 100%
+                }
+                else
+                {
+                    u32 h = seed ^ (curMapGroup << 24) ^ (curMapNum << 16) ^ (tmpl->localId * 3571) ^ (tmpl->x * 101) ^ (tmpl->y * 31);
+                    h = 1103515245 * h + 12345;
+                    trainerScores[t] = h;
+                }
+            }
+
+            // Ordina i trainer candidati per punteggio decrescente
+            for (u32 a = 0; a < trainerCount; a++)
+            {
+                for (u32 b = a + 1; b < trainerCount; b++)
+                {
+                    if (trainerScores[b] > trainerScores[a])
+                    {
+                        u32 tempScore = trainerScores[a];
+                        trainerScores[a] = trainerScores[b];
+                        trainerScores[b] = tempScore;
+
+                        u8 tempIdx = trainerIndices[a];
+                        trainerIndices[a] = trainerIndices[b];
+                        trainerIndices[b] = tempIdx;
+                    }
+                }
+            }
+
+            // Disattiva solo i trainer oltre la soglia numToKeep (proteggendo gli essenziali)
+            for (u32 t = numToKeep; t < trainerCount; t++)
+            {
+                u8 idx = trainerIndices[t];
+                if (trainerScores[t] == 0xFFFFFFFF)
+                    continue; // Mai disattivare un trainer essenziale
+
+                gSaveBlock1Ptr->objectEventTemplates[idx].graphicsId = 0;
+                gSaveBlock1Ptr->objectEventTemplates[idx].trainerType = TRAINER_TYPE_NONE;
+                gSaveBlock1Ptr->objectEventTemplates[idx].script = NULL;
+            }
         }
     }
 
-    // Iniezione degli Hidden Item come Poké Ball
+    // 2. Iniezione degli Hidden Item come Poké Ball negli slot successivi
     if (bgEvents != NULL)
     {
-        for (u32 b = 0; b < bgCount && i < OBJECT_EVENT_TEMPLATES_COUNT; b++)
+        u32 hiddenSlot = objCount;
+        for (u32 b = 0; b < bgCount && hiddenSlot < OBJECT_EVENT_TEMPLATES_COUNT; b++)
         {
             if (bgEvents[b].kind == BG_EVENT_HIDDEN_ITEM)
             {
@@ -590,8 +820,8 @@ void LoadObjEventTemplatesFromHeader(void)
 
                 if (!FlagGet(itemFlag))
                 {
-                    struct ObjectEventTemplate *template = &gSaveBlock1Ptr->objectEventTemplates[i];
-                    template->localId = i + 1; // Local ID speciale
+                    struct ObjectEventTemplate *template = &gSaveBlock1Ptr->objectEventTemplates[hiddenSlot];
+                    template->localId = 0x80 + b; // ID univoco >= 128 per non collidere MAI con gli ID mappa (1..64)
                     template->graphicsId = OBJ_EVENT_GFX_ITEM_BALL;
                     template->x = bgEvents[b].x;
                     template->y = bgEvents[b].y;
@@ -604,7 +834,7 @@ void LoadObjEventTemplatesFromHeader(void)
                     template->script = Common_EventScript_FindItem;
                     template->flagId = itemFlag;
                     template->kind = OBJ_KIND_NORMAL;
-                    i++;
+                    hiddenSlot++;
                 }
             }
         }
@@ -1162,7 +1392,7 @@ void SetDefaultFlashLevel(void)
 {
     if (!gMapHeader.cave)
         gSaveBlock1Ptr->flashLevel = 0;
-    else if (FlagGet(FLAG_SYS_USE_FLASH))
+    else if (FlagGet(FLAG_SYS_USE_FLASH) || (IsFieldMoveUnlocked(FIELD_MOVE_FLASH) && CheckBagHasItem(ITEM_HM05, 1)))
         gSaveBlock1Ptr->flashLevel = 1;
     else
         gSaveBlock1Ptr->flashLevel = gMaxFlashLevel - 1;

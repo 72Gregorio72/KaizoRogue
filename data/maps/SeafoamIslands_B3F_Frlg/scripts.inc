@@ -6,8 +6,8 @@ SeafoamIslands_B3F_Frlg_MapScripts::
 	.byte 0
 
 SeafoamIslands_B3F_OnTransition::
-	call_if_unset FLAG_STOPPED_SEAFOAM_B3F_CURRENT, SeafoamIslands_B3F_EventScript_CheckStoppedCurrent
-	call_if_set FLAG_STOPPED_SEAFOAM_B3F_CURRENT, SeafoamIslands_B3F_EventScript_SetNoCurrentLayout
+	setflag FLAG_STOPPED_SEAFOAM_B3F_CURRENT
+	setmaplayoutindex LAYOUT_SEAFOAM_ISLANDS_B3F_CURRENT_STOPPED
 	end
 
 SeafoamIslands_B3F_EventScript_CheckStoppedCurrent::

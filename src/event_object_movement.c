@@ -2892,18 +2892,14 @@ void TrySpawnObjectEvents(s16 cameraX, s16 cameraY)
         else if (InTrainerHill())
             objectCount = HILL_TRAINERS_PER_FLOOR;
         else
-        {
-            // Conta tutti i template effettivamente presenti nel SaveBlock1 (inclusi gli hidden item iniettati)
-            for (objectCount = 0; objectCount < OBJECT_EVENT_TEMPLATES_COUNT; objectCount++)
-            {
-                if (gSaveBlock1Ptr->objectEventTemplates[objectCount].graphicsId == 0)
-                    break;
-            }
-        }
+            objectCount = OBJECT_EVENT_TEMPLATES_COUNT;
 
         for (i = 0; i < objectCount; i++)
         {
             struct ObjectEventTemplate *template = &gSaveBlock1Ptr->objectEventTemplates[i];
+            if (template->graphicsId == 0)
+                continue;
+
             s16 npcX = template->x + MAP_OFFSET;
             s16 npcY = template->y + MAP_OFFSET;
 

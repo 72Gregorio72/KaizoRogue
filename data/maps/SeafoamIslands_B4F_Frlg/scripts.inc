@@ -20,8 +20,8 @@ SeafoamIslands_B4F_EventScript_TryRemoveArticuno::
 
 SeafoamIslands_B4F_OnTransition::
 	call_if_unset FLAG_FOUGHT_ARTICUNO, SeafoamIslands_B4F_EventScript_ShowArticuno
-	call_if_unset FLAG_STOPPED_SEAFOAM_B4F_CURRENT, SeafoamIslands_B4F_EventScript_CheckStoppedCurrent
-	call_if_set FLAG_STOPPED_SEAFOAM_B4F_CURRENT, SeafoamIslands_B4F_EventScript_SetNoCurrentLayout
+	setflag FLAG_STOPPED_SEAFOAM_B4F_CURRENT
+	setmaplayoutindex LAYOUT_SEAFOAM_ISLANDS_B4F_CURRENT_STOPPED
 	end
 
 SeafoamIslands_B4F_EventScript_CheckStoppedCurrent::
@@ -44,10 +44,7 @@ SeafoamIslands_B4F_EventScript_ShowArticuno::
 	return
 
 SeafoamIslands_B4F_OnLoad::
-	setvar NUM_BOULDERS_PRESENT, 0
-	call_if_unset FLAG_HIDE_SEAFOAM_B4F_BOULDER_1, SeafoamIslands_B4F_EventScript_AddBoulderPresent
-	call_if_unset FLAG_HIDE_SEAFOAM_B4F_BOULDER_2, SeafoamIslands_B4F_EventScript_AddBoulderPresent
-	goto_if_eq NUM_BOULDERS_PRESENT, 2, SeafoamIslands_B4F_EventScript_SetCalmWaterNearStairs
+	goto SeafoamIslands_B4F_EventScript_SetCalmWaterNearStairs
 	end
 
 SeafoamIslands_B4F_EventScript_SetCalmWaterNearStairs::

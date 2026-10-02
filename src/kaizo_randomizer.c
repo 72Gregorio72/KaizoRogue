@@ -36,8 +36,11 @@ u16 GetKaizoRandomizedItem(u16 originalItem)
     if (originalItem == ITEM_NONE || originalItem >= ITEMS_COUNT)
         return originalItem;
 
-    // Se è uno Strumento Base (Key Item come Bici, Mappa, ecc.), non toccarlo
+    // Se è uno Strumento Base (Key Item come Bici, Mappa, ecc.) o una MN (HM01-HM08), non toccarlo
     if (gItemsInfo[originalItem].pocket == POCKET_KEY_ITEMS)
+        return originalItem;
+
+    if (originalItem >= ITEM_HM01 && originalItem <= ITEM_HM08)
         return originalItem;
 
     if (ARRAY_COUNT(sKaizoItemPool) == 0)
@@ -96,6 +99,9 @@ void GenerateNewKaizoSeedAndStarters(void)
     if (entropy == 0)
         entropy = 0x54321678;
     gSaveBlock2Ptr->randomizerSeed = entropy;
+    gSaveBlock2Ptr->martBuildUsedBitfield = 0;
+    for (int s = 0; s < 6; s++)
+        gSaveBlock2Ptr->customStatPoints[s] = 0;
 
     u32 rng = entropy;
     for (int i = 0; i < 3; i++)
@@ -832,10 +838,20 @@ void Script_MartBuild_Consume(void)
 // --- SESSION TRACKING FOR BUILD HUB (DISALLOW RE-CHOOSING AN OPTION) ---
 
 static u8 sMartBuildSessionUsed = 0;
+static bool8 sDraftMovesGenerated = FALSE;
+static u16 sDraftedMoves[5];
+
+static void Script_MoveDraft_Reset(void)
+{
+    sDraftMovesGenerated = FALSE;
+    for (int i = 0; i < 5; i++)
+        sDraftedMoves[i] = MOVE_NONE;
+}
 
 void Script_MartBuild_InitSession(void)
 {
     sMartBuildSessionUsed = 0;
+    Script_MoveDraft_Reset();
 }
 
 static const u8 sMartMenuText_StatPoints[]      = _("Stat Points");
@@ -1222,52 +1238,57 @@ void Script_StatPoints_Apply(void)
 
 // --- LOGICA MOVE DRAFT (5 MOSSE RANDOM) ---
 
-static u16 sDraftedMoves[5];
-
 void Script_MoveDraft_Roll(void)
 {
-    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
-    u16 monMoves[4];
-    for (int i = 0; i < 4; i++)
-        monMoves[i] = GetMonData(mon, MON_DATA_MOVE1 + i);
+    if (!sDraftMovesGenerated)
+    {
+        struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+        u16 monMoves[4];
+        for (int i = 0; i < 4; i++)
+            monMoves[i] = GetMonData(mon, MON_DATA_MOVE1 + i);
+
+        for (int i = 0; i < 5; i++)
+        {
+            u16 move;
+            bool32 valid;
+            int tries = 0;
+            do {
+                valid = TRUE;
+                move = (Random() % (MOVES_COUNT - 1)) + 1;
+                if (move == MOVE_NONE || move == MOVE_STRUGGLE || move >= MOVES_COUNT)
+                    valid = FALSE;
+                else if (gMovesInfo[move].name[0] == 0 || gMovesInfo[move].name[0] == '-')
+                    valid = FALSE;
+                
+                for (int m = 0; m < 4; m++)
+                {
+                    if (monMoves[m] == move)
+                    {
+                        valid = FALSE;
+                        break;
+                    }
+                }
+
+                for (int d = 0; d < i; d++)
+                {
+                    if (sDraftedMoves[d] == move)
+                    {
+                        valid = FALSE;
+                        break;
+                    }
+                }
+                tries++;
+            } while (!valid && tries < 3000);
+
+            sDraftedMoves[i] = move;
+        }
+        sDraftMovesGenerated = TRUE;
+    }
 
     for (int i = 0; i < 5; i++)
     {
-        u16 move;
-        bool32 valid;
-        int tries = 0;
-        do {
-            valid = TRUE;
-            move = (Random() % (MOVES_COUNT - 1)) + 1;
-            if (move == MOVE_NONE || move == MOVE_STRUGGLE || move >= MOVES_COUNT)
-                valid = FALSE;
-            else if (gMovesInfo[move].name[0] == 0 || gMovesInfo[move].name[0] == '-')
-                valid = FALSE;
-            
-            for (int m = 0; m < 4; m++)
-            {
-                if (monMoves[m] == move)
-                {
-                    valid = FALSE;
-                    break;
-                }
-            }
-
-            for (int d = 0; d < i; d++)
-            {
-                if (sDraftedMoves[d] == move)
-                {
-                    valid = FALSE;
-                    break;
-                }
-            }
-            tries++;
-        } while (!valid && tries < 3000);
-
-        sDraftedMoves[i] = move;
-
         u8 *buf = Alloc(64);
-        StringCopy(buf, gMovesInfo[move].name);
+        StringCopy(buf, gMovesInfo[sDraftedMoves[i]].name);
         struct ListMenuItem item;
         item.name = buf;
         item.id = i;
