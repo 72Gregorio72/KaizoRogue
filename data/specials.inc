@@ -678,4 +678,8 @@ gSpecials::
 	def_special Script_StatPoints_Apply
 	def_special Script_MoveDraft_Roll
 	def_special Script_MoveDraft_Select
+	def_special Script_Oak_RollDraftTypes
+	def_special Script_Oak_SelectType
+	def_special Script_Oak_RerollStarters
+	def_special Script_Oak_BufferChosenTypeName
 

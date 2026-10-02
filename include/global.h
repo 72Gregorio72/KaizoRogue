@@ -610,6 +610,7 @@ struct SaveBlock2
     /*0x9A*/ u16 rivalStarterSpecies; // <-- I 3 starter generati per questa run (6 byte)
     /*0x9C*/ u8 customStatPoints[6]; // custom base stat bonus points allocated to player's solo mon (up to 500 BST)
     /*0xA2*/ u16 martBuildUsedBitfield; // bitfield of cities where mart build was used
+    /*0xA4*/ u8 starterChosenType; // chosen starter type for this run
     /*0x98*/ struct Time localTimeOffset;
     /*0xA0*/ struct Time lastBerryTreeUpdate;
     /*0xA8*/ u32 gcnLinkFlags; // Read by Pokémon Colosseum/XD

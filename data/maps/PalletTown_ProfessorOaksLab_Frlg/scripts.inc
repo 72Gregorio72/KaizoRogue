@@ -212,8 +212,16 @@ PalletTown_ProfessorOaksLab_ChooseStarterScene::
 	clearflag FLAG_DONT_TRANSITION_MUSIC
 	savebgm MUS_DUMMY
 	fadedefaultbgm
-	// --- DIALOGO DIRETTO E VELOCE ---
-	msgbox PalletTown_ProfessorOaksLab_Text_OakThreeMonsChooseOne
+	// --- DIALOGO SCELTA TIPO STARTER ---
+	msgbox PalletTown_ProfessorOaksLab_Text_OakIntroTypeChoice, MSGBOX_DEFAULT
+PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu::
+	special Script_Oak_RollDraftTypes
+	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Oak_SelectType
+	playse SE_EXP
+	msgbox PalletTown_ProfessorOaksLab_Text_OakChosenTypeResult, MSGBOX_DEFAULT
 	closemessage
 	setvar VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 2
 	releaseall
@@ -576,12 +584,14 @@ PalletTown_ProfessorOaksLab_EventScript_ProfOak::
 	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 9, PalletTown_ProfessorOaksLab_EventScript_RatePokedex
 	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 8, PalletTown_ProfessorOaksLab_EventScript_MonsAroundWorldWait
 	goto_if_set FLAG_SYS_GAME_CLEAR, PalletTown_ProfessorOaksLab_EventScript_TryStartNationalDexScene
-	goto_if_eq VAR_MAP_SCENE_CERULEAN_CITY_RIVAL, 1, PalletTown_ProfessorOaksLab_EventScript_RatePokedex
-	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 6, PalletTown_ProfessorOaksLab_EventScript_RatePokedexOrTryGiveBalls
-	goto_if_ge VAR_MAP_SCENE_VIRIDIAN_CITY_MART, 1, PalletTown_ProfessorOaksLab_EventScript_ReceiveDexScene
-	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 4, PalletTown_ProfessorOaksLab_EventScript_OakBattleMonForItToGrow
-	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 3, PalletTown_ProfessorOaksLab_EventScript_OakCanReachNextTownWithMon
+	goto_if_ge VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 3, PalletTown_ProfessorOaksLab_EventScript_OakComplimentMon
+	special Script_Oak_BufferChosenTypeName
 	msgbox PalletTown_ProfessorOaksLab_Text_OakWhichOneWillYouChoose
+	release
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_OakComplimentMon::
+	msgbox PalletTown_ProfessorOaksLab_Text_OakComplimentStarter, MSGBOX_DEFAULT
 	release
 	end
 
@@ -1392,15 +1402,84 @@ PalletTown_ProfessorOaksLab_Text_RivalTellSisNotToGiveYouMap::
 	.string "Don't bother coming around to\n"
 	.string "my place after this!$"
 
-PalletTown_ProfessorOaksLab_Text_OakThreeMonsChooseOne:
-	.string "OAK: Go ahead, pick a POKéMON!$"
+PalletTown_ProfessorOaksLab_Text_OakIntroTypeChoice:
+	.string "OAK: Welcome, {PLAYER}!\p"
+	.string "Before you choose your starter,\n"
+	.string "pick the elemental type specialty\l"
+	.string "you would like for this journey!$"
 
-PalletTown_ProfessorOaksLab_Text_OakBePatientRival::
-	.string "OAK: Be patient, {RIVAL}.\n"
-	.string "You can have one, too!$"
+PalletTown_ProfessorOaksLab_Text_OakChosenTypeResult:
+	.string "OAK: Excellent choice!\n"
+	.string "A specialty in {STR_VAR_1}-type!\p"
+	.string "I've placed three {STR_VAR_1}-type\n"
+	.string "POKéMON in the balls on the table.\p"
+	.string "If you want a different selection,\n"
+	.string "my Aide can reroll them for you!$"
 
 PalletTown_ProfessorOaksLab_Text_OakWhichOneWillYouChoose:
-	.string "OAK: Choose your starter bro!$"
+	.string "OAK: Which of the three {STR_VAR_1}-type\n"
+	.string "POKéMON will you choose as your partner?$"
+
+PalletTown_ProfessorOaksLab_Text_OakComplimentStarter:
+	.string "OAK: Ah, {PLAYER}!\n"
+	.string "What a fantastic POKéMON you have there!\p"
+	.string "If you raise it with care and battle\n"
+	.string "hard, it will become strong and reliable.\p"
+	.string "Remember to visit the Poké Marts\n"
+	.string "in each city to customize your build!\p"
+	.string "Good luck on your Kaizo journey!$"
+
+PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide::
+	lock
+	faceplayer
+	goto_if_ge VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 3, PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_PostChoice
+	goto_if_eq VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 2, PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_OfferReroll
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_Intro, MSGBOX_DEFAULT
+	release
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_OfferReroll::
+	special Script_Oak_BufferChosenTypeName
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_AskReroll, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_Decline
+	special Script_Oak_RerollStarters
+	playse SE_DEX_PAGE
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_RerolledSuccess, MSGBOX_DEFAULT
+	release
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_Decline::
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_GoodLuck, MSGBOX_DEFAULT
+	release
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_PostChoice::
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_TakeCare, MSGBOX_DEFAULT
+	release
+	end
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_Intro:
+	.string "I assist PROF. OAK with starter\n"
+	.string "research and ball distribution!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_AskReroll:
+	.string "Hello {PLAYER}!\n"
+	.string "Would you like me to reroll the three\l"
+	.string "starter POKéMON on the table?\p"
+	.string "They will be freshly generated as\n"
+	.string "{STR_VAR_1}-type POKéMON!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_RerolledSuccess:
+	.string "Done! The three starter balls on\n"
+	.string "the table have been rerolled!\p"
+	.string "Go check them out!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_GoodLuck:
+	.string "Take your time and choose wisely!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_TakeCare:
+	.string "That POKéMON looks great with you!\n"
+	.string "Good luck on your Kaizo journey!$"
 
 PalletTown_ProfessorOaksLab_Text_OakHeyDontGoAwayYet::
 	.string "OAK: Hey!\n"

@@ -17,6 +17,7 @@
 #include "constants/region_map_sections.h"
 #include "move.h"
 #include "data/kaizo_item_pool.h"
+#include "battle_main.h"
 
 
 // --- PROTOTIPI GENERALI ---
@@ -93,21 +94,40 @@ static bool32 IsValidKaizoSpecies(u16 species)
     return TRUE;
 }
 
-void GenerateNewKaizoSeedAndStarters(void)
-{
-    u32 entropy = REG_VCOUNT | (REG_TM1CNT_L << 16) | Random32();
-    if (entropy == 0)
-        entropy = 0x54321678;
-    gSaveBlock2Ptr->randomizerSeed = entropy;
-    gSaveBlock2Ptr->martBuildUsedBitfield = 0;
-    for (int s = 0; s < 6; s++)
-        gSaveBlock2Ptr->customStatPoints[s] = 0;
+static const u8 sStarterValidTypes[] = {
+    TYPE_NORMAL,
+    TYPE_FIGHTING,
+    TYPE_FLYING,
+    TYPE_POISON,
+    TYPE_GROUND,
+    TYPE_ROCK,
+    TYPE_BUG,
+    TYPE_GHOST,
+    TYPE_STEEL,
+    TYPE_FIRE,
+    TYPE_WATER,
+    TYPE_GRASS,
+    TYPE_ELECTRIC,
+    TYPE_PSYCHIC,
+    TYPE_ICE,
+    TYPE_DRAGON,
+    TYPE_DARK,
+    TYPE_FAIRY,
+};
 
-    u32 rng = entropy;
+static u8 sOakDraftTypes[3];
+
+void GenerateStartersForType(u8 chosenType)
+{
+    u32 rng = Random32();
+    if (rng == 0)
+        rng = 0x54321678;
+
     for (int i = 0; i < 3; i++)
     {
         u16 mon;
         bool32 duplicate;
+        int tries = 0;
         do {
             duplicate = FALSE;
             rng = 1103515245 * rng + 12345;
@@ -118,15 +138,98 @@ void GenerateNewKaizoSeedAndStarters(void)
                 duplicate = TRUE;
                 continue;
             }
+
+            if (chosenType != TYPE_NONE)
+            {
+                if (gSpeciesInfo[mon].types[0] != chosenType && gSpeciesInfo[mon].types[1] != chosenType)
+                {
+                    duplicate = TRUE;
+                    continue;
+                }
+            }
+
             for (int j = 0; j < i; j++)
             {
                 if (gSaveBlock2Ptr->randomStarters[j] == mon)
                     duplicate = TRUE;
             }
-        } while (duplicate);
+            tries++;
+        } while (duplicate && tries < 5000);
 
         gSaveBlock2Ptr->randomStarters[i] = mon;
     }
+}
+
+void GenerateNewKaizoSeedAndStarters(void)
+{
+    u32 entropy = REG_VCOUNT | (REG_TM1CNT_L << 16) | Random32();
+    if (entropy == 0)
+        entropy = 0x54321678;
+    gSaveBlock2Ptr->randomizerSeed = entropy;
+    gSaveBlock2Ptr->martBuildUsedBitfield = 0;
+    gSaveBlock2Ptr->starterChosenType = TYPE_NONE;
+    for (int s = 0; s < 6; s++)
+        gSaveBlock2Ptr->customStatPoints[s] = 0;
+
+    GenerateStartersForType(TYPE_NONE);
+}
+
+void Script_Oak_RollDraftTypes(void)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        u8 t;
+        bool32 dup;
+        do {
+            dup = FALSE;
+            t = sStarterValidTypes[Random() % ARRAY_COUNT(sStarterValidTypes)];
+            for (int j = 0; j < i; j++)
+            {
+                if (sOakDraftTypes[j] == t)
+                    dup = TRUE;
+            }
+        } while (dup);
+        sOakDraftTypes[i] = t;
+
+        u8 *buf = Alloc(32);
+        StringCopy(buf, gTypesInfo[t].name);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = i;
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void Script_Oak_SelectType(void)
+{
+    u8 choice = (u8)gSpecialVar_0x8005;
+    if (choice >= 3)
+        choice = 0;
+
+    u8 type = sOakDraftTypes[choice];
+    gSaveBlock2Ptr->starterChosenType = type;
+    StringCopy(gStringVar1, gTypesInfo[type].name);
+
+    GenerateStartersForType(type);
+}
+
+void Script_Oak_RerollStarters(void)
+{
+    u8 type = gSaveBlock2Ptr->starterChosenType;
+    if (type == TYPE_NONE)
+        type = TYPE_FIRE;
+
+    GenerateStartersForType(type);
+    StringCopy(gStringVar1, gTypesInfo[type].name);
+}
+
+void Script_Oak_BufferChosenTypeName(void)
+{
+    u8 type = gSaveBlock2Ptr->starterChosenType;
+    if (type == TYPE_NONE)
+        type = TYPE_FIRE;
+
+    StringCopy(gStringVar1, gTypesInfo[type].name);
 }
 
 void BufferKaizoStarterName(void)
@@ -168,7 +271,7 @@ void Script_SetupOaksLabStarter(void)
         slot = 0;
 
     if (gSaveBlock2Ptr->randomStarters[0] == SPECIES_NONE)
-        GenerateNewKaizoSeedAndStarters();
+        GenerateStartersForType(gSaveBlock2Ptr->starterChosenType);
 
     u16 playerSpecies = gSaveBlock2Ptr->randomStarters[slot];
     u8 rivalSlot = (slot == 0) ? 2 : (slot == 1) ? 0 : 1;
