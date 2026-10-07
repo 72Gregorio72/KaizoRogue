@@ -216,8 +216,7 @@ PalletTown_ProfessorOaksLab_ChooseStarterScene::
 	msgbox PalletTown_ProfessorOaksLab_Text_OakIntroTypeChoice, MSGBOX_DEFAULT
 PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu::
 	special Script_Oak_RollDraftTypes
-	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
-	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu
+	dynmultistack 0, 0, TRUE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_Oak_SelectType
 	playse SE_EXP
@@ -1144,6 +1143,9 @@ PalletTown_ProfessorOaksLab_EventScript_ChoseStarter::
 	additem_raw ITEM_MASTER_BALL, 999
 	additem_raw ITEM_RARE_CANDY, 999
 	additem_raw ITEM_WILD_ENCOUNTERS, 1
+	additem_raw ITEM_LIFT_KEY, 1
+	additem_raw ITEM_SILPH_SCOPE, 1
+	setflag FLAG_CAN_USE_ROCKET_HIDEOUT_LIFT
 	
 	// RIMOSSO: setflag FLAG_SYS_NO_ENCOUNTERS
 
@@ -1162,12 +1164,24 @@ PalletTown_ProfessorOaksLab_EventScript_ChoseStarter::
 	waitfanfare
 	msgbox gText_NicknameThisPokemon, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, YES, EventScript_GiveNicknameToStarter
-	goto_if_eq VAR_RESULT, NO, PalletTown_ProfessorOaksLab_EventScript_RivalPicksStarter
+	goto_if_eq VAR_RESULT, NO, PalletTown_ProfessorOaksLab_EventScript_ChooseStarterBonusMove
 	end
 
 EventScript_GiveNicknameToStarter::
 	setvar VAR_0x8004, 0
 	call Common_EventScript_NameReceivedPartyMon
+	goto PalletTown_ProfessorOaksLab_EventScript_ChooseStarterBonusMove
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_ChooseStarterBonusMove::
+	msgbox PalletTown_ProfessorOaksLab_Text_OakChooseStarterAttackMove, MSGBOX_DEFAULT
+PalletTown_ProfessorOaksLab_EventScript_AskMoveMenu::
+	special Script_Starter_RollAttackMoves
+	dynmultistack 0, 0, TRUE, 3, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_MOVE
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Starter_SelectAttackMove
+	playse SE_EXP
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterLearnedMove, MSGBOX_DEFAULT
 	goto PalletTown_ProfessorOaksLab_EventScript_RivalPicksStarter
 	end
 
@@ -1428,6 +1442,15 @@ PalletTown_ProfessorOaksLab_Text_OakComplimentStarter:
 	.string "Remember to visit the Poké Marts\n"
 	.string "in each city to customize your build!\p"
 	.string "Good luck on your Kaizo journey!$"
+
+PalletTown_ProfessorOaksLab_Text_OakChooseStarterAttackMove:
+	.string "OAK: Your POKéMON starts with SCRATCH.\p"
+	.string "Please choose an attack move\n"
+	.string "to teach your new partner!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterLearnedMove:
+	.string "{STR_VAR_2} learned\n"
+	.string "{STR_VAR_1}!$"
 
 PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide::
 	lock

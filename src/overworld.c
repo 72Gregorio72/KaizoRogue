@@ -608,44 +608,34 @@ static bool32 IsTrainerAlwaysActive(const struct ObjectEventTemplate *template)
     return FALSE;
 }
 
-// Configurable min/max trainers to keep per map
-struct MapTrainerLimit {
-    u8 mapGroup;
-    u8 mapNum;
-    u8 minKeep; // 0 = default (trainerCount / 2 + random 0..2)
-    u8 maxKeep; // 0 = default trainerCount
-};
-
-static const struct MapTrainerLimit sMapTrainerLimits[] = {
-    // Aggiungi qui eventuali limiti personalizzati per mappe specifiche, es:
-    // {MAP_GROUP(MAP_VIRIDIAN_FOREST), MAP_NUM(MAP_VIRIDIAN_FOREST), 2, 3},
-};
-
-static bool32 IsMapEligibleForTrainerFiltering(u8 mapGroup, u8 mapNum)
+static bool32 IsGymOrLeagueMap(u8 mapGroup, u8 mapNum)
 {
-    // Never filter in Gyms
-    if (mapGroup == MAP_GROUP(MAP_PEWTER_CITY_GYM) && mapNum == MAP_NUM(MAP_PEWTER_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_CERULEAN_CITY_GYM) && mapNum == MAP_NUM(MAP_CERULEAN_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_VERMILION_CITY_GYM) && mapNum == MAP_NUM(MAP_VERMILION_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_CELADON_CITY_GYM) && mapNum == MAP_NUM(MAP_CELADON_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_FUCHSIA_CITY_GYM) && mapNum == MAP_NUM(MAP_FUCHSIA_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_SAFFRON_CITY_GYM) && mapNum == MAP_NUM(MAP_SAFFRON_CITY_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_CINNABAR_ISLAND_GYM) && mapNum == MAP_NUM(MAP_CINNABAR_ISLAND_GYM)) return FALSE;
-    if (mapGroup == MAP_GROUP(MAP_VIRIDIAN_CITY_GYM) && mapNum == MAP_NUM(MAP_VIRIDIAN_CITY_GYM)) return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_PEWTER_CITY_GYM) && mapNum == MAP_NUM(MAP_PEWTER_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_CERULEAN_CITY_GYM) && mapNum == MAP_NUM(MAP_CERULEAN_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_VERMILION_CITY_GYM) && mapNum == MAP_NUM(MAP_VERMILION_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_CELADON_CITY_GYM) && mapNum == MAP_NUM(MAP_CELADON_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_FUCHSIA_CITY_GYM) && mapNum == MAP_NUM(MAP_FUCHSIA_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_SAFFRON_CITY_GYM) && mapNum == MAP_NUM(MAP_SAFFRON_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_CINNABAR_ISLAND_GYM) && mapNum == MAP_NUM(MAP_CINNABAR_ISLAND_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_VIRIDIAN_CITY_GYM) && mapNum == MAP_NUM(MAP_VIRIDIAN_CITY_GYM)) return TRUE;
+    if (mapGroup == MAP_GROUP(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && (mapNum >= MAP_NUM(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && mapNum <= MAP_NUM(MAP_POKEMON_LEAGUE_CHAMPIONS_ROOM))) return TRUE;
+    return FALSE;
+}
 
-    // Never filter in Pokemon League / Champion / Battle Frontier
-    if (mapGroup == MAP_GROUP(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && (mapNum >= MAP_NUM(MAP_POKEMON_LEAGUE_LORELEIS_ROOM) && mapNum <= MAP_NUM(MAP_POKEMON_LEAGUE_CHAMPIONS_ROOM))) return FALSE;
-
-    // Only filter on Routes, Ocean Routes, Underground/Caves, and Indoor Dungeons
-    if (gMapHeader.mapType != MAP_TYPE_ROUTE 
-     && gMapHeader.mapType != MAP_TYPE_OCEAN_ROUTE 
-     && gMapHeader.mapType != MAP_TYPE_UNDERGROUND
-     && gMapHeader.mapType != MAP_TYPE_INDOOR)
-    {
+static bool32 IsOutdoorRouteMap(u8 mapGroup, u8 mapNum)
+{
+    // Viridian Forest e altri boschi/dungeon all'aperto sono considerati dungeon
+    if (mapGroup == MAP_GROUP(MAP_VIRIDIAN_FOREST) && mapNum == MAP_NUM(MAP_VIRIDIAN_FOREST))
         return FALSE;
-    }
+    if (mapGroup == MAP_GROUP(MAP_THREE_ISLAND_BERRY_FOREST) && mapNum == MAP_NUM(MAP_THREE_ISLAND_BERRY_FOREST))
+        return FALSE;
+    if (mapGroup == MAP_GROUP(MAP_SIX_ISLAND_PATTERN_BUSH) && mapNum == MAP_NUM(MAP_SIX_ISLAND_PATTERN_BUSH))
+        return FALSE;
 
-    return TRUE;
+    if (gMapHeader.mapType == MAP_TYPE_ROUTE || gMapHeader.mapType == MAP_TYPE_OCEAN_ROUTE)
+        return TRUE;
+
+    return FALSE;
 }
 
 void LoadObjEventTemplatesFromHeader(void)
@@ -689,9 +679,26 @@ void LoadObjEventTemplatesFromHeader(void)
         gSaveBlock1Ptr->objectEventTemplates[i] = template;
     }
 
-    // Filtra dinamicamente i trainer dei percorsi e dungeon dimezzandoli (-50%) con 0..2 extra random
-    if (IsMapEligibleForTrainerFiltering(curMapGroup, curMapNum))
+    if (IsOutdoorRouteMap(curMapGroup, curMapNum))
     {
+        // Percorsi all'aperto: disattiva i trainer di percorso (mantenendo solo quelli essenziali di trama)
+        for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
+        {
+            struct ObjectEventTemplate *tmpl = &gSaveBlock1Ptr->objectEventTemplates[i];
+            if (tmpl->trainerType != TRAINER_TYPE_NONE)
+            {
+                if (!IsTrainerAlwaysActive(tmpl))
+                {
+                    tmpl->graphicsId = 0;
+                    tmpl->trainerType = TRAINER_TYPE_NONE;
+                    tmpl->script = NULL;
+                }
+            }
+        }
+    }
+    else if (!IsGymOrLeagueMap(curMapGroup, curMapNum))
+    {
+        // Dungeon, grotte, boschi e interni: randomizzazione del 50% valutata per singolo piano
         u8 trainerIndices[OBJECT_EVENT_TEMPLATES_COUNT];
         u32 trainerScores[OBJECT_EVENT_TEMPLATES_COUNT];
         u8 trainerCount = 0;
@@ -707,56 +714,11 @@ void LoadObjEventTemplatesFromHeader(void)
 
         if (trainerCount > 0)
         {
-            u8 minKeep = 0;
-            u8 maxKeep = 0;
-            bool32 hasCustomLimit = FALSE;
-
-            // Controlla tabella limiti custom per mappa
-            for (u32 m = 0; m < ARRAY_COUNT(sMapTrainerLimits); m++)
-            {
-                if (sMapTrainerLimits[m].mapGroup == curMapGroup && sMapTrainerLimits[m].mapNum == curMapNum)
-                {
-                    minKeep = sMapTrainerLimits[m].minKeep;
-                    maxKeep = sMapTrainerLimits[m].maxKeep;
-                    hasCustomLimit = TRUE;
-                    break;
-                }
-            }
-
             u32 seed = gSaveBlock2Ptr->randomizerSeed;
             if (seed == 0)
                 seed = 0x54321678;
 
-            u32 mapSeed = seed ^ (curMapGroup << 24) ^ (curMapNum << 16) ^ 0x9e3779b9;
-            mapSeed = 1103515245 * mapSeed + 12345;
-
-            u32 numToKeep;
-            if (hasCustomLimit)
-            {
-                if (minKeep == 0) minKeep = (trainerCount + 1) / 2;
-                if (maxKeep == 0) maxKeep = trainerCount;
-                if (minKeep > trainerCount) minKeep = trainerCount;
-                if (maxKeep > trainerCount) maxKeep = trainerCount;
-                if (minKeep > maxKeep) maxKeep = minKeep;
-
-                numToKeep = minKeep;
-                if (maxKeep > minKeep)
-                    numToKeep += (mapSeed >> 16) % (maxKeep - minKeep + 1);
-            }
-            else
-            {
-                // Taglio al 50% (arrotondato per eccesso, es. 5 trainer -> 3) + bonus random da 0 a 2 trainer
-                u32 baseKeep = (trainerCount + 1) / 2;
-                if (baseKeep == 0)
-                    baseKeep = 1;
-
-                u32 extra = (mapSeed >> 16) % 3; // 0, 1 o 2 trainer extra per variazione exp
-                numToKeep = baseKeep + extra;
-                if (numToKeep > trainerCount)
-                    numToKeep = trainerCount;
-                if (numToKeep < 1)
-                    numToKeep = 1;
-            }
+            u32 numToKeep = (trainerCount + 1) / 2; // 50% arrotondato per eccesso per ogni piano (es: 1->1, 2->1, 3->2, 4->2, 5->3)
 
             for (u32 t = 0; t < trainerCount; t++)
             {
@@ -765,7 +727,7 @@ void LoadObjEventTemplatesFromHeader(void)
 
                 if (IsTrainerAlwaysActive(tmpl))
                 {
-                    trainerScores[t] = 0xFFFFFFFF; // Massima priorità: trainer essenziale al 100%
+                    trainerScores[t] = 0xFFFFFFFF; // Massima priorità: sempre attivo
                 }
                 else
                 {
@@ -775,7 +737,7 @@ void LoadObjEventTemplatesFromHeader(void)
                 }
             }
 
-            // Ordina i trainer candidati per punteggio decrescente
+            // Ordina i trainer per punteggio decrescente
             for (u32 a = 0; a < trainerCount; a++)
             {
                 for (u32 b = a + 1; b < trainerCount; b++)
@@ -793,7 +755,7 @@ void LoadObjEventTemplatesFromHeader(void)
                 }
             }
 
-            // Disattiva solo i trainer oltre la soglia numToKeep (proteggendo gli essenziali)
+            // Disattiva i trainer oltre il 50% per questo specifico piano
             for (u32 t = numToKeep; t < trainerCount; t++)
             {
                 u8 idx = trainerIndices[t];
@@ -1390,12 +1352,7 @@ bool32 Overworld_IsBikingAllowed(void)
 // Flash level of 8 is fully black
 void SetDefaultFlashLevel(void)
 {
-    if (!gMapHeader.cave)
-        gSaveBlock1Ptr->flashLevel = 0;
-    else if (FlagGet(FLAG_SYS_USE_FLASH) || (IsFieldMoveUnlocked(FIELD_MOVE_FLASH) && CheckBagHasItem(ITEM_HM05, 1)))
-        gSaveBlock1Ptr->flashLevel = 1;
-    else
-        gSaveBlock1Ptr->flashLevel = gMaxFlashLevel - 1;
+    gSaveBlock1Ptr->flashLevel = 0;
 }
 
 void SetFlashLevel(s32 flashLevel)

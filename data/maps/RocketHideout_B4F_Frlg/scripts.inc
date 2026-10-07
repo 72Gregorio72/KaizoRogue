@@ -5,10 +5,6 @@ RocketHideout_B4F_Frlg_MapScripts::
 	.byte 0
 
 RocketHideout_B4F_OnLoad::
-	setvar NUM_DOOR_GRUNTS_DEFEATED, 0
-	call_if_defeated TRAINER_TEAM_ROCKET_GRUNT_16, RocketHideout_B4F_EventScript_CountGruntDefeated
-	call_if_defeated TRAINER_TEAM_ROCKET_GRUNT_17, RocketHideout_B4F_EventScript_CountGruntDefeated
-	call_if_ne NUM_DOOR_GRUNTS_DEFEATED, 2, RocketHideout_B4F_EventScript_SetBarrier
 	end
 
 RocketHideout_B4F_EventScript_CountGruntDefeated::

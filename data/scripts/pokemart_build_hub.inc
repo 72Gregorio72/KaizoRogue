@@ -95,9 +95,9 @@ PokemartBuild_EventScript_StatPoints_NoPoints::
 PokemartBuild_EventScript_MoveDraft::
 	msgbox PokemartBuild_Text_MoveDraft_Intro, MSGBOX_DEFAULT
 	special Script_MoveDraft_Roll
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_MOVE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokemartBuild_EventScript_MoveDraft_Cancel
-	goto_if_eq VAR_RESULT, 5, PokemartBuild_EventScript_MoveDraft_Cancel
+	goto_if_eq VAR_RESULT, 0, PokemartBuild_EventScript_MoveDraft_Cancel
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_MoveDraft_Select
 	goto_if_eq VAR_RESULT, 0, PokemartBuild_EventScript_MainMenu

@@ -116,6 +116,13 @@ static const u8 sStarterValidTypes[] = {
 };
 
 static u8 sOakDraftTypes[3];
+static bool8 sOakTypesGenerated;
+static u16 sStarterDraftMoves[3];
+static bool8 sStarterMovesGenerated;
+static u8 sMartBuildSessionUsed;
+static bool8 sDraftMovesGenerated;
+static u8 sDraftMovesCity;
+static u16 sDraftedMoves[5];
 
 void GenerateStartersForType(u8 chosenType)
 {
@@ -171,26 +178,48 @@ void GenerateNewKaizoSeedAndStarters(void)
     for (int s = 0; s < 6; s++)
         gSaveBlock2Ptr->customStatPoints[s] = 0;
 
+    sOakTypesGenerated = FALSE;
+    for (int i = 0; i < 3; i++)
+        sOakDraftTypes[i] = TYPE_NONE;
+
+    sStarterMovesGenerated = FALSE;
+    for (int i = 0; i < 3; i++)
+        sStarterDraftMoves[i] = MOVE_NONE;
+
+    sDraftMovesGenerated = FALSE;
+    sDraftMovesCity = 0;
+    sMartBuildSessionUsed = 0;
+    for (int i = 0; i < 5; i++)
+        sDraftedMoves[i] = MOVE_NONE;
+
     GenerateStartersForType(TYPE_NONE);
 }
 
 void Script_Oak_RollDraftTypes(void)
 {
+    if (!sOakTypesGenerated)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            u8 t;
+            bool32 dup;
+            do {
+                dup = FALSE;
+                t = sStarterValidTypes[Random() % ARRAY_COUNT(sStarterValidTypes)];
+                for (int j = 0; j < i; j++)
+                {
+                    if (sOakDraftTypes[j] == t)
+                        dup = TRUE;
+                }
+            } while (dup);
+            sOakDraftTypes[i] = t;
+        }
+        sOakTypesGenerated = TRUE;
+    }
+
     for (int i = 0; i < 3; i++)
     {
-        u8 t;
-        bool32 dup;
-        do {
-            dup = FALSE;
-            t = sStarterValidTypes[Random() % ARRAY_COUNT(sStarterValidTypes)];
-            for (int j = 0; j < i; j++)
-            {
-                if (sOakDraftTypes[j] == t)
-                    dup = TRUE;
-            }
-        } while (dup);
-        sOakDraftTypes[i] = t;
-
+        u8 t = sOakDraftTypes[i];
         u8 *buf = Alloc(32);
         StringCopy(buf, gTypesInfo[t].name);
         struct ListMenuItem item;
@@ -297,9 +326,109 @@ void Script_GiveKaizoStarter(void)
     struct Pokemon mon;
 
     CreateMon(&mon, species, 5, Random32(), OTID_STRUCT_PLAYER_ID);
-    GiveMonInitialMoveset(&mon);
+    
+    // Lo starter parte con SOLO Graffio (Scratch)
+    u16 moveScratch = MOVE_SCRATCH;
+    u8 ppScratch = gMovesInfo[MOVE_SCRATCH].pp;
+    u16 moveNone = MOVE_NONE;
+    u8 ppZero = 0;
+
+    SetMonData(&mon, MON_DATA_MOVE1, &moveScratch);
+    SetMonData(&mon, MON_DATA_PP1, &ppScratch);
+    SetMonData(&mon, MON_DATA_MOVE2, &moveNone);
+    SetMonData(&mon, MON_DATA_PP2, &ppZero);
+    SetMonData(&mon, MON_DATA_MOVE3, &moveNone);
+    SetMonData(&mon, MON_DATA_PP3, &ppZero);
+    SetMonData(&mon, MON_DATA_MOVE4, &moveNone);
+    SetMonData(&mon, MON_DATA_PP4, &ppZero);
+
     CalculateMonStats(&mon);
     GiveCapturedMonToPlayer(&mon);
+
+    AddBagItem(ITEM_TOWN_MAP, 1);
+    AddBagItem(ITEM_LIFT_KEY, 1);
+    AddBagItem(ITEM_SILPH_SCOPE, 1);
+    FlagSet(FLAG_CAN_USE_ROCKET_HIDEOUT_LIFT);
+}
+
+// --- DRAFT MOSSA ATTACCO INIZIALE STARTER (3 MOSSE RANDOM ATTACCO FISICO O SPECIALE) ---
+
+void Script_Starter_RollAttackMoves(void)
+{
+    if (!sStarterMovesGenerated)
+    {
+        u32 rng = Random32();
+        if (rng == 0)
+            rng = 0x54321678;
+
+        for (int i = 0; i < 3; i++)
+        {
+            u16 move;
+            bool32 valid;
+            int tries = 0;
+            do {
+                valid = TRUE;
+                rng = 1103515245 * rng + 12345;
+                move = (rng >> 16) % (MOVES_COUNT - 1) + 1;
+
+                if (move == MOVE_NONE || move == MOVE_STRUGGLE || move == MOVE_SCRATCH || move >= MOVES_COUNT)
+                {
+                    valid = FALSE;
+                }
+                else if (gMovesInfo[move].name[0] == 0 || gMovesInfo[move].name[0] == '-')
+                {
+                    valid = FALSE;
+                }
+                else if (gMovesInfo[move].category != DAMAGE_CATEGORY_PHYSICAL && gMovesInfo[move].category != DAMAGE_CATEGORY_SPECIAL)
+                {
+                    valid = FALSE;
+                }
+                else if (gMovesInfo[move].power == 0)
+                {
+                    valid = FALSE;
+                }
+
+                for (int d = 0; d < i; d++)
+                {
+                    if (sStarterDraftMoves[d] == move)
+                    {
+                        valid = FALSE;
+                        break;
+                    }
+                }
+                tries++;
+            } while (!valid && tries < 5000);
+
+            sStarterDraftMoves[i] = move;
+        }
+        sStarterMovesGenerated = TRUE;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gMovesInfo[sStarterDraftMoves[i]].name);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = sStarterDraftMoves[i];
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void Script_Starter_SelectAttackMove(void)
+{
+    u16 move = (u16)gSpecialVar_0x8005;
+    if (move == MOVE_NONE || move >= MOVES_COUNT)
+        move = sStarterDraftMoves[0];
+
+    u8 pp = gMovesInfo[move].pp;
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
+
+    SetMonData(mon, MON_DATA_MOVE2, &move);
+    SetMonData(mon, MON_DATA_PP2, &pp);
+
+    GetMonData(mon, MON_DATA_NICKNAME, gStringVar2);
+    StringCopy(gStringVar1, gMovesInfo[move].name);
 }
 
 // --- LOGICA EXP MULTIPLIER ---
@@ -938,12 +1067,6 @@ void Script_MartBuild_Consume(void)
     gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
 }
 
-// --- SESSION TRACKING FOR BUILD HUB (DISALLOW RE-CHOOSING AN OPTION) ---
-
-static u8 sMartBuildSessionUsed = 0;
-static bool8 sDraftMovesGenerated = FALSE;
-static u16 sDraftedMoves[5];
-
 static void Script_MoveDraft_Reset(void)
 {
     sDraftMovesGenerated = FALSE;
@@ -953,8 +1076,13 @@ static void Script_MoveDraft_Reset(void)
 
 void Script_MartBuild_InitSession(void)
 {
+    u8 city = GetCurrentCityMartIndex() + 1;
     sMartBuildSessionUsed = 0;
-    Script_MoveDraft_Reset();
+    if (sDraftMovesCity != city)
+    {
+        Script_MoveDraft_Reset();
+        sDraftMovesCity = city;
+    }
 }
 
 static const u8 sMartMenuText_StatPoints[]      = _("Stat Points");
@@ -1394,7 +1522,7 @@ void Script_MoveDraft_Roll(void)
         StringCopy(buf, gMovesInfo[sDraftedMoves[i]].name);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = i;
+        item.id = sDraftedMoves[i];
         MultichoiceDynamic_PushElement(item);
     }
 
@@ -1403,20 +1531,19 @@ void Script_MoveDraft_Roll(void)
         StringCopy(bufCancel, sDraftText_Cancel);
         struct ListMenuItem cancelItem;
         cancelItem.name = bufCancel;
-        cancelItem.id = 5;
+        cancelItem.id = MOVE_NONE;
         MultichoiceDynamic_PushElement(cancelItem);
     }
 }
 
 void Script_MoveDraft_Select(void)
 {
-    u8 choice = (u8)gSpecialVar_0x8005;
-    if (choice >= 5)
+    u16 move = (u16)gSpecialVar_0x8005;
+    if (move == MOVE_NONE || move >= MOVES_COUNT)
     {
         gSpecialVar_Result = 0;
         return;
     }
-    u16 move = sDraftedMoves[choice];
     gSpecialVar_0x8005 = move;
     gSpecialVar_Result = move;
 }

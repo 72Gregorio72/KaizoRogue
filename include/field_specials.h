@@ -94,5 +94,7 @@ void Script_StatPoints_PushAmountChoices(void);
 void Script_StatPoints_Apply(void);
 void Script_MoveDraft_Roll(void);
 void Script_MoveDraft_Select(void);
+void Script_Starter_RollAttackMoves(void);
+void Script_Starter_SelectAttackMove(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

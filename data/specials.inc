@@ -682,4 +682,6 @@ gSpecials::
 	def_special Script_Oak_SelectType
 	def_special Script_Oak_RerollStarters
 	def_special Script_Oak_BufferChosenTypeName
+	def_special Script_Starter_RollAttackMoves
+	def_special Script_Starter_SelectAttackMove
 

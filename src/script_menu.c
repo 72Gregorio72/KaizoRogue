@@ -18,6 +18,10 @@
 #include "util.h"
 #include "item_icon.h"
 #include "pokemon_icon.h"
+#include "move.h"
+#include "battle_main.h"
+#include "pokemon_summary_screen.h"
+#include "decompress.h"
 #include "constants/field_specials.h"
 #include "constants/items.h"
 #include "constants/script_menu.h"
@@ -70,6 +74,9 @@ static void MultichoiceDynamicEventShowSprite_OnInit(struct DynamicListMenuEvent
 static void MultichoiceDynamicEventShowItem_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowPkmn_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowMove_OnInit(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowMove_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
 
 static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollections[] =
 {
@@ -90,6 +97,12 @@ static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollecti
         .OnInit = MultichoiceDynamicEventShowSprite_OnInit,
         .OnSelectionChanged = MultichoiceDynamicEventShowPkmn_OnSelectionChanged,
         .OnDestroy = MultichoiceDynamicEventShowSprite_OnDestroy
+    },
+    [DYN_MULTICHOICE_CB_SHOW_MOVE] =
+    {
+        .OnInit = MultichoiceDynamicEventShowMove_OnInit,
+        .OnSelectionChanged = MultichoiceDynamicEventShowMove_OnSelectionChanged,
+        .OnDestroy = MultichoiceDynamicEventShowMove_OnDestroy
     }
 };
 
@@ -237,6 +250,193 @@ static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEv
 #undef sAuxWindowId
 #undef sSpriteId
 #undef TAG_CB_SPRITE_ICON
+
+#define sMoveAuxWindowId sDynamicMenuEventScratchPad[0]
+#define sMoveSpriteId    sDynamicMenuEventScratchPad[1]
+
+static const u8 sText_CatLabel[]    = _("CAT:");
+static const u8 sText_PwrLabel[]    = _("PWR:");
+static const u8 sText_PpLabel[]     = _("PP:");
+static const u8 sText_AccLabel[]    = _("ACC:");
+static const u8 sText_ThreeDashes[] = _("---");
+
+static void FormatMoveDescriptionToFit(u8 *dest, const u8 *src, u8 fontId, u32 maxWidth)
+{
+    u8 currentLine[128];
+    u8 word[64];
+    u32 srcIdx = 0;
+    u32 destIdx = 0;
+    u32 lineIdx = 0;
+
+    currentLine[0] = EOS;
+
+    while (src[srcIdx] != EOS)
+    {
+        while (src[srcIdx] == CHAR_SPACE || src[srcIdx] == CHAR_NEWLINE)
+            srcIdx++;
+
+        if (src[srcIdx] == EOS)
+            break;
+
+        u32 wordIdx = 0;
+        while (src[srcIdx] != EOS && src[srcIdx] != CHAR_SPACE && src[srcIdx] != CHAR_NEWLINE)
+        {
+            word[wordIdx++] = src[srcIdx++];
+        }
+        word[wordIdx] = EOS;
+
+        u8 testLine[128];
+        if (lineIdx == 0)
+        {
+            StringCopy(testLine, word);
+        }
+        else
+        {
+            StringCopy(testLine, currentLine);
+            StringAppend(testLine, gText_Space);
+            StringAppend(testLine, word);
+        }
+
+        if (lineIdx > 0 && GetStringWidth(fontId, testLine, 0) > maxWidth)
+        {
+            for (u32 i = 0; currentLine[i] != EOS; i++)
+                dest[destIdx++] = currentLine[i];
+            dest[destIdx++] = CHAR_NEWLINE;
+
+            StringCopy(currentLine, word);
+            lineIdx = wordIdx;
+        }
+        else
+        {
+            StringCopy(currentLine, testLine);
+            lineIdx = StringLength(currentLine);
+        }
+    }
+
+    if (lineIdx > 0)
+    {
+        for (u32 i = 0; currentLine[i] != EOS; i++)
+            dest[destIdx++] = currentLine[i];
+    }
+    dest[destIdx] = EOS;
+}
+
+static void MultichoiceDynamicEventShowMove_OnInit(struct DynamicListMenuEventArgs *eventArgs)
+{
+    struct WindowTemplate *template = &gWindows[eventArgs->windowId].window;
+    u32 baseBlock = template->baseBlock + template->width * template->height;
+    u8 left = template->tilemapLeft + template->width + 1;
+    if (left < 15)
+        left = 15;
+    if (left > 16)
+        left = 16;
+    u8 width = 29 - left;
+    u8 top = 1;
+    u8 height = 11;
+    struct WindowTemplate auxTemplate = CreateWindowTemplate(0, left, top, width, height, 15, baseBlock);
+    u32 auxWindowId = AddWindow(&auxTemplate);
+    SetStandardWindowBorderStyle(auxWindowId, FALSE);
+    FillWindowPixelBuffer(auxWindowId, PIXEL_FILL(1));
+    CopyWindowToVram(auxWindowId, COPYWIN_FULL);
+    sMoveAuxWindowId = auxWindowId;
+    sMoveSpriteId = MAX_SPRITES;
+
+    LoadCompressedSpriteSheet(&gSpriteSheet_CategoryIcons);
+    LoadSpritePalette(&gSpritePal_CategoryIcons);
+}
+
+static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs)
+{
+    u16 move = eventArgs->selectedItem;
+    u8 windowId = sMoveAuxWindowId;
+    struct WindowTemplate *template = &gWindows[windowId].window;
+    u32 spriteX = template->tilemapLeft * 8 + 32;
+    u32 spriteY = template->tilemapTop * 8 + 10;
+
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
+
+    if (move != MOVE_NONE && move < MOVES_COUNT)
+    {
+        u16 pwr = GetMovePower(move);
+        u16 acc = GetMoveAccuracy(move);
+        u32 pp = GetMovePP(move);
+        enum DamageCategory cat = GetMoveCategory(move);
+        u8 strPwr[8], strAcc[8], strPP[8];
+        u8 formattedDesc[256];
+        const u8 *desc = GetMoveDescription(move);
+
+        if (pwr < 2)
+            StringCopy(strPwr, sText_ThreeDashes);
+        else
+            ConvertIntToDecimalStringN(strPwr, pwr, STR_CONV_MODE_LEFT_ALIGN, 3);
+
+        if (acc == 0)
+            StringCopy(strAcc, sText_ThreeDashes);
+        else
+            ConvertIntToDecimalStringN(strAcc, acc, STR_CONV_MODE_LEFT_ALIGN, 3);
+
+        ConvertIntToDecimalStringN(strPP, pp, STR_CONV_MODE_LEFT_ALIGN, 2);
+
+        // Row 1 (y = 2): CAT: [ICON]   PWR: {value}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_CatLabel, 2, 2, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PwrLabel, 46, 2, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPwr, 74, 2, TEXT_SKIP_DRAW, NULL);
+
+        // Row 2 (y = 17): PP: {value}   ACC: {value} (ACC under PWR)
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PpLabel, 2, 17, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPP, 20, 17, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_AccLabel, 46, 17, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strAcc, 74, 17, TEXT_SKIP_DRAW, NULL);
+
+        // Row 3 (y = 32): Divider
+        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 32, (template->width * 8) - 4, 1);
+
+        // Row 4 (y = 36 onwards): Dynamic word-wrapped description
+        FormatMoveDescriptionToFit(formattedDesc, desc, FONT_NORMAL, (template->width * 8) - 6);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 36, TEXT_SKIP_DRAW, NULL);
+
+        if (sMoveSpriteId == MAX_SPRITES)
+        {
+            sMoveSpriteId = CreateSprite(&gSpriteTemplate_CategoryIcons, spriteX, spriteY, 0);
+        }
+        else
+        {
+            gSprites[sMoveSpriteId].x = spriteX;
+            gSprites[sMoveSpriteId].y = spriteY;
+            gSprites[sMoveSpriteId].invisible = FALSE;
+        }
+
+        if (sMoveSpriteId != MAX_SPRITES)
+        {
+            gSprites[sMoveSpriteId].oam.priority = 0;
+            StartSpriteAnim(&gSprites[sMoveSpriteId], cat);
+        }
+    }
+    else
+    {
+        if (sMoveSpriteId != MAX_SPRITES)
+            gSprites[sMoveSpriteId].invisible = TRUE;
+    }
+
+    CopyWindowToVram(windowId, COPYWIN_FULL);
+}
+
+static void MultichoiceDynamicEventShowMove_OnDestroy(struct DynamicListMenuEventArgs *eventArgs)
+{
+    ClearStdWindowAndFrame(sMoveAuxWindowId, TRUE);
+    RemoveWindow(sMoveAuxWindowId);
+
+    if (sMoveSpriteId != MAX_SPRITES)
+    {
+        FreeSpriteTilesByTag(gSpriteTemplate_CategoryIcons.tileTag);
+        FreeSpritePaletteByTag(gSpriteTemplate_CategoryIcons.paletteTag);
+        DestroySprite(&gSprites[sMoveSpriteId]);
+        sMoveSpriteId = MAX_SPRITES;
+    }
+}
+
+#undef sMoveAuxWindowId
+#undef sMoveSpriteId
 
 static void FreeListMenuItems(struct ListMenuItem *items, u32 count)
 {

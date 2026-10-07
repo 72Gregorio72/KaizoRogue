@@ -3,7 +3,6 @@
   "name": "PokemonTower_5F_Frlg",
   "layout": "LAYOUT_POKEMON_TOWER_5F",
   "music": "MUS_RG_POKE_TOWER",
-  "region": "REGION_KANTO",
   "region_map_section": "MAPSEC_POKEMON_TOWER",
   "requires_flash": false,
   "weather": "WEATHER_FOG_HORIZONTAL",
@@ -131,161 +130,7 @@
       "dest_warp_id": "1"
     }
   ],
-  "coord_events": [
-    {
-      "type": "trigger",
-      "x": 10,
-      "y": 8,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 11,
-      "y": 8,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 12,
-      "y": 8,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 10,
-      "y": 9,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 9,
-      "y": 8,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 12,
-      "y": 9,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 10,
-      "y": 10,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 11,
-      "y": 10,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 12,
-      "y": 10,
-      "elevation": 0,
-      "var": "VAR_TEMP_1",
-      "var_value": "0",
-      "script": "PokemonTower_5F_EventScript_PurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 9,
-      "y": 9,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 9,
-      "y": 10,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 10,
-      "y": 11,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 11,
-      "y": 11,
-      "elevation": 3,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 12,
-      "y": 11,
-      "elevation": 0,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 13,
-      "y": 8,
-      "elevation": 0,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 13,
-      "y": 9,
-      "elevation": 0,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    },
-    {
-      "type": "trigger",
-      "x": 13,
-      "y": 10,
-      "elevation": 0,
-      "var": "VAR_TEMP_1",
-      "var_value": "1",
-      "script": "PokemonTower_5F_EventScript_ExitPurifiedZone"
-    }
-  ],
+  "coord_events": [],
   "bg_events": [
     {
       "type": "hidden_item",
@@ -297,5 +142,6 @@
       "quantity": 1,
       "underfoot": false
     }
-  ]
+  ],
+  "region": "REGION_KANTO"
 }

@@ -132,10 +132,151 @@ const struct MapHeader *const GetMapHeaderFromConnection(const struct MapConnect
     return Overworld_GetMapHeaderByGroupAndId(connection->mapGroup, connection->mapNum);
 }
 
+struct SSAnneDoor {
+    s16 x;
+    s16 y;
+    bool32 isAlwaysClosed;
+};
+
+static const struct SSAnneDoor sSSAnne1FDoors[] = {
+    {5, 10, FALSE},
+    {8, 10, FALSE},
+    {11, 10, FALSE},
+    {14, 10, FALSE},
+    {17, 10, FALSE},
+    {20, 10, TRUE},  // Room 6 (Donna che cura/fa riposare) - MAI aperta
+    {23, 10, FALSE},
+};
+
+static const struct SSAnneDoor sSSAnne2FDoors[] = {
+    {6, 10, FALSE},
+    {10, 10, FALSE},
+    {14, 10, FALSE},
+    {18, 10, FALSE},
+    {22, 10, FALSE},
+    {26, 10, FALSE},
+};
+
+static const struct SSAnneDoor sSSAnneB1FDoors[] = {
+    {2, 2, FALSE},
+    {6, 2, FALSE},
+    {10, 2, FALSE},
+    {14, 2, FALSE},
+    {18, 2, FALSE},
+};
+
+static void ApplySSAnneDoorRandomization(const struct SSAnneDoor *doors, u8 doorCount, u32 floorSalt, bool32 isB1F)
+{
+    u8 eligibleIndices[8];
+    u32 doorScores[8];
+    u8 eligibleCount = 0;
+
+    for (u32 i = 0; i < doorCount; i++)
+    {
+        if (!doors[i].isAlwaysClosed)
+        {
+            eligibleIndices[eligibleCount] = (u8)i;
+            eligibleCount++;
+        }
+    }
+
+    if (eligibleCount == 0)
+        return;
+
+    u32 seed = gSaveBlock2Ptr->randomizerSeed;
+    if (seed == 0)
+        seed = 0x54321678;
+
+    u32 numToKeep = (eligibleCount + 1) / 2; // 50% delle stanze disponibili arrotondato per eccesso
+
+    for (u32 e = 0; e < eligibleCount; e++)
+    {
+        u8 idx = eligibleIndices[e];
+        u32 h = seed ^ floorSalt ^ (doors[idx].x * 3571) ^ (doors[idx].y * 101);
+        h = 1103515245 * h + 12345;
+        doorScores[e] = h;
+    }
+
+    // Ordina per punteggio decrescente
+    for (u32 a = 0; a < eligibleCount; a++)
+    {
+        for (u32 b = a + 1; b < eligibleCount; b++)
+        {
+            if (doorScores[b] > doorScores[a])
+            {
+                u32 tempScore = doorScores[a];
+                doorScores[a] = doorScores[b];
+                doorScores[b] = tempScore;
+
+                u8 tempIdx = eligibleIndices[a];
+                eligibleIndices[a] = eligibleIndices[b];
+                eligibleIndices[b] = tempIdx;
+            }
+        }
+    }
+
+    // Le prime numToKeep sono aperte, le restanti sono chiuse
+    bool8 isOpen[8] = {0};
+    for (u32 k = 0; k < numToKeep && k < eligibleCount; k++)
+    {
+        isOpen[eligibleIndices[k]] = TRUE;
+    }
+
+    for (u32 d = 0; d < doorCount; d++)
+    {
+        if (!isOpen[d])
+        {
+            s32 gx = doors[d].x + MAP_OFFSET;
+            s32 gy = doors[d].y + MAP_OFFSET;
+            s32 wallGx;
+            s32 wallGy;
+
+            if (isB1F)
+            {
+                // Su B1F la porta e' a y=2, prendiamo il muro adiacente a x+1, y=2 e top a x+1, y=1
+                wallGx = (doors[d].x + 1) + MAP_OFFSET;
+                wallGy = doors[d].y + MAP_OFFSET;
+            }
+            else
+            {
+                // Su 1F e 2F la porta e' a y=10, prendiamo il muro adiacente a x-1, y=10 e top a x-1, y=9
+                wallGx = (doors[d].x - 1) + MAP_OFFSET;
+                wallGy = doors[d].y + MAP_OFFSET;
+            }
+
+            if (AreCoordsWithinMapGridBounds(gx, gy) && AreCoordsWithinMapGridBounds(wallGx, wallGy))
+            {
+                u16 wallBottom = gBackupMapLayout.map[wallGx + wallGy * gBackupMapLayout.width];
+                u16 wallTop = gBackupMapLayout.map[wallGx + (wallGy - 1) * gBackupMapLayout.width];
+
+                gBackupMapLayout.map[gx + gy * gBackupMapLayout.width] = wallBottom;
+                gBackupMapLayout.map[gx + (gy - 1) * gBackupMapLayout.width] = wallTop;
+            }
+        }
+    }
+}
+
+static void ApplySSAnneCorridorRoomRandomization(void)
+{
+    if (gMapHeader.mapLayoutId == LAYOUT_SSANNE_1F_CORRIDOR)
+    {
+        ApplySSAnneDoorRandomization(sSSAnne1FDoors, ARRAY_COUNT(sSSAnne1FDoors), 0x11111111, FALSE);
+    }
+    else if (gMapHeader.mapLayoutId == LAYOUT_SSANNE_2F_CORRIDOR)
+    {
+        ApplySSAnneDoorRandomization(sSSAnne2FDoors, ARRAY_COUNT(sSSAnne2FDoors), 0x22222222, FALSE);
+    }
+    else if (gMapHeader.mapLayoutId == LAYOUT_SSANNE_B1F_CORRIDOR)
+    {
+        ApplySSAnneDoorRandomization(sSSAnneB1FDoors, ARRAY_COUNT(sSSAnneB1FDoors), 0xBBBBBBBB, TRUE);
+    }
+}
+
 void InitMap(void)
 {
     InitMapLayoutData(&gMapHeader);
     SetOccupiedSecretBaseEntranceMetatiles(gMapHeader.events);
+    ApplySSAnneCorridorRoomRandomization();
     RunOnLoadMapScript();
 }
 
@@ -144,6 +285,7 @@ void InitMapFromSavedGame(void)
     InitMapLayoutData(&gMapHeader);
     InitSecretBaseAppearance(FALSE);
     SetOccupiedSecretBaseEntranceMetatiles(gMapHeader.events);
+    ApplySSAnneCorridorRoomRandomization();
     LoadSavedMapView();
     RunOnLoadMapScript();
     UpdateTVScreensOnMap(gBackupMapLayout.width, gBackupMapLayout.height);
