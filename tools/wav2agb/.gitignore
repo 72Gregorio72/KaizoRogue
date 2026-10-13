@@ -1,7 +1,7 @@
 *.o
 *.exe
 *.s
-*.gba
+# *.gba
 *.sdf
 
 wav2agb
