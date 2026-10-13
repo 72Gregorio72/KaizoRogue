@@ -1410,6 +1410,12 @@ void Script_StatPoints_Init(void)
 
     CalculateMonStats(mon);
 
+    if (naturalBST >= 500 || effectiveBST >= 500)
+    {
+        gSpecialVar_Result = 1; // BST naturale >= 500 o BST effettivo ha già raggiunto/superato 500
+        return;
+    }
+
     if (totalEarned <= totalUsed && totalUsed == 0)
     {
         ConvertIntToDecimalStringN(gStringVar3, badges, STR_CONV_MODE_LEFT_ALIGN, 2);
@@ -1418,7 +1424,17 @@ void Script_StatPoints_Init(void)
     }
 
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    ConvertIntToDecimalStringN(gStringVar3, remainingEarned, STR_CONV_MODE_LEFT_ALIGN, 3);
+    u16 maxCanAdd = 500 - effectiveBST;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+
+    if (availableToAdd == 0 && totalUsed == 0)
+    {
+        ConvertIntToDecimalStringN(gStringVar3, badges, STR_CONV_MODE_LEFT_ALIGN, 2);
+        gSpecialVar_Result = 2; // Nessun punto da distribuire
+        return;
+    }
+
+    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
     gSpecialVar_Result = 0; // Pronto per distribuire / modificare
 }
 
@@ -1437,8 +1453,11 @@ void Script_StatPoints_GetRemainingPoints(void)
     ConvertIntToDecimalStringN(gStringVar2, effectiveBST, STR_CONV_MODE_LEFT_ALIGN, 3);
 
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    ConvertIntToDecimalStringN(gStringVar3, remainingEarned, STR_CONV_MODE_LEFT_ALIGN, 3);
-    gSpecialVar_Result = remainingEarned;
+    u16 maxCanAdd = (effectiveBST < 500 && naturalBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+
+    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = availableToAdd;
 }
 
 void Script_StatPoints_PushStatChoices(void)
@@ -1501,11 +1520,16 @@ void Script_StatPoints_SelectStat(void)
 
 void Script_StatPoints_PushAmountChoices(void)
 {
+    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
     u16 totalEarned = badges * 20;
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    u16 availableToAdd = remainingEarned;
+    u16 maxCanAdd = (effectiveBST < 500 && naturalBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
     u8 customBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
 
     static const u8 sAddAmounts[] = { 1, 5, 10, 20 };
@@ -1579,11 +1603,15 @@ void Script_StatPoints_Apply(void)
 {
     s32 delta = (s32)gSpecialVar_0x8005;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
+    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
     u16 totalEarned = badges * 20;
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
+    u16 naturalBST = GetSpeciesBaseStatTotal(species);
+    u16 effectiveBST = naturalBST + totalUsed;
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    u16 availableToAdd = remainingEarned;
+    u16 maxCanAdd = (effectiveBST < 500 && naturalBST < 500) ? (500 - effectiveBST) : 0;
+    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
     u8 currentBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
 
     if (delta == 999)
