@@ -2,7 +2,7 @@
 *.o
 *.i
 *.elf
-*.gba
+# *.gba
 !data/*.gba
 *.sgm
 *.sa1
