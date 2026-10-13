@@ -660,8 +660,12 @@ gSpecials::
 	def_special Script_EVManager_ApplyPoints
 	def_special Script_EVManager_ResetAllEVs
 	def_special Script_NatureChanger_Init
+	def_special Script_NatureChanger_Roll
+	def_special Script_NatureChanger_Select
 	def_special Script_NatureChanger_Apply
 	def_special Script_AbilityChanger_Init
+	def_special Script_AbilityChanger_Roll
+	def_special Script_AbilityChanger_Select
 	def_special Script_AbilityChanger_Apply
 	def_special Script_MartBuild_CheckCanUse
 	def_special Script_MartBuild_Consume

@@ -123,6 +123,10 @@ static u8 sMartBuildSessionUsed;
 static bool8 sDraftMovesGenerated;
 static u8 sDraftMovesCity;
 static u16 sDraftedMoves[5];
+static bool8 sDraftNaturesGenerated;
+static u8 sDraftedNatures[5];
+static bool8 sDraftAbilitiesGenerated;
+static u16 sDraftedAbilities[5];
 
 void GenerateStartersForType(u8 chosenType)
 {
@@ -187,10 +191,16 @@ void GenerateNewKaizoSeedAndStarters(void)
         sStarterDraftMoves[i] = MOVE_NONE;
 
     sDraftMovesGenerated = FALSE;
+    sDraftNaturesGenerated = FALSE;
+    sDraftAbilitiesGenerated = FALSE;
     sDraftMovesCity = 0;
     sMartBuildSessionUsed = 0;
     for (int i = 0; i < 5; i++)
+    {
         sDraftedMoves[i] = MOVE_NONE;
+        sDraftedNatures[i] = 0;
+        sDraftedAbilities[i] = ABILITY_NONE;
+    }
 
     GenerateStartersForType(TYPE_NONE);
 }
@@ -948,7 +958,9 @@ void Script_EVManager_ResetAllEVs(void)
     StringGet_Nickname(gStringVar1);
 }
 
-// --- NPC CAMBIO NATURA RANDOM ---
+static const u8 sDraftText_Cancel[] = _("Cancel");
+
+// --- NPC CAMBIO NATURA DRAFT ---
 void Script_NatureChanger_Init(void)
 {
     u8 slot = VarGet(VAR_0x8004);
@@ -965,28 +977,117 @@ void Script_NatureChanger_Init(void)
     StringCopy(gStringVar2, gNaturesInfo[nature].name);
 }
 
-void Script_NatureChanger_Apply(void)
+void Script_NatureChanger_Roll(void)
 {
+    if (!sDraftNaturesGenerated)
+    {
+        u8 slot = VarGet(VAR_0x8004);
+        if (slot >= PARTY_SIZE)
+            slot = 0;
+        struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+        u8 currentNature = GetMonData(mon, MON_DATA_HIDDEN_NATURE);
+        if (currentNature >= NUM_NATURES)
+            currentNature = GetNature(mon);
+
+        for (int i = 0; i < 5; i++)
+        {
+            u8 nat;
+            bool32 valid;
+            int tries = 0;
+            do {
+                valid = TRUE;
+                nat = Random() % NUM_NATURES;
+                if (nat == currentNature)
+                    valid = FALSE;
+                for (int d = 0; d < i; d++)
+                {
+                    if (sDraftedNatures[d] == nat)
+                    {
+                        valid = FALSE;
+                        break;
+                    }
+                }
+                tries++;
+            } while (!valid && tries < 200);
+            sDraftedNatures[i] = nat;
+        }
+        sDraftNaturesGenerated = TRUE;
+    }
+
+    static const u8 sStatAbbrevNames[6][8] = {
+        _("HP"),
+        _("Atk"),
+        _("Def"),
+        _("Speed"),
+        _("Sp.Atk"),
+        _("Sp.Def")
+    };
+    static const u8 sNatureText_Neutral[]       = _(" (Neutral)");
+    static const u8 sNatureText_OpenParenPlus[] = _(" (+");
+    static const u8 sNatureText_SpaceMinus[]    = _(" -");
+    static const u8 sNatureText_CloseParen[]    = _(")");
+
+    for (int i = 0; i < 5; i++)
+    {
+        u8 nat = sDraftedNatures[i];
+        u8 *buf = Alloc(64);
+        u8 *ptr = StringCopy(buf, gNaturesInfo[nat].name);
+        if (gNaturesInfo[nat].statUp == gNaturesInfo[nat].statDown)
+        {
+            ptr = StringAppend(ptr, sNatureText_Neutral);
+        }
+        else
+        {
+            ptr = StringAppend(ptr, sNatureText_OpenParenPlus);
+            ptr = StringAppend(ptr, sStatAbbrevNames[gNaturesInfo[nat].statUp]);
+            ptr = StringAppend(ptr, sNatureText_SpaceMinus);
+            ptr = StringAppend(ptr, sStatAbbrevNames[gNaturesInfo[nat].statDown]);
+            ptr = StringAppend(ptr, sNatureText_CloseParen);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = nat;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sDraftText_Cancel);
+        struct ListMenuItem cancelItem;
+        cancelItem.name = bufCancel;
+        cancelItem.id = NUM_NATURES;
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+}
+
+void Script_NatureChanger_Select(void)
+{
+    u8 choice = (u8)gSpecialVar_0x8005;
+    if (choice >= NUM_NATURES)
+    {
+        gSpecialVar_Result = 0xFF;
+        return;
+    }
     u8 slot = VarGet(VAR_0x8004);
     if (slot >= PARTY_SIZE)
         slot = 0;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
-
-    u8 currentNature = GetMonData(mon, MON_DATA_HIDDEN_NATURE);
-    if (currentNature >= NUM_NATURES)
-        currentNature = GetNature(mon);
-
-    u8 newNature = (currentNature + 1 + (Random() % (NUM_NATURES - 1))) % NUM_NATURES;
-    u8 hiddenNature = newNature;
+    u8 hiddenNature = choice;
     SetMonData(mon, MON_DATA_HIDDEN_NATURE, &hiddenNature);
     CalculateMonStats(mon);
 
     GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
     StringGet_Nickname(gStringVar1);
-    StringCopy(gStringVar2, gNaturesInfo[newNature].name);
+    StringCopy(gStringVar2, gNaturesInfo[choice].name);
+    gSpecialVar_Result = choice;
 }
 
-// --- NPC CAMBIO ABILITÀ RANDOM ---
+void Script_NatureChanger_Apply(void)
+{
+    Script_NatureChanger_Select();
+}
+
+// --- NPC CAMBIO ABILITÀ DRAFT ---
 void Script_AbilityChanger_Init(void)
 {
     u8 slot = VarGet(VAR_0x8004);
@@ -1000,27 +1101,85 @@ void Script_AbilityChanger_Init(void)
     StringCopy(gStringVar2, gAbilitiesInfo[ability].name);
 }
 
-void Script_AbilityChanger_Apply(void)
+void Script_AbilityChanger_Roll(void)
 {
+    if (!sDraftAbilitiesGenerated)
+    {
+        u8 slot = VarGet(VAR_0x8004);
+        if (slot >= PARTY_SIZE)
+            slot = 0;
+        struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
+        enum Ability currentAbility = GetMonAbility(mon);
+
+        for (int i = 0; i < 5; i++)
+        {
+            enum Ability newAbility;
+            bool32 valid;
+            int tries = 0;
+            do {
+                valid = TRUE;
+                newAbility = (Random() % (ABILITIES_COUNT - 1)) + 1;
+                if (newAbility == currentAbility || gAbilitiesInfo[newAbility].name[0] == '-' || gAbilitiesInfo[newAbility].name[0] == 0)
+                    valid = FALSE;
+                for (int d = 0; d < i; d++)
+                {
+                    if (sDraftedAbilities[d] == newAbility)
+                    {
+                        valid = FALSE;
+                        break;
+                    }
+                }
+                tries++;
+            } while (!valid && tries < 3000);
+            sDraftedAbilities[i] = newAbility;
+        }
+        sDraftAbilitiesGenerated = TRUE;
+    }
+
+    for (int i = 0; i < 5; i++)
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gAbilitiesInfo[sDraftedAbilities[i]].name);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = sDraftedAbilities[i];
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sDraftText_Cancel);
+        struct ListMenuItem cancelItem;
+        cancelItem.name = bufCancel;
+        cancelItem.id = ABILITY_NONE;
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+}
+
+void Script_AbilityChanger_Select(void)
+{
+    u16 ability = (u16)gSpecialVar_0x8005;
+    if (ability == ABILITY_NONE || ability >= ABILITIES_COUNT)
+    {
+        gSpecialVar_Result = 0xFF;
+        return;
+    }
     u8 slot = VarGet(VAR_0x8004);
     if (slot >= PARTY_SIZE)
         slot = 0;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][slot];
-
-    enum Ability currentAbility = GetMonAbility(mon);
-    enum Ability newAbility;
-    u32 tries = 0;
-    do {
-        newAbility = (Random() % (ABILITIES_COUNT - 1)) + 1;
-        tries++;
-    } while ((newAbility == currentAbility || gAbilitiesInfo[newAbility].name[0] == '-' || gAbilitiesInfo[newAbility].name[0] == 0) && tries < 1000);
-
-    u16 customAbility = newAbility;
+    u16 customAbility = ability;
     SetMonData(mon, MON_DATA_CUSTOM_ABILITY, &customAbility);
 
     GetMonData(mon, MON_DATA_NICKNAME, gStringVar1);
     StringGet_Nickname(gStringVar1);
-    StringCopy(gStringVar2, gAbilitiesInfo[newAbility].name);
+    StringCopy(gStringVar2, gAbilitiesInfo[ability].name);
+    gSpecialVar_Result = ability;
+}
+
+void Script_AbilityChanger_Apply(void)
+{
+    Script_AbilityChanger_Select();
 }
 
 // --- POKÉ MART BUILD HUB LIMIT (1 PER CITTÀ) ---
@@ -1067,11 +1226,17 @@ void Script_MartBuild_Consume(void)
     gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
 }
 
-static void Script_MoveDraft_Reset(void)
+static void Script_MartDraft_Reset(void)
 {
     sDraftMovesGenerated = FALSE;
+    sDraftNaturesGenerated = FALSE;
+    sDraftAbilitiesGenerated = FALSE;
     for (int i = 0; i < 5; i++)
+    {
         sDraftedMoves[i] = MOVE_NONE;
+        sDraftedNatures[i] = 0;
+        sDraftedAbilities[i] = ABILITY_NONE;
+    }
 }
 
 void Script_MartBuild_InitSession(void)
@@ -1080,7 +1245,7 @@ void Script_MartBuild_InitSession(void)
     sMartBuildSessionUsed = 0;
     if (sDraftMovesCity != city)
     {
-        Script_MoveDraft_Reset();
+        Script_MartDraft_Reset();
         sDraftMovesCity = city;
     }
 }
@@ -1204,7 +1369,6 @@ static const u8 sStatPointsText_Points[]        = _(" Points");
 static const u8 sStatPointsText_AllRemaining[]  = _("+All (");
 static const u8 sStatPointsText_Reset[]         = _("Reset stat bonus");
 static const u8 sStatPointsText_Back[]          = _("Back");
-static const u8 sDraftText_Cancel[]             = _("Cancel");
 
 static u16 GetPlayerBadgesCount(void)
 {
@@ -1244,25 +1408,18 @@ void Script_StatPoints_Init(void)
     StringGet_Nickname(gStringVar1);
     ConvertIntToDecimalStringN(gStringVar2, effectiveBST, STR_CONV_MODE_LEFT_ALIGN, 3);
 
-    if (naturalBST >= 500 || effectiveBST >= 500)
-    {
-        gSpecialVar_Result = 1; // BST naturale >= 500 o già a 500
-        return;
-    }
+    CalculateMonStats(mon);
 
-    if (totalEarned <= totalUsed)
+    if (totalEarned <= totalUsed && totalUsed == 0)
     {
         ConvertIntToDecimalStringN(gStringVar3, badges, STR_CONV_MODE_LEFT_ALIGN, 2);
         gSpecialVar_Result = 2; // Nessun punto da distribuire
         return;
     }
 
-    u16 remainingEarned = totalEarned - totalUsed;
-    u16 maxCanAdd = 500 - effectiveBST;
-    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
-
-    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
-    gSpecialVar_Result = 0; // Pronto per distribuire
+    u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
+    ConvertIntToDecimalStringN(gStringVar3, remainingEarned, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = 0; // Pronto per distribuire / modificare
 }
 
 void Script_StatPoints_GetRemainingPoints(void)
@@ -1280,11 +1437,8 @@ void Script_StatPoints_GetRemainingPoints(void)
     ConvertIntToDecimalStringN(gStringVar2, effectiveBST, STR_CONV_MODE_LEFT_ALIGN, 3);
 
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
-    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
-
-    ConvertIntToDecimalStringN(gStringVar3, availableToAdd, STR_CONV_MODE_LEFT_ALIGN, 3);
-    gSpecialVar_Result = availableToAdd;
+    ConvertIntToDecimalStringN(gStringVar3, remainingEarned, STR_CONV_MODE_LEFT_ALIGN, 3);
+    gSpecialVar_Result = remainingEarned;
 }
 
 void Script_StatPoints_PushStatChoices(void)
@@ -1347,16 +1501,11 @@ void Script_StatPoints_SelectStat(void)
 
 void Script_StatPoints_PushAmountChoices(void)
 {
-    struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
-    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
     u16 totalEarned = badges * 20;
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
-    u16 naturalBST = GetSpeciesBaseStatTotal(species);
-    u16 effectiveBST = naturalBST + totalUsed;
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
-    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+    u16 availableToAdd = remainingEarned;
     u8 customBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
 
     static const u8 sAddAmounts[] = { 1, 5, 10, 20 };
@@ -1430,15 +1579,11 @@ void Script_StatPoints_Apply(void)
 {
     s32 delta = (s32)gSpecialVar_0x8005;
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
-    enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
     u16 totalEarned = badges * 20;
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
-    u16 naturalBST = GetSpeciesBaseStatTotal(species);
-    u16 effectiveBST = naturalBST + totalUsed;
     u16 remainingEarned = (totalEarned > totalUsed) ? (totalEarned - totalUsed) : 0;
-    u16 maxCanAdd = (effectiveBST < 500) ? (500 - effectiveBST) : 0;
-    u16 availableToAdd = (remainingEarned < maxCanAdd) ? remainingEarned : maxCanAdd;
+    u16 availableToAdd = remainingEarned;
     u8 currentBonus = gSaveBlock2Ptr->customStatPoints[sStatPointsSelectedStat];
 
     if (delta == 999)

@@ -77,6 +77,9 @@ static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEv
 static void MultichoiceDynamicEventShowMove_OnInit(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
 static void MultichoiceDynamicEventShowMove_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowAbility_OnInit(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowAbility_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs);
+static void MultichoiceDynamicEventShowAbility_OnDestroy(struct DynamicListMenuEventArgs *eventArgs);
 
 static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollections[] =
 {
@@ -103,6 +106,12 @@ static const struct DynamicListMenuEventCollection sDynamicListMenuEventCollecti
         .OnInit = MultichoiceDynamicEventShowMove_OnInit,
         .OnSelectionChanged = MultichoiceDynamicEventShowMove_OnSelectionChanged,
         .OnDestroy = MultichoiceDynamicEventShowMove_OnDestroy
+    },
+    [DYN_MULTICHOICE_CB_SHOW_ABILITY] =
+    {
+        .OnInit = MultichoiceDynamicEventShowAbility_OnInit,
+        .OnSelectionChanged = MultichoiceDynamicEventShowAbility_OnSelectionChanged,
+        .OnDestroy = MultichoiceDynamicEventShowAbility_OnDestroy
     }
 };
 
@@ -254,6 +263,7 @@ static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEv
 #define sMoveAuxWindowId sDynamicMenuEventScratchPad[0]
 #define sMoveSpriteId    sDynamicMenuEventScratchPad[1]
 
+static const u8 sText_TypeLabel[]   = _("TYPE:");
 static const u8 sText_CatLabel[]    = _("CAT:");
 static const u8 sText_PwrLabel[]    = _("PWR:");
 static const u8 sText_PpLabel[]     = _("PP:");
@@ -267,6 +277,12 @@ static void FormatMoveDescriptionToFit(u8 *dest, const u8 *src, u8 fontId, u32 m
     u32 srcIdx = 0;
     u32 destIdx = 0;
     u32 lineIdx = 0;
+
+    if (src == NULL)
+    {
+        dest[0] = EOS;
+        return;
+    }
 
     currentLine[0] = EOS;
 
@@ -332,7 +348,7 @@ static void MultichoiceDynamicEventShowMove_OnInit(struct DynamicListMenuEventAr
         left = 16;
     u8 width = 29 - left;
     u8 top = 1;
-    u8 height = 11;
+    u8 height = 12;
     struct WindowTemplate auxTemplate = CreateWindowTemplate(0, left, top, width, height, 15, baseBlock);
     u32 auxWindowId = AddWindow(&auxTemplate);
     SetStandardWindowBorderStyle(auxWindowId, FALSE);
@@ -350,8 +366,8 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
     u16 move = eventArgs->selectedItem;
     u8 windowId = sMoveAuxWindowId;
     struct WindowTemplate *template = &gWindows[windowId].window;
-    u32 spriteX = template->tilemapLeft * 8 + 32;
-    u32 spriteY = template->tilemapTop * 8 + 10;
+    u32 spriteX = template->tilemapLeft * 8 + 34;
+    u32 spriteY = template->tilemapTop * 8 + 23;
 
     FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
 
@@ -361,6 +377,7 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
         u16 acc = GetMoveAccuracy(move);
         u32 pp = GetMovePP(move);
         enum DamageCategory cat = GetMoveCategory(move);
+        u8 moveType = GetMoveType(move);
         u8 strPwr[8], strAcc[8], strPP[8];
         u8 formattedDesc[256];
         const u8 *desc = GetMoveDescription(move);
@@ -377,23 +394,28 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
 
         ConvertIntToDecimalStringN(strPP, pp, STR_CONV_MODE_LEFT_ALIGN, 2);
 
-        // Row 1 (y = 2): CAT: [ICON]   PWR: {value}
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_CatLabel, 2, 2, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PwrLabel, 46, 2, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPwr, 74, 2, TEXT_SKIP_DRAW, NULL);
+        // Row 1 (y = 2): TYPE: {type}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_TypeLabel, 2, 2, TEXT_SKIP_DRAW, NULL);
+        if (moveType < NUMBER_OF_MON_TYPES)
+            AddTextPrinterParameterized(windowId, FONT_NORMAL, gTypesInfo[moveType].name, 32, 2, TEXT_SKIP_DRAW, NULL);
 
-        // Row 2 (y = 17): PP: {value}   ACC: {value} (ACC under PWR)
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PpLabel, 2, 17, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPP, 20, 17, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_AccLabel, 46, 17, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strAcc, 74, 17, TEXT_SKIP_DRAW, NULL);
+        // Row 2 (y = 15): CAT: [ICON]   PWR: {value}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_CatLabel, 2, 15, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PwrLabel, 54, 15, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPwr, 80, 15, TEXT_SKIP_DRAW, NULL);
 
-        // Row 3 (y = 32): Divider
-        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 32, (template->width * 8) - 4, 1);
+        // Row 3 (y = 28): PP: {value}   ACC: {value} (ACC under PWR)
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PpLabel, 2, 28, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPP, 22, 28, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_AccLabel, 54, 28, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strAcc, 80, 28, TEXT_SKIP_DRAW, NULL);
 
-        // Row 4 (y = 36 onwards): Dynamic word-wrapped description
+        // Row 4 (y = 41): Divider
+        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 41, (template->width * 8) - 4, 1);
+
+        // Row 5 (y = 45 onwards): Dynamic word-wrapped description
         FormatMoveDescriptionToFit(formattedDesc, desc, FONT_NORMAL, (template->width * 8) - 6);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 36, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 45, TEXT_SKIP_DRAW, NULL);
 
         if (sMoveSpriteId == MAX_SPRITES)
         {
@@ -437,6 +459,66 @@ static void MultichoiceDynamicEventShowMove_OnDestroy(struct DynamicListMenuEven
 
 #undef sMoveAuxWindowId
 #undef sMoveSpriteId
+
+#define sAbilityAuxWindowId sDynamicMenuEventScratchPad[0]
+
+static void MultichoiceDynamicEventShowAbility_OnInit(struct DynamicListMenuEventArgs *eventArgs)
+{
+    struct WindowTemplate *template = &gWindows[eventArgs->windowId].window;
+    u32 baseBlock = template->baseBlock + template->width * template->height;
+    u8 left = template->tilemapLeft + template->width + 1;
+    if (left < 15)
+        left = 15;
+    if (left > 16)
+        left = 16;
+    u8 width = 29 - left;
+    u8 top = 1;
+    u8 height = 12;
+    struct WindowTemplate auxTemplate = CreateWindowTemplate(0, left, top, width, height, 15, baseBlock);
+    u32 auxWindowId = AddWindow(&auxTemplate);
+    SetStandardWindowBorderStyle(auxWindowId, FALSE);
+    FillWindowPixelBuffer(auxWindowId, PIXEL_FILL(1));
+    CopyWindowToVram(auxWindowId, COPYWIN_FULL);
+    sAbilityAuxWindowId = auxWindowId;
+}
+
+static void MultichoiceDynamicEventShowAbility_OnSelectionChanged(struct DynamicListMenuEventArgs *eventArgs)
+{
+    u16 ability = eventArgs->selectedItem;
+    u8 windowId = sAbilityAuxWindowId;
+    struct WindowTemplate *template = &gWindows[windowId].window;
+
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
+
+    if (ability != ABILITY_NONE && ability < ABILITIES_COUNT)
+    {
+        u8 formattedDesc[256];
+        const u8 *desc = gAbilitiesInfo[ability].description;
+
+        // Ability name at y = 2
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, gAbilitiesInfo[ability].name, 2, 2, TEXT_SKIP_DRAW, NULL);
+
+        // Divider at y = 16
+        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 16, (template->width * 8) - 4, 1);
+
+        // Word-wrapped description at y = 20
+        if (desc != NULL)
+        {
+            FormatMoveDescriptionToFit(formattedDesc, desc, FONT_NORMAL, (template->width * 8) - 6);
+            AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 20, TEXT_SKIP_DRAW, NULL);
+        }
+    }
+
+    CopyWindowToVram(windowId, COPYWIN_FULL);
+}
+
+static void MultichoiceDynamicEventShowAbility_OnDestroy(struct DynamicListMenuEventArgs *eventArgs)
+{
+    ClearStdWindowAndFrame(sAbilityAuxWindowId, TRUE);
+    RemoveWindow(sAbilityAuxWindowId);
+}
+
+#undef sAbilityAuxWindowId
 
 static void FreeListMenuItems(struct ListMenuItem *items, u32 count)
 {

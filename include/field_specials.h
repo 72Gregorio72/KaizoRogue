@@ -72,10 +72,14 @@ void Script_EVManager_ResetAllEVs(void);
 
 // Nature Changer NPC
 void Script_NatureChanger_Init(void);
+void Script_NatureChanger_Roll(void);
+void Script_NatureChanger_Select(void);
 void Script_NatureChanger_Apply(void);
 
 // Ability Changer NPC
 void Script_AbilityChanger_Init(void);
+void Script_AbilityChanger_Roll(void);
+void Script_AbilityChanger_Select(void);
 void Script_AbilityChanger_Apply(void);
 
 // Poké Mart Build Hub & Stat Points

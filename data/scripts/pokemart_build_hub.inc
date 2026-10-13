@@ -197,9 +197,13 @@ PokemartBuild_EventScript_EVManager_NoEVs::
 PokemartBuild_EventScript_NatureChanger::
 	setvar VAR_0x8004, 0
 	special Script_NatureChanger_Init
-	msgbox PokemartBuild_Text_Nature_AskReroll, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, PokemartBuild_EventScript_MainMenu
-	special Script_NatureChanger_Apply
+	msgbox PokemartBuild_Text_Nature_AskSelect, MSGBOX_DEFAULT
+	special Script_NatureChanger_Roll
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokemartBuild_EventScript_MainMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_NatureChanger_Select
+	goto_if_eq VAR_RESULT, 0xFF, PokemartBuild_EventScript_MainMenu
 	playse SE_EXP
 	msgbox PokemartBuild_Text_Nature_Success, MSGBOX_DEFAULT
 	setvar VAR_0x8005, 5
@@ -210,9 +214,13 @@ PokemartBuild_EventScript_NatureChanger::
 PokemartBuild_EventScript_AbilityChanger::
 	setvar VAR_0x8004, 0
 	special Script_AbilityChanger_Init
-	msgbox PokemartBuild_Text_Ability_AskReroll, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, PokemartBuild_EventScript_MainMenu
-	special Script_AbilityChanger_Apply
+	msgbox PokemartBuild_Text_Ability_AskSelect, MSGBOX_DEFAULT
+	special Script_AbilityChanger_Roll
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_ABILITY
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokemartBuild_EventScript_MainMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_AbilityChanger_Select
+	goto_if_eq VAR_RESULT, 0xFF, PokemartBuild_EventScript_MainMenu
 	playse SE_EXP
 	msgbox PokemartBuild_Text_Ability_Success, MSGBOX_DEFAULT
 	setvar VAR_0x8005, 6
@@ -315,20 +323,18 @@ PokemartBuild_Text_EV_NoEVs:
 	.string "{STR_VAR_1} has not accumulated any EVs\n"
 	.string "to redistribute yet (0/510).$"
 
-PokemartBuild_Text_Nature_AskReroll:
-	.string "Would you like to change {STR_VAR_1}'s Nature?\n"
-	.string "(Current Nature: {STR_VAR_2})\p"
-	.string "It will receive a new random Nature!$"
+PokemartBuild_Text_Nature_AskSelect:
+	.string "Select a new Nature for {STR_VAR_1}!\n"
+	.string "(Current Nature: {STR_VAR_2})$"
 
 PokemartBuild_Text_Nature_Success:
-	.string "{STR_VAR_1}'s Nature changed to:\n"
+	.string "{STR_VAR_1}'s Nature was changed to:\n"
 	.string "{STR_VAR_2}!$"
 
-PokemartBuild_Text_Ability_AskReroll:
-	.string "Would you like to change {STR_VAR_1}'s Ability?\n"
-	.string "(Current Ability: {STR_VAR_2})\p"
-	.string "It will receive a new random Ability!$"
+PokemartBuild_Text_Ability_AskSelect:
+	.string "Select a new Ability for {STR_VAR_1}!\n"
+	.string "(Current Ability: {STR_VAR_2})$"
 
 PokemartBuild_Text_Ability_Success:
-	.string "{STR_VAR_1}'s Ability changed to:\n"
+	.string "{STR_VAR_1}'s Ability was changed to:\n"
 	.string "{STR_VAR_2}!$"
