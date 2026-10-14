@@ -1174,7 +1174,7 @@ EventScript_GiveNicknameToStarter::
 	end
 
 PalletTown_ProfessorOaksLab_EventScript_ChooseStarterBonusMove::
-	msgbox PalletTown_ProfessorOaksLab_Text_OakChooseStarterAttackMove, MSGBOX_DEFAULT
+	closemessage
 PalletTown_ProfessorOaksLab_EventScript_AskMoveMenu::
 	special Script_Starter_RollAttackMoves
 	dynmultistack 0, 0, TRUE, 3, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_MOVE

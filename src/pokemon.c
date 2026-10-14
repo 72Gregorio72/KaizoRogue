@@ -58,6 +58,7 @@
 #include "trainer_hill.h"
 #include "util.h"
 #include "constants/abilities.h"
+#include "roguelike_rarity.h"
 #include "constants/battle_frontier.h"
 #include "constants/battle_move_effects.h"
 #include "constants/battle_partner.h"
@@ -1599,32 +1600,32 @@ enum Move GetKaizoLevelUpMappedMove(enum Move baseMove, enum Species species, u3
     u32 rng = seed ^ (species * 1013) ^ (level * 313) ^ (baseMove * 7919) ^ (personality & 0xFFFF);
     rng = 1103515245 * rng + 12345;
 
+    u8 baseTier = GetMoveRarityTier(baseMove);
+    if (baseTier == RARITY_NONE)
+        baseTier = RARITY_COMMON;
+
     bool32 isStatus = (gMovesInfo[baseMove].category == DAMAGE_CATEGORY_STATUS || gMovesInfo[baseMove].power == 0);
-    enum Type reqType = gMovesInfo[baseMove].type;
-
-    u16 candidatePool[128];
     u32 count = 0;
+    u32 m;
 
-    for (u32 m = 1; m < MOVES_COUNT && count < ARRAY_COUNT(candidatePool); m++)
+    for (m = 1; m < MOVES_COUNT; m++)
     {
         if (m == MOVE_STRUGGLE)
             continue;
         if (gMovesInfo[m].name[0] == 0 || gMovesInfo[m].name[0] == '-')
             continue;
+        if (GetMoveRarityTier(m) != baseTier)
+            continue;
 
         if (isStatus)
         {
             if (gMovesInfo[m].category == DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power == 0)
-            {
-                candidatePool[count++] = m;
-            }
+                count++;
         }
         else
         {
-            if (gMovesInfo[m].type == reqType && gMovesInfo[m].category != DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power > 0)
-            {
-                candidatePool[count++] = m;
-            }
+            if (gMovesInfo[m].category != DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power > 0)
+                count++;
         }
     }
 
@@ -1632,7 +1633,38 @@ enum Move GetKaizoLevelUpMappedMove(enum Move baseMove, enum Species species, u3
         return baseMove;
 
     u32 choice = (rng >> 16) % count;
-    return candidatePool[choice];
+    u32 current = 0;
+
+    for (m = 1; m < MOVES_COUNT; m++)
+    {
+        if (m == MOVE_STRUGGLE)
+            continue;
+        if (gMovesInfo[m].name[0] == 0 || gMovesInfo[m].name[0] == '-')
+            continue;
+        if (GetMoveRarityTier(m) != baseTier)
+            continue;
+
+        if (isStatus)
+        {
+            if (gMovesInfo[m].category == DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power == 0)
+            {
+                if (current == choice)
+                    return m;
+                current++;
+            }
+        }
+        else
+        {
+            if (gMovesInfo[m].category != DAMAGE_CATEGORY_STATUS && gMovesInfo[m].power > 0)
+            {
+                if (current == choice)
+                    return m;
+                current++;
+            }
+        }
+    }
+
+    return baseMove;
 }
 
 void GiveBoxMonDefaultMove(struct BoxPokemon *boxMon, u32 slot)

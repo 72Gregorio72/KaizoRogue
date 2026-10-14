@@ -55,8 +55,22 @@ def main():
         lines.append(f"// {title.upper()} RARITY POOLS")
         lines.append(f"// =============================================================")
 
+        ALIASES = {
+            "ITEM_POKEBALL": "ITEM_POKE_BALL",
+            "MOVE_MEGA_HORN": "MOVE_MEGAHORN",
+        }
+
+        item_to_tier = {}
+
         for t in tier_names:
-            items = cat_dict.get(t, [])
+            raw_items = cat_dict.get(t, [])
+            items = []
+            for item in raw_items:
+                item = ALIASES.get(item, item)
+                if item not in items:
+                    items.append(item)
+                item_to_tier[item] = t
+
             all_elements.extend(items)
             lines.append(f"static const u16 {var_prefix}_{t.capitalize()}[] = {{")
             for item in items:
@@ -73,9 +87,8 @@ def main():
 
         # Fast lookup array: id -> tier (0 = RARITY_NONE by default)
         lines.append(f"static const u8 sRarityTierTable_{title}[{max_const}] = {{")
-        for t in tier_names:
-            for item in cat_dict.get(t, []):
-                lines.append(f"    [{item}] = RARITY_{t},")
+        for item, t in item_to_tier.items():
+            lines.append(f"    [{item}] = RARITY_{t},")
         lines.append("};")
         lines.append("")
 

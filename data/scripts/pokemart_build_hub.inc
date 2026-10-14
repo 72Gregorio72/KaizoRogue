@@ -93,7 +93,7 @@ PokemartBuild_EventScript_StatPoints_NoPoints::
 
 @ --- 2. MOVE DRAFT (5 RANDOM MOVES) ---
 PokemartBuild_EventScript_MoveDraft::
-	msgbox PokemartBuild_Text_MoveDraft_Intro, MSGBOX_DEFAULT
+	closemessage
 	special Script_MoveDraft_Roll
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_MOVE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokemartBuild_EventScript_MoveDraft_Cancel
@@ -214,7 +214,7 @@ PokemartBuild_EventScript_NatureChanger::
 PokemartBuild_EventScript_AbilityChanger::
 	setvar VAR_0x8004, 0
 	special Script_AbilityChanger_Init
-	msgbox PokemartBuild_Text_Ability_AskSelect, MSGBOX_DEFAULT
+	closemessage
 	special Script_AbilityChanger_Roll
 	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_SHOW_ABILITY
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PokemartBuild_EventScript_MainMenu
