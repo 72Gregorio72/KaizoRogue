@@ -12,6 +12,7 @@ EventScript_ObtainItemMessage::
 	bufferitemnameplural STR_VAR_2, ITEMID, AMOUNT
 	checkitemtype ITEMID
 	call EventScript_BufferPocketNameAndTryFanfare
+	special Script_BufferItemRarity
 	call_if_eq VAR_0x8007, TRUE, EventScript_ObtainedItem
 	call_if_eq VAR_0x8007, FALSE, EventScript_NoRoomForItem
 	return
@@ -124,6 +125,7 @@ EventScript_PickUpItem::
 	removeobject VAR_LAST_TALKED
 	additem VAR_0x8004, VAR_0x8005
 	copyvar VAR_0x8006 VAR_0x8004
+	special Script_BufferItemRarity
 	specialvar VAR_RESULT, BufferTMHMMoveName
 	copyvar VAR_0x8008, VAR_RESULT
 	call_if_eq VAR_0x8008, TRUE, EventScript_FoundTMHM

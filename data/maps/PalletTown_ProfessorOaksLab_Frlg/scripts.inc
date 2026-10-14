@@ -1425,6 +1425,7 @@ PalletTown_ProfessorOaksLab_Text_OakIntroTypeChoice:
 PalletTown_ProfessorOaksLab_Text_OakChosenTypeResult:
 	.string "OAK: Excellent choice!\n"
 	.string "A specialty in {STR_VAR_1}-type!\p"
+	.string "The draft rolled {STR_VAR_2} rarity!\p"
 	.string "I've placed three {STR_VAR_1}-type\n"
 	.string "POKéMON in the balls on the table.\p"
 	.string "If you want a different selection,\n"
@@ -1494,7 +1495,8 @@ PalletTown_ProfessorOaksLab_Text_StarterRerollAide_AskReroll:
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_RerolledSuccess:
 	.string "Done! The three starter balls on\n"
-	.string "the table have been rerolled!\p"
+	.string "the table were rerolled into\n"
+	.string "{STR_VAR_2} rarity!\p"
 	.string "Go check them out!$"
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_GoodLuck:

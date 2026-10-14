@@ -688,4 +688,4 @@ gSpecials::
 	def_special Script_Oak_BufferChosenTypeName
 	def_special Script_Starter_RollAttackMoves
 	def_special Script_Starter_SelectAttackMove
-
+	def_special Script_BufferItemRarity

@@ -38,6 +38,7 @@
 #include "secret_base.h"
 #include "sound.h"
 #include "starter_choose.h"
+#include "roguelike_rarity.h"
 #include "strings.h"
 #include "string_util.h"
 #include "task.h"
@@ -2307,12 +2308,28 @@ static u16 GetKaizoRandomTrainerSpecies(u16 originalSpecies, u16 trainerNum, u8 
     if (seed == 0)
         seed = 0x98765432;
 
+    u8 tClass = GetTrainerClassFromId(trainerNum);
+    u8 lootContext = LOOT_CONTEXT_STANDARD;
+    if (tClass == TRAINER_CLASS_LEADER || tClass == TRAINER_CLASS_LEADER_FRLG
+        || tClass == TRAINER_CLASS_ELITE_FOUR || tClass == TRAINER_CLASS_ELITE_FOUR_FRLG
+        || tClass == TRAINER_CLASS_CHAMPION || tClass == TRAINER_CLASS_CHAMPION_FRLG
+        || tClass == TRAINER_CLASS_BOSS_FRLG)
+    {
+        lootContext = LOOT_CONTEXT_GYM_BOSS;
+    }
+
     u32 rng = seed;
     u16 newSpecies;
     do {
-        rng = 1103515245 * rng + 12345;
-        newSpecies = 1 + ((rng >> 16) % (NUM_SPECIES - 1));
+        if (GetRarityPokemonCount() > 0)
+            newSpecies = RollRandomRaritySpecies(lootContext, &rng);
+        else
+        {
+            rng = 1103515245 * rng + 12345;
+            newSpecies = 1 + ((rng >> 16) % (NUM_SPECIES - 1));
+        }
     } while (!IsSpeciesEnabled(newSpecies) 
+             || !IsSpeciesInRarityPool(newSpecies)
              || gSpeciesInfo[newSpecies].isMegaEvolution 
              || gSpeciesInfo[newSpecies].isUltraBeast
              || newSpecies == SPECIES_EGG

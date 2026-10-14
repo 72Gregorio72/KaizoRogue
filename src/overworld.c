@@ -58,6 +58,7 @@
 #include "rtc.h"
 #include "safari_zone.h"
 #include "save.h"
+#include "roguelike_rarity.h"
 #include "save_location.h"
 #include "script.h"
 #include "script_pokemon_util.h"
@@ -3931,7 +3932,7 @@ bool8 GetSetItemObtained(enum Item item, enum ItemObtainFlags caseId)
     return FALSE;
 }
 
-EWRAM_DATA static u8 sHeaderBoxWindowId = 0;
+EWRAM_DATA static u8 sHeaderBoxWindowId = WINDOW_NONE;
 EWRAM_DATA u8 sItemIconSpriteId = 0;
 
 static void ShowItemIconSprite(enum Item item, bool8 firstTime, bool8 flash);
@@ -3958,15 +3959,13 @@ void ScriptShowItemDescription(struct ScriptContext *ctx)
     u8 textY;
     u8 dst[0x100];
     bool8 handleFlash = FALSE;
+    u8 tier = GetItemRarityTier(item);
+
+    if (tier == RARITY_NONE)
+        tier = RARITY_COMMON;
 
     if (GetFlashLevel() > 0 || InBattlePyramid())
         handleFlash = TRUE;
-
-    if (GetSetItemObtained(item, FLAG_GET_ITEM_OBTAINED))
-    {
-        ShowItemIconSprite(item, FALSE, handleFlash);
-        return; //no box if item obtained previously
-    }
 
     SetWindowTemplateFields(&template, 0, 1, 1, 28, 3, 15, 8);
     sHeaderBoxWindowId = AddWindow(&template);
@@ -3974,6 +3973,7 @@ void ScriptShowItemDescription(struct ScriptContext *ctx)
     PutWindowTilemap(sHeaderBoxWindowId);
     CopyWindowToVram(sHeaderBoxWindowId, 3);
     SetStandardWindowBorderStyle(sHeaderBoxWindowId, FALSE);
+    LoadRarityFramePalette(tier, 14);
     DrawStdFrameWithCustomTileAndPalette(sHeaderBoxWindowId, FALSE, 0x214, 14);
 
     if (ReformatItemDescription(item, dst) == 1)
@@ -3994,14 +3994,17 @@ void ScriptHideItemDescription(struct ScriptContext *ctx)
 
     DestroyItemIconSprite();
 
-    if (!GetSetItemObtained(gSpecialVar_0x8006, FLAG_GET_ITEM_OBTAINED))
+    if (sHeaderBoxWindowId != WINDOW_NONE)
     {
-        //header box only exists if haven't seen item before
-        GetSetItemObtained(gSpecialVar_0x8006, FLAG_SET_ITEM_OBTAINED);
         ClearStdWindowAndFrameToTransparent(sHeaderBoxWindowId, FALSE);
         CopyWindowToVram(sHeaderBoxWindowId, 3);
         RemoveWindow(sHeaderBoxWindowId);
+        sHeaderBoxWindowId = WINDOW_NONE;
     }
+
+    // Restore standard menu palette and message box palette
+    Menu_LoadStdPal();
+    LoadMessageBoxAndBorderGfx();
 }
 
 static void ShowItemIconSprite(enum Item item, bool8 firstTime, bool8 flash)

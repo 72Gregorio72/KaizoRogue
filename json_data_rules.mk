@@ -31,3 +31,9 @@ $(DATA_SRC_SUBDIR)/kaizo_item_pool.h: $(DATA_SRC_SUBDIR)/kaizo_item_pool.json $(
 
 $(C_BUILDDIR)/kaizo_randomizer.o: c_dep += $(DATA_SRC_SUBDIR)/kaizo_item_pool.h
 
+AUTO_GEN_TARGETS += $(DATA_SRC_SUBDIR)/roguelike_rarity.h
+$(DATA_SRC_SUBDIR)/roguelike_rarity.h: data/roguelike_rarity.json dev_scripts/compile_rarity.py
+	python3 dev_scripts/compile_rarity.py $< $@
+
+$(C_BUILDDIR)/roguelike_rarity.o: c_dep += $(DATA_SRC_SUBDIR)/roguelike_rarity.h
+

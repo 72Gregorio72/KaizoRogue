@@ -18,6 +18,7 @@
 #include "move.h"
 #include "data/kaizo_item_pool.h"
 #include "battle_main.h"
+#include "roguelike_rarity.h"
 
 
 // --- PROTOTIPI GENERALI ---
@@ -30,6 +31,7 @@ void Script_SetupOaksLabStarter(void);
 void Script_GetKaizoStarterSpecies(void);
 void Script_GiveKaizoStarter(void);
 void Script_RandomizeFindItemResult(void);
+void Script_BufferItemRarity(void);
 
 // --- LOGICA ITEM RANDOMIZER ---
 u16 GetKaizoRandomizedItem(u16 originalItem)
@@ -44,9 +46,6 @@ u16 GetKaizoRandomizedItem(u16 originalItem)
     if (originalItem >= ITEM_HM01 && originalItem <= ITEM_HM08)
         return originalItem;
 
-    if (ARRAY_COUNT(sKaizoItemPool) == 0)
-        return originalItem;
-
     u32 seed = gSaveBlock2Ptr->randomizerSeed;
     if (seed == 0)
         seed = 0x54321678;
@@ -56,11 +55,35 @@ u16 GetKaizoRandomizedItem(u16 originalItem)
                         ^ (gSaveBlock1Ptr->location.mapGroup << 16)
                         ^ (gSaveBlock1Ptr->location.mapNum << 8);
 
+    if (GetRarityItemsCount() > 0)
+    {
+        u32 rng = itemSeed;
+        u8 tier = RollRarityTier(CATEGORY_ITEM, LOOT_CONTEXT_STANDARD, &rng);
+        return GetRandomRarityItemByTier(tier, &rng);
+    }
+
+    if (ARRAY_COUNT(sKaizoItemPool) == 0)
+        return originalItem;
+
     u32 rng = itemSeed;
     rng = 1103515245 * rng + 12345;
     u16 index = (rng >> 16) % ARRAY_COUNT(sKaizoItemPool);
 
     return sKaizoItemPool[index];
+}
+
+void Script_BufferItemRarity(void)
+{
+    u16 item = VarGet(VAR_0x8004);
+    if (item == ITEM_NONE || item >= ITEMS_COUNT)
+        item = VarGet(VAR_0x8006);
+
+    u8 tier = GetItemRarityTier(item);
+    if (tier == RARITY_NONE)
+        tier = RARITY_COMMON;
+
+    StringCopy(gStringVar1, GetRarityColoredName(tier));
+    LoadRarityFramePalette(tier, DLG_WINDOW_PALETTE_NUM);
 }
 
 void Script_RandomizeFindItemResult(void)
@@ -128,7 +151,9 @@ static u8 sDraftedNatures[5];
 static bool8 sDraftAbilitiesGenerated;
 static u16 sDraftedAbilities[5];
 
-void GenerateStartersForType(u8 chosenType)
+static u8 sOakRolledTier;
+
+void GenerateStartersForTypeAndTier(u8 chosenType, u8 tier)
 {
     u32 rng = Random32();
     if (rng == 0)
@@ -141,12 +166,27 @@ void GenerateStartersForType(u8 chosenType)
         int tries = 0;
         do {
             duplicate = FALSE;
-            rng = 1103515245 * rng + 12345;
-            mon = 1 + ((rng >> 16) % (NUM_SPECIES - 1));
+            if (tries < 250 && tier != RARITY_NONE)
+                mon = GetRandomRaritySpeciesByTier(tier, &rng);
+            else if (GetRarityPokemonCount() > 0)
+                mon = GetRandomRaritySpecies(&rng);
+            else
+            {
+                rng = 1103515245 * rng + 12345;
+                mon = 1 + ((rng >> 16) % (NUM_SPECIES - 1));
+            }
 
-            if (!IsValidKaizoSpecies(mon))
+            if (!IsValidKaizoSpecies(mon) || !IsSpeciesInRarityPool(mon))
             {
                 duplicate = TRUE;
+                tries++;
+                continue;
+            }
+
+            if (tries < 250 && tier != RARITY_NONE && GetSpeciesRarityTier(mon) != tier)
+            {
+                duplicate = TRUE;
+                tries++;
                 continue;
             }
 
@@ -155,6 +195,7 @@ void GenerateStartersForType(u8 chosenType)
                 if (gSpeciesInfo[mon].types[0] != chosenType && gSpeciesInfo[mon].types[1] != chosenType)
                 {
                     duplicate = TRUE;
+                    tries++;
                     continue;
                 }
             }
@@ -171,6 +212,13 @@ void GenerateStartersForType(u8 chosenType)
     }
 }
 
+void GenerateStartersForType(u8 chosenType)
+{
+    if (sOakRolledTier == RARITY_NONE)
+        sOakRolledTier = RARITY_COMMON;
+    GenerateStartersForTypeAndTier(chosenType, sOakRolledTier);
+}
+
 void GenerateNewKaizoSeedAndStarters(void)
 {
     u32 entropy = REG_VCOUNT | (REG_TM1CNT_L << 16) | Random32();
@@ -182,6 +230,7 @@ void GenerateNewKaizoSeedAndStarters(void)
     for (int s = 0; s < 6; s++)
         gSaveBlock2Ptr->customStatPoints[s] = 0;
 
+    sOakRolledTier = RARITY_COMMON;
     sOakTypesGenerated = FALSE;
     for (int i = 0; i < 3; i++)
         sOakDraftTypes[i] = TYPE_NONE;
@@ -249,7 +298,14 @@ void Script_Oak_SelectType(void)
     gSaveBlock2Ptr->starterChosenType = type;
     StringCopy(gStringVar1, gTypesInfo[type].name);
 
-    GenerateStartersForType(type);
+    u32 rng = Random32();
+    if (rng == 0)
+        rng = 0x54321678;
+
+    sOakRolledTier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, &rng);
+    StringCopy(gStringVar2, GetRarityColoredName(sOakRolledTier));
+
+    GenerateStartersForTypeAndTier(type, sOakRolledTier);
 }
 
 void Script_Oak_RerollStarters(void)
@@ -258,8 +314,15 @@ void Script_Oak_RerollStarters(void)
     if (type == TYPE_NONE)
         type = TYPE_FIRE;
 
-    GenerateStartersForType(type);
+    u32 rng = Random32();
+    if (rng == 0)
+        rng = 0x54321678;
+
+    sOakRolledTier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, &rng);
+    StringCopy(gStringVar2, GetRarityColoredName(sOakRolledTier));
     StringCopy(gStringVar1, gTypesInfo[type].name);
+
+    GenerateStartersForTypeAndTier(type, sOakRolledTier);
 }
 
 void Script_Oak_BufferChosenTypeName(void)
@@ -269,6 +332,7 @@ void Script_Oak_BufferChosenTypeName(void)
         type = TYPE_FIRE;
 
     StringCopy(gStringVar1, gTypesInfo[type].name);
+    StringCopy(gStringVar2, GetRarityColoredName(sOakRolledTier));
 }
 
 void BufferKaizoStarterName(void)
@@ -376,12 +440,28 @@ void Script_Starter_RollAttackMoves(void)
             u16 move;
             bool32 valid;
             int tries = 0;
+            u8 rolledTier = RollRarityTier(CATEGORY_MOVE, LOOT_CONTEXT_STANDARD, &rng);
             do {
                 valid = TRUE;
-                rng = 1103515245 * rng + 12345;
-                move = (rng >> 16) % (MOVES_COUNT - 1) + 1;
+                if (tries < 250 && rolledTier != RARITY_NONE)
+                    move = GetRandomRarityMoveByTier(rolledTier, &rng);
+                else if (GetRarityMovesCount() > 0)
+                    move = GetRandomRarityMove(&rng);
+                else
+                {
+                    rng = 1103515245 * rng + 12345;
+                    move = (rng >> 16) % (MOVES_COUNT - 1) + 1;
+                }
 
                 if (move == MOVE_NONE || move == MOVE_STRUGGLE || move == MOVE_SCRATCH || move >= MOVES_COUNT)
+                {
+                    valid = FALSE;
+                }
+                else if (!IsMoveInRarityPool(move))
+                {
+                    valid = FALSE;
+                }
+                else if (tries < 250 && rolledTier != RARITY_NONE && GetMoveRarityTier(move) != rolledTier)
                 {
                     valid = FALSE;
                 }
@@ -416,11 +496,14 @@ void Script_Starter_RollAttackMoves(void)
 
     for (int i = 0; i < 3; i++)
     {
+        u16 m = sStarterDraftMoves[i];
+        u8 tier = GetMoveRarityTier(m);
         u8 *buf = Alloc(64);
-        StringCopy(buf, gMovesInfo[sStarterDraftMoves[i]].name);
+        StringCopy(buf, GetRarityColorPrefix(tier));
+        StringAppend(buf, gMovesInfo[m].name);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = sStarterDraftMoves[i];
+        item.id = m;
         MultichoiceDynamic_PushElement(item);
     }
 }
@@ -1656,10 +1739,21 @@ void Script_MoveDraft_Roll(void)
             u16 move;
             bool32 valid;
             int tries = 0;
+            u8 rolledTier = RollRarityTier(CATEGORY_MOVE, LOOT_CONTEXT_MART, NULL);
             do {
                 valid = TRUE;
-                move = (Random() % (MOVES_COUNT - 1)) + 1;
+                if (tries < 250 && rolledTier != RARITY_NONE)
+                    move = GetRandomRarityMoveByTier(rolledTier, NULL);
+                else if (GetRarityMovesCount() > 0)
+                    move = GetRandomRarityMove(NULL);
+                else
+                    move = (Random() % (MOVES_COUNT - 1)) + 1;
+
                 if (move == MOVE_NONE || move == MOVE_STRUGGLE || move >= MOVES_COUNT)
+                    valid = FALSE;
+                else if (!IsMoveInRarityPool(move))
+                    valid = FALSE;
+                else if (tries < 250 && rolledTier != RARITY_NONE && GetMoveRarityTier(move) != rolledTier)
                     valid = FALSE;
                 else if (gMovesInfo[move].name[0] == 0 || gMovesInfo[move].name[0] == '-')
                     valid = FALSE;
@@ -1691,11 +1785,14 @@ void Script_MoveDraft_Roll(void)
 
     for (int i = 0; i < 5; i++)
     {
+        u16 m = sDraftedMoves[i];
+        u8 tier = GetMoveRarityTier(m);
         u8 *buf = Alloc(64);
-        StringCopy(buf, gMovesInfo[sDraftedMoves[i]].name);
+        StringCopy(buf, GetRarityColorPrefix(tier));
+        StringAppend(buf, gMovesInfo[m].name);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = sDraftedMoves[i];
+        item.id = m;
         MultichoiceDynamic_PushElement(item);
     }
 

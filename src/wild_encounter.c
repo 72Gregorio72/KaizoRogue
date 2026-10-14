@@ -31,6 +31,7 @@
 #include "constants/items.h"
 #include "constants/layouts.h"
 #include "constants/weather.h"
+#include "roguelike_rarity.h"
 
 extern const u8 EventScript_SprayWoreOff[];
 
@@ -529,9 +530,15 @@ static enum Species GetKaizoRandomWildSpecies(enum Species originalSpecies, u8 l
     u32 rng = encounterSeed;
     enum Species newSpecies;
     do {
-        rng = 1103515245 * rng + 12345;
-        newSpecies = (enum Species)(1 + ((rng >> 16) % (NUM_SPECIES - 1)));
+        if (GetRarityPokemonCount() > 0)
+            newSpecies = (enum Species)RollRandomRaritySpecies(LOOT_CONTEXT_STANDARD, &rng);
+        else
+        {
+            rng = 1103515245 * rng + 12345;
+            newSpecies = (enum Species)(1 + ((rng >> 16) % (NUM_SPECIES - 1)));
+        }
     } while (!IsSpeciesEnabled(newSpecies)
+             || !IsSpeciesInRarityPool(newSpecies)
              || gSpeciesInfo[newSpecies].isMegaEvolution
              || gSpeciesInfo[newSpecies].isUltraBeast
              || newSpecies == SPECIES_EGG);

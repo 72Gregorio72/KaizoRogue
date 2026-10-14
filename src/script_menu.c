@@ -27,6 +27,7 @@
 #include "constants/script_menu.h"
 #include "constants/seagallop.h"
 #include "constants/songs.h"
+#include "roguelike_rarity.h"
 
 #include "data/script_menu.h"
 
@@ -264,6 +265,7 @@ static void MultichoiceDynamicEventShowSprite_OnDestroy(struct DynamicListMenuEv
 #define sMoveSpriteId    sDynamicMenuEventScratchPad[1]
 
 static const u8 sText_TypeLabel[]   = _("TYPE:");
+static const u8 sText_RarityLabel[] = _("RARITY:");
 static const u8 sText_CatLabel[]    = _("CAT:");
 static const u8 sText_PwrLabel[]    = _("PWR:");
 static const u8 sText_PpLabel[]     = _("PP:");
@@ -351,7 +353,8 @@ static void MultichoiceDynamicEventShowMove_OnInit(struct DynamicListMenuEventAr
     u8 height = 12;
     struct WindowTemplate auxTemplate = CreateWindowTemplate(0, left, top, width, height, 15, baseBlock);
     u32 auxWindowId = AddWindow(&auxTemplate);
-    SetStandardWindowBorderStyle(auxWindowId, FALSE);
+    LoadRarityFramePalette(RARITY_COMMON, 13);
+    DrawStdFrameWithCustomTileAndPalette(auxWindowId, FALSE, STD_WINDOW_BASE_TILE_NUM, 13);
     FillWindowPixelBuffer(auxWindowId, PIXEL_FILL(1));
     CopyWindowToVram(auxWindowId, COPYWIN_FULL);
     sMoveAuxWindowId = auxWindowId;
@@ -367,7 +370,7 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
     u8 windowId = sMoveAuxWindowId;
     struct WindowTemplate *template = &gWindows[windowId].window;
     u32 spriteX = template->tilemapLeft * 8 + 34;
-    u32 spriteY = template->tilemapTop * 8 + 23;
+    u32 spriteY = template->tilemapTop * 8 + 34;
 
     FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
 
@@ -381,6 +384,10 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
         u8 strPwr[8], strAcc[8], strPP[8];
         u8 formattedDesc[256];
         const u8 *desc = GetMoveDescription(move);
+        u8 tier = GetMoveRarityTier(move);
+
+        LoadRarityFramePalette(tier, 13);
+        DrawStdFrameWithCustomTileAndPalette(windowId, FALSE, STD_WINDOW_BASE_TILE_NUM, 13);
 
         if (pwr < 2)
             StringCopy(strPwr, sText_ThreeDashes);
@@ -399,23 +406,27 @@ static void MultichoiceDynamicEventShowMove_OnSelectionChanged(struct DynamicLis
         if (moveType < NUMBER_OF_MON_TYPES)
             AddTextPrinterParameterized(windowId, FONT_NORMAL, gTypesInfo[moveType].name, 32, 2, TEXT_SKIP_DRAW, NULL);
 
-        // Row 2 (y = 15): CAT: [ICON]   PWR: {value}
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_CatLabel, 2, 15, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PwrLabel, 54, 15, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPwr, 80, 15, TEXT_SKIP_DRAW, NULL);
+        // Row 2 (y = 14): RARITY: {tier}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_RarityLabel, 2, 14, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, GetRarityColoredName(tier), 44, 14, TEXT_SKIP_DRAW, NULL);
 
-        // Row 3 (y = 28): PP: {value}   ACC: {value} (ACC under PWR)
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PpLabel, 2, 28, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPP, 22, 28, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_AccLabel, 54, 28, TEXT_SKIP_DRAW, NULL);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, strAcc, 80, 28, TEXT_SKIP_DRAW, NULL);
+        // Row 3 (y = 26): CAT: [ICON]   PWR: {value}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_CatLabel, 2, 26, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PwrLabel, 54, 26, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPwr, 80, 26, TEXT_SKIP_DRAW, NULL);
 
-        // Row 4 (y = 41): Divider
-        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 41, (template->width * 8) - 4, 1);
+        // Row 4 (y = 38): PP: {value}   ACC: {value}
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_PpLabel, 2, 38, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strPP, 22, 38, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, sText_AccLabel, 54, 38, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, strAcc, 80, 38, TEXT_SKIP_DRAW, NULL);
 
-        // Row 5 (y = 45 onwards): Dynamic word-wrapped description
+        // Row 5 (y = 49): Divider
+        FillWindowPixelRect(windowId, PIXEL_FILL(2), 2, 49, (template->width * 8) - 4, 1);
+
+        // Row 6 (y = 52 onwards): Dynamic word-wrapped description
         FormatMoveDescriptionToFit(formattedDesc, desc, FONT_NORMAL, (template->width * 8) - 6);
-        AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 45, TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(windowId, FONT_NORMAL, formattedDesc, 2, 52, TEXT_SKIP_DRAW, NULL);
 
         if (sMoveSpriteId == MAX_SPRITES)
         {
