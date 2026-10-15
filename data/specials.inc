@@ -689,3 +689,16 @@ gSpecials::
 	def_special Script_Starter_RollAttackMoves
 	def_special Script_Starter_SelectAttackMove
 	def_special Script_BufferItemRarity
+	def_special Script_Meta_Init
+	def_special Script_Meta_GetShards
+	def_special Script_Meta_ShowShardsWindow
+	def_special Script_Meta_HideShardsWindow
+	def_special Script_Meta_PushMartChoices
+	def_special Script_Meta_BuyMartUpgrade
+	def_special Script_Meta_PushStarterChoices
+	def_special Script_Meta_BuyStarterUpgrade
+	def_special Script_Meta_PushFortuneChoices
+	def_special Script_Meta_BuyFortuneUpgrade
+	def_special Script_Meta_GetLastRunRecap
+	def_special Script_Starter_GetRerollsRemaining
+	def_special Script_Starter_ConsumeReroll

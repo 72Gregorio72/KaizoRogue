@@ -15,13 +15,11 @@ PokemartBuild_EventScript_MainMenu::
 	switch VAR_RESULT
 	case 0, PokemartBuild_EventScript_StatPoints
 	case 1, PokemartBuild_EventScript_MoveDraft
-	case 2, PokemartBuild_EventScript_MoveRelearner
-	case 3, PokemartBuild_EventScript_IVBooster
-	case 4, PokemartBuild_EventScript_EVManager
-	case 5, PokemartBuild_EventScript_NatureChanger
-	case 6, PokemartBuild_EventScript_AbilityChanger
-	case 7, PokemartBuild_EventScript_Shop
-	case 8, PokemartBuild_EventScript_ExitMenu
+	case 2, PokemartBuild_EventScript_IVBooster
+	case 3, PokemartBuild_EventScript_EVManager
+	case 4, PokemartBuild_EventScript_NatureChanger
+	case 5, PokemartBuild_EventScript_AbilityChanger
+	case 6, PokemartBuild_EventScript_ExitMenu
 	goto PokemartBuild_EventScript_MainMenu
 
 PokemartBuild_EventScript_OptionAlreadyUsed::
@@ -29,26 +27,12 @@ PokemartBuild_EventScript_OptionAlreadyUsed::
 	goto PokemartBuild_EventScript_MainMenu
 
 PokemartBuild_EventScript_AlreadyUsed::
-	msgbox PokemartBuild_Text_AlreadyUsedPrompt, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, PokemartBuild_EventScript_Shop
-	msgbox PokemartBuild_Text_AlreadyUsedBye, MSGBOX_DEFAULT
+	msgbox PokemartBuild_Text_AlreadyUsedPrompt, MSGBOX_DEFAULT
 	setvar VAR_RESULT, 0
-	return
-
-PokemartBuild_EventScript_Shop::
-	setvar VAR_RESULT, 99
 	return
 
 PokemartBuild_EventScript_ExitMenu::
-	special Script_MartBuild_ExitSession
-	goto_if_eq VAR_RESULT, 1, PokemartBuild_EventScript_SessionSaved
-	msgbox PokemartBuild_Text_ExitNoChanges, MSGBOX_DEFAULT
-	setvar VAR_RESULT, 0
-	return
-
-PokemartBuild_EventScript_SessionSaved::
-	playse SE_SAVE
-	msgbox PokemartBuild_Text_FinalizedSuccess, MSGBOX_DEFAULT
+	msgbox PokemartBuild_Text_ExitBye, MSGBOX_DEFAULT
 	setvar VAR_RESULT, 0
 	return
 
@@ -113,14 +97,7 @@ PokemartBuild_EventScript_MoveDraft_Cancel::
 	msgbox PokemartBuild_Text_MoveDraft_Cancelled, MSGBOX_DEFAULT
 	goto PokemartBuild_EventScript_MainMenu
 
-@ --- 3. MOVE RELEARNER ---
-PokemartBuild_EventScript_MoveRelearner::
-	call Common_EventScript_MoveRelearner
-	setvar VAR_0x8005, 2
-	special Script_MartBuild_MarkOptionUsed
-	goto PokemartBuild_EventScript_MainMenu
-
-@ --- 4. MODIFY IVS ---
+@ --- 3. MODIFY IVS ---
 PokemartBuild_EventScript_IVBooster::
 	setvar VAR_0x8004, 0
 	special Script_IVBooster_Init
@@ -144,7 +121,7 @@ PokemartBuild_EventScript_IVBooster_Menu::
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_IVBooster_ApplyPoints
 	playse SE_PIN
-	setvar VAR_0x8005, 3
+	setvar VAR_0x8005, 2
 	special Script_MartBuild_MarkOptionUsed
 	goto PokemartBuild_EventScript_IVBooster_Menu
 
@@ -156,7 +133,7 @@ PokemartBuild_EventScript_IVBooster_Finished::
 	msgbox PokemartBuild_Text_IV_Finished, MSGBOX_DEFAULT
 	goto PokemartBuild_EventScript_MainMenu
 
-@ --- 5. TRAIN EVS ---
+@ --- 4. TRAIN EVS ---
 PokemartBuild_EventScript_EVManager::
 	setvar VAR_0x8004, 0
 	special Script_EVManager_Init
@@ -180,7 +157,7 @@ PokemartBuild_EventScript_EVManager_Menu::
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_EVManager_ApplyPoints
 	playse SE_PIN
-	setvar VAR_0x8005, 4
+	setvar VAR_0x8005, 3
 	special Script_MartBuild_MarkOptionUsed
 	goto PokemartBuild_EventScript_EVManager_Menu
 
@@ -193,7 +170,7 @@ PokemartBuild_EventScript_EVManager_NoEVs::
 	msgbox PokemartBuild_Text_EV_NoEVs, MSGBOX_DEFAULT
 	goto PokemartBuild_EventScript_MainMenu
 
-@ --- 6. CHANGE NATURE ---
+@ --- 5. CHANGE NATURE ---
 PokemartBuild_EventScript_NatureChanger::
 	setvar VAR_0x8004, 0
 	special Script_NatureChanger_Init
@@ -206,11 +183,11 @@ PokemartBuild_EventScript_NatureChanger::
 	goto_if_eq VAR_RESULT, 0xFF, PokemartBuild_EventScript_MainMenu
 	playse SE_EXP
 	msgbox PokemartBuild_Text_Nature_Success, MSGBOX_DEFAULT
-	setvar VAR_0x8005, 5
+	setvar VAR_0x8005, 4
 	special Script_MartBuild_MarkOptionUsed
 	goto PokemartBuild_EventScript_MainMenu
 
-@ --- 7. CHANGE ABILITY ---
+@ --- 6. CHANGE ABILITY ---
 PokemartBuild_EventScript_AbilityChanger::
 	setvar VAR_0x8004, 0
 	special Script_AbilityChanger_Init
@@ -223,7 +200,7 @@ PokemartBuild_EventScript_AbilityChanger::
 	goto_if_eq VAR_RESULT, 0xFF, PokemartBuild_EventScript_MainMenu
 	playse SE_EXP
 	msgbox PokemartBuild_Text_Ability_Success, MSGBOX_DEFAULT
-	setvar VAR_0x8005, 6
+	setvar VAR_0x8005, 5
 	special Script_MartBuild_MarkOptionUsed
 	goto PokemartBuild_EventScript_MainMenu
 
@@ -233,34 +210,27 @@ PokemartBuild_EventScript_AbilityChanger::
 PokemartBuild_Text_Welcome:
 	.string "Welcome to the Poké Mart Build Hub!\p"
 	.string "Here you can customize and enhance\n"
-	.string "your POKéMON (Available once per city).\p"
-	.string "Once you finish and make changes,\n"
-	.string "your build for this city will be saved!$"
+	.string "your POKéMON once per city.\p"
+	.string "You can use each modification\n"
+	.string "whenever you like, in any visit!$"
 
 PokemartBuild_Text_WhatToDo:
 	.string "What would you like to modify?$"
 
 PokemartBuild_Text_OptionAlreadyUsed:
 	.string "You have already used this option\n"
-	.string "in this session!\p"
+	.string "in this city!\p"
 	.string "Please choose a different modification.$"
 
 PokemartBuild_Text_AlreadyUsedPrompt:
 	.string "Welcome to the Poké Mart!\p"
-	.string "You have already completed your build\n"
-	.string "customization for this city.\p"
-	.string "Would you like to buy standard items?$"
-
-PokemartBuild_Text_AlreadyUsedBye:
+	.string "You have already used all build\n"
+	.string "modifications for this city.\p"
 	.string "Please visit us again in the next city!$"
 
-PokemartBuild_Text_ExitNoChanges:
-	.string "No modifications were made.\n"
-	.string "Please visit us again when you are ready!$"
-
-PokemartBuild_Text_FinalizedSuccess:
-	.string "Your build has been saved for this city!\n"
-	.string "Good luck on your upcoming battles!$"
+PokemartBuild_Text_ExitBye:
+	.string "Please visit us again whenever\n"
+	.string "you want to make more modifications!$"
 
 PokemartBuild_Text_StatPoints_SelectStat:
 	.string "Available stat points: {STR_VAR_3}\n"

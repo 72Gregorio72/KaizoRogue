@@ -216,9 +216,11 @@ PalletTown_ProfessorOaksLab_ChooseStarterScene::
 	msgbox PalletTown_ProfessorOaksLab_Text_OakIntroTypeChoice, MSGBOX_DEFAULT
 PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu::
 	special Script_Oak_RollDraftTypes
-	dynmultistack 0, 0, TRUE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, TRUE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_Oak_SelectType
+	goto_if_eq VAR_RESULT, 99, PalletTown_ProfessorOaksLab_EventScript_AskTypeMenu
 	playse SE_EXP
 	msgbox PalletTown_ProfessorOaksLab_Text_OakChosenTypeResult, MSGBOX_DEFAULT
 	closemessage
@@ -1463,12 +1465,19 @@ PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide::
 	end
 
 PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_OfferReroll::
+	special Script_Starter_GetRerollsRemaining
+	goto_if_eq VAR_RESULT, 0, PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_NoRerolls
 	special Script_Oak_BufferChosenTypeName
 	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_AskReroll, MSGBOX_YESNO
 	goto_if_eq VAR_RESULT, NO, PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_Decline
 	special Script_Oak_RerollStarters
 	playse SE_DEX_PAGE
 	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_RerolledSuccess, MSGBOX_DEFAULT
+	release
+	end
+
+PalletTown_ProfessorOaksLab_EventScript_StarterRerollAide_NoRerolls::
+	msgbox PalletTown_ProfessorOaksLab_Text_StarterRerollAide_NoRerollsLeft, MSGBOX_DEFAULT
 	release
 	end
 
@@ -1487,24 +1496,32 @@ PalletTown_ProfessorOaksLab_Text_StarterRerollAide_Intro:
 	.string "research and ball distribution!$"
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_AskReroll:
-	.string "Hello {PLAYER}!\n"
-	.string "Would you like me to reroll the three\l"
-	.string "starter POKéMON on the table?\p"
-	.string "They will be freshly generated as\n"
-	.string "{STR_VAR_1}-type POKéMON!$"
+	.string "Ciao {PLAYER}!\n"
+	.string "Vuoi che rigeneri i tre POKéMON starter\l"
+	.string "sul tavolo?\p"
+	.string "Tipo attuale: {STR_VAR_1}.\n"
+	.string "Reroll disponibili: {STR_VAR_2}.\p"
+	.string "Vuoi usare un reroll?$"
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_RerolledSuccess:
-	.string "Done! The three starter balls on\n"
-	.string "the table were rerolled into\n"
-	.string "{STR_VAR_2} rarity!\p"
-	.string "Go check them out!$"
+	.string "Fatto! I tre starter sul tavolo\n"
+	.string "sono stati rigenerati come rarita'\n"
+	.string "{STR_VAR_2}!\p"
+	.string "Reroll rimanenti: {STR_VAR_3}.\n"
+	.string "Vai a controllarli!$"
+
+PalletTown_ProfessorOaksLab_Text_StarterRerollAide_NoRerollsLeft:
+	.string "Non hai nessun reroll disponibile\n"
+	.string "per questa run!\p"
+	.string "Puoi sbloccare e aumentare i reroll\n"
+	.string "all'HUB usando i tuoi Rogue Shards.$"
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_GoodLuck:
-	.string "Take your time and choose wisely!$"
+	.string "Prenditi il tuo tempo e scegli bene!$"
 
 PalletTown_ProfessorOaksLab_Text_StarterRerollAide_TakeCare:
-	.string "That POKéMON looks great with you!\n"
-	.string "Good luck on your Kaizo journey!$"
+	.string "Quel POKéMON sembra perfetto per te!\n"
+	.string "Buona fortuna per la tua avventura!$"
 
 PalletTown_ProfessorOaksLab_Text_OakHeyDontGoAwayYet::
 	.string "OAK: Hey!\n"

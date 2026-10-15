@@ -1742,3 +1742,6 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 
 	.include "data/maps/Kaizo_Hub/scripts.inc"
 	.include "data/maps/Kaizo_Hub/text.inc"
+	.include "data/maps/Kaizo_Hub_Mart/scripts.inc"
+	.include "data/maps/Kaizo_Hub_Starter/scripts.inc"
+	.include "data/maps/Kaizo_Hub_Fortune/scripts.inc"

@@ -585,6 +585,28 @@ struct RankingHall2P
     //u8 padding;
 };
 
+struct KaizoMetaProgression
+{
+    u32 rogueShards;           // Frammenti Kaizo accumulati
+    u32 totalShardsEarned;     // Statistica storica
+    
+    // Sblocchi Poké Mart
+    u8 martDraftChoicesLevel;  // 1..5 (inizia a 1)
+    u8 martStatPointsLevel;    // 0: +10 BST, 1: +15 BST, 2: +20 BST
+    bool8 martUnlockIV;        // TRUE se sbloccato IV Booster nel mart
+    bool8 martUnlockEV;        // TRUE se sbloccato EV Trainer nel mart
+    bool8 martUnlockNature;    // TRUE se sbloccato Nature Changer nel mart
+    bool8 martUnlockAbility;   // TRUE se sbloccato Ability Changer nel mart
+
+    // Sblocchi Starter
+    u8 starterRerollCount;     // 0, 1, 2
+    u8 starterMoveTierLevel;   // 0: base, 1: garantita Uncommon, 2: garantita Rare
+    u8 starterItemPouchLevel;  // 0: nessuno, 1: Oran, 2: Lum, 3: Sitrus
+
+    // Sblocchi Fortuna
+    u8 lootLuckLevel;          // 0..3
+};
+
 struct SaveBlock2
 {
     /*0x00*/ u8 playerName[PLAYER_NAME_LENGTH + 1];
@@ -609,8 +631,9 @@ struct SaveBlock2
     /*0x94*/ u16 randomStarters[3]; // i 3 starter generati per il tavolo
     /*0x9A*/ u16 rivalStarterSpecies; // <-- I 3 starter generati per questa run (6 byte)
     /*0x9C*/ u8 customStatPoints[6]; // custom base stat bonus points allocated to player's solo mon (up to 500 BST)
-    /*0xA2*/ u16 martBuildUsedBitfield; // bitfield of cities where mart build was used
-    /*0xA4*/ u8 starterChosenType; // chosen starter type for this run
+    /*0xA2*/ u8 martBuildCityOptionUsed[16]; // bitfield of used options per city (bit 0..5)
+    /*0xB2*/ u8 starterChosenType; // chosen starter type for this run
+    struct KaizoMetaProgression metaProgression;
     /*0x98*/ struct Time localTimeOffset;
     /*0xA0*/ struct Time lastBerryTreeUpdate;
     /*0xA8*/ u32 gcnLinkFlags; // Read by Pokémon Colosseum/XD

@@ -1,5 +1,22 @@
 Kaizo_Hub_MapScripts::
+	map_script MAP_SCRIPT_ON_FRAME_TABLE, Kaizo_Hub_OnFrame
 	.byte 0
+
+Kaizo_Hub_OnFrame:
+	map_script_2 VAR_TEMP_0, 0, Kaizo_Hub_EventScript_CheckRunRecap
+	.2byte 0
+
+Kaizo_Hub_EventScript_CheckRunRecap::
+	setvar VAR_TEMP_0, 1
+	special Script_Meta_GetLastRunRecap
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_RecapDone
+	lockall
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_RunRecap, MSGBOX_DEFAULT
+	waitfanfare
+	releaseall
+Kaizo_Hub_EventScript_RecapDone::
+	end
 
 // NPC che genera il Seed e warpa il giocatore nella camera da letto
 Kaizo_Hub_EventScript_TesterNPC::
@@ -34,61 +51,76 @@ Kaizo_Hub_EventScript_Cancel::
 	release
 	end
 
-// --- BALL 1 (SINISTRA) ---
-Kaizo_Hub_EventScript_StarterBall1::
+Kaizo_Hub_EventScript_Receptionist::
 	lock
-	getpartysize
-	goto_if_gt VAR_RESULT, 0, Kaizo_Hub_EventScript_BallAlreadyChosen
-	setvar VAR_0x8004, 0
-	special BufferKaizoStarterName
-	showmonpic VAR_RESULT, 10, 3
-	msgbox Kaizo_Hub_Text_ConfirmStarter, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, Kaizo_Hub_EventScript_TakeStarter
-	hidemonpic
+	faceplayer
+	msgbox Kaizo_Hub_Text_Receptionist, MSGBOX_DEFAULT
 	release
 	end
 
-// --- BALL 2 (CENTRO) ---
-Kaizo_Hub_EventScript_StarterBall2::
-	lock
-	getpartysize
-	goto_if_gt VAR_RESULT, 0, Kaizo_Hub_EventScript_BallAlreadyChosen
-	setvar VAR_0x8004, 1
-	special BufferKaizoStarterName
-	showmonpic VAR_RESULT, 10, 3
-	msgbox Kaizo_Hub_Text_ConfirmStarter, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, Kaizo_Hub_EventScript_TakeStarter
-	hidemonpic
-	release
+Kaizo_Hub_EventScript_MainMonument::
+	msgbox Kaizo_Hub_Text_MainMonument, MSGBOX_SIGN
 	end
 
-// --- BALL 3 (DESTRA) ---
-Kaizo_Hub_EventScript_StarterBall3::
-	lock
-	getpartysize
-	goto_if_gt VAR_RESULT, 0, Kaizo_Hub_EventScript_BallAlreadyChosen
-	setvar VAR_0x8004, 2
-	special BufferKaizoStarterName
-	showmonpic VAR_RESULT, 10, 3
-	msgbox Kaizo_Hub_Text_ConfirmStarter, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, YES, Kaizo_Hub_EventScript_TakeStarter
-	hidemonpic
-	release
+Kaizo_Hub_EventScript_MartDoorSign::
+	msgbox Kaizo_Hub_Text_MartDoorSign, MSGBOX_SIGN
 	end
 
-Kaizo_Hub_EventScript_TakeStarter::
-	hidemonpic
-	special GiveSelectedStarter
-	playfanfare MUS_OBTAIN_ITEM
-	msgbox Kaizo_Hub_Text_ReceivedStarter, MSGBOX_DEFAULT
-	waitfanfare
-	release
+Kaizo_Hub_EventScript_StarterDoorSign::
+	msgbox Kaizo_Hub_Text_StarterDoorSign, MSGBOX_SIGN
 	end
 
-Kaizo_Hub_EventScript_BallAlreadyChosen::
-	msgbox Kaizo_Hub_Text_AlreadyHaveMon, MSGBOX_DEFAULT
-	release
+Kaizo_Hub_EventScript_FortuneDoorSign::
+	msgbox Kaizo_Hub_Text_FortuneDoorSign, MSGBOX_SIGN
 	end
+
+Kaizo_Hub_EventScript_SouthExitTrigger::
+	lockall
+	msgbox Kaizo_Hub_Text_AskStartRunDoor, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_CancelExit
+	special GenerateNewKaizoSeedAndStarters
+	msgbox Kaizo_Hub_Text_WarpToRoom, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
+	waitstate
+	releaseall
+	end
+
+Kaizo_Hub_EventScript_CancelExit::
+	applymovement OBJ_EVENT_ID_PLAYER, Common_Movement_WalkUp
+	waitmovement 0
+	releaseall
+	end
+
+Kaizo_Hub_Text_Receptionist:
+	.string "Benvenuto al Centro Operativo Kaizo!\p"
+	.string "Lungo il corridoio troverai 3 stanze\n"
+	.string "speciali dedicate ai tuoi potenziamenti:\p"
+	.string "- Sinistra: DOJO POKé MART\n"
+	.string "- Centro: LABORATORIO STARTER\n"
+	.string "- Destra: TEMPIO DELLA SORTE\p"
+	.string "Quando sei pronto per iniziare la run,\n"
+	.string "parla con il Maestro o attraversa la porta!$"
+
+Kaizo_Hub_Text_MainMonument:
+	.string "KAIZO ROGUE - CENTRO OPERATIVO\n"
+	.string "Sconfiggi i Capipalestra e scala la vetta!$"
+
+Kaizo_Hub_Text_MartDoorSign:
+	.string "DOJO POKé MART ->\n"
+	.string "Sblocchi licenze e opzioni per i market.$"
+
+Kaizo_Hub_Text_StarterDoorSign:
+	.string "LABORATORIO GENETICO ->\n"
+	.string "Reroll e potenziamento mosse Starter.$"
+
+Kaizo_Hub_Text_FortuneDoorSign:
+	.string "TEMPIO DELLA SORTE ->\n"
+	.string "Migliora la probabilita' dei drop.$"
+
+Kaizo_Hub_Text_AskStartRunDoor:
+	.string "Vuoi lasciare l'HUB e iniziare una\n"
+	.string "nuova run Kaizo Ironmon?$"
 
 Kaizo_Hub_Text_Intro:
 	.string "Nuova run Kaizo Ironmon!\nGenerazione del Seed in corso...$"
@@ -500,6 +532,165 @@ Kaizo_Hub_Text_Ability_Success:
 Kaizo_Hub_Text_Ability_Goodbye:
 	.string "Nessuna modifica all'Abilita'.\n"
 	.string "Torna pure quando vuoi!$"
+
+// ========================================================
+// META PROGRESSION UPGRADE NPCS
+// ========================================================
+
+Kaizo_Hub_EventScript_MartUpgradesNPC::
+	lock
+	faceplayer
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_MartUpgrades_Intro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_MartUpgrades_Menu::
+	special Script_Meta_PushMartChoices
+	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_MartUpgrades_Exit
+	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_MartUpgrades_Exit
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Meta_BuyMartUpgrade
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_MartUpgrades_Success
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_MartUpgrades_NoShards
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_MartUpgrades_Maxed
+	goto Kaizo_Hub_EventScript_MartUpgrades_Exit
+
+Kaizo_Hub_EventScript_MartUpgrades_Success::
+	playse SE_EXP
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradeSuccess, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_MartUpgrades_Menu
+
+Kaizo_Hub_EventScript_MartUpgrades_NoShards::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_NotEnoughShards, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_MartUpgrades_Menu
+
+Kaizo_Hub_EventScript_MartUpgrades_Maxed::
+	msgbox Kaizo_Hub_Text_AlreadyMaxed, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_MartUpgrades_Menu
+
+Kaizo_Hub_EventScript_MartUpgrades_Exit::
+	special Script_Meta_HideShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradesGoodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_StarterUpgradesNPC::
+	lock
+	faceplayer
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_StarterUpgrades_Intro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_StarterUpgrades_Menu::
+	special Script_Meta_PushStarterChoices
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_StarterUpgrades_Exit
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_StarterUpgrades_Exit
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Meta_BuyStarterUpgrade
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_StarterUpgrades_Success
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_StarterUpgrades_NoShards
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_StarterUpgrades_Maxed
+	goto Kaizo_Hub_EventScript_StarterUpgrades_Exit
+
+Kaizo_Hub_EventScript_StarterUpgrades_Success::
+	playse SE_EXP
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradeSuccess, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_StarterUpgrades_Menu
+
+Kaizo_Hub_EventScript_StarterUpgrades_NoShards::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_NotEnoughShards, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_StarterUpgrades_Menu
+
+Kaizo_Hub_EventScript_StarterUpgrades_Maxed::
+	msgbox Kaizo_Hub_Text_AlreadyMaxed, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_StarterUpgrades_Menu
+
+Kaizo_Hub_EventScript_StarterUpgrades_Exit::
+	special Script_Meta_HideShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradesGoodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_FortuneUpgradesNPC::
+	lock
+	faceplayer
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_FortuneUpgrades_Intro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_FortuneUpgrades_Menu::
+	special Script_Meta_PushFortuneChoices
+	dynmultistack 0, 0, FALSE, 2, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_FortuneUpgrades_Exit
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_FortuneUpgrades_Exit
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Meta_BuyFortuneUpgrade
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_FortuneUpgrades_Success
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_FortuneUpgrades_NoShards
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_FortuneUpgrades_Maxed
+	goto Kaizo_Hub_EventScript_FortuneUpgrades_Exit
+
+Kaizo_Hub_EventScript_FortuneUpgrades_Success::
+	playse SE_EXP
+	special Script_Meta_ShowShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradeSuccess, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_FortuneUpgrades_Menu
+
+Kaizo_Hub_EventScript_FortuneUpgrades_NoShards::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_NotEnoughShards, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_FortuneUpgrades_Menu
+
+Kaizo_Hub_EventScript_FortuneUpgrades_Maxed::
+	msgbox Kaizo_Hub_Text_AlreadyMaxed, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_FortuneUpgrades_Menu
+
+Kaizo_Hub_EventScript_FortuneUpgrades_Exit::
+	special Script_Meta_HideShardsWindow
+	msgbox Kaizo_Hub_Text_UpgradesGoodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_RunRecap:
+	.string "RESOCONTO ULTIMA RUN\p"
+	.string "Livello raggiunto: {STR_VAR_1}\n"
+	.string "Medaglie ottenute: {STR_VAR_2}\p"
+	.string "Bonus Frammenti Kaizo: +{STR_VAR_3}!\n"
+	.string "Ben tornato nell'HUB!$"
+
+Kaizo_Hub_Text_MartUpgrades_Intro:
+	.string "Benvenuto! Posso potenziare i servizi\n"
+	.string "offerti nei Poke Mart durante le tue run.\p"
+	.string "Usa i Frammenti Kaizo per sbloccare\n"
+	.string "licenze e aumentare le scelte di draft!$"
+
+Kaizo_Hub_Text_StarterUpgrades_Intro:
+	.string "Saluti! Studio il potenziale genetico\n"
+	.string "dei Pokemon iniziali.\p"
+	.string "Con i Frammenti Kaizo posso sbloccarti\n"
+	.string "reroll, mosse migliori e strumenti!$"
+
+Kaizo_Hub_Text_FortuneUpgrades_Intro:
+	.string "La fortuna aiuta gli audaci!\p"
+	.string "Investi Frammenti Kaizo per aumentare\n"
+	.string "la probabilita' di trovare drop Rari\l"
+	.string "ed Epici durante l'avventura!$"
+
+Kaizo_Hub_Text_UpgradeSuccess:
+	.string "Potenziamento acquistato con successo!\n"
+	.string "Sara' attivo a partire dalla prossima run.$"
+
+Kaizo_Hub_Text_NotEnoughShards:
+	.string "Non hai abbastanza Frammenti Kaizo\n"
+	.string "per questo potenziamento!$"
+
+Kaizo_Hub_Text_AlreadyMaxed:
+	.string "Questo potenziamento e' gia' al livello\n"
+	.string "massimo o gia' sbloccato!$"
+
+Kaizo_Hub_Text_UpgradesGoodbye:
+	.string "Torna quando vuoi per altri\n"
+	.string "potenziamenti!$"
 
 
 

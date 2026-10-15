@@ -4262,9 +4262,28 @@ static void Task_OvwldCredits_WaitFade(u8 taskId)
 
 static void ResetKaizoRogueRun(void)
 {
+    // --- 0. CALCOLO E ASSEGNAZIONE BONUS FINE RUN ---
+    u16 badges = 0;
+    for (u32 i = FLAG_BADGE01_GET; i < FLAG_BADGE01_GET + NUM_BADGES; i++)
+    {
+        if (FlagGet(i))
+            badges++;
+    }
+    u16 level = 5;
+    if (gPartiesCount[B_TRAINER_PLAYER] > 0)
+        level = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_LEVEL);
+
+    u32 runBonus = (level * 2) + (badges * 40);
+    if (runBonus < 20)
+        runBonus = 20;
+
+    extern void AddRogueShards(u32 amount);
+    extern void SetLastRunStats(u16 level, u16 badges, u32 shards);
+    AddRogueShards(runBonus);
+    SetLastRunStats(level, badges, runBonus);
+
     // --- 1. BACKUP DEI DATI DELLA HUB (META-PROGRESSION) ---
-    // Salva qui le variabili o strutture che usi per la tua Hub
-    // (ad esempio monete rogue, sblocchi, upgrade permanenti, ecc.)
+    struct KaizoMetaProgression metaBackup = gSaveBlock2Ptr->metaProgression;
     u16 hubVarsBackup[16];
     for (u32 i = 0; i < 16; i++)
     {
@@ -4278,6 +4297,7 @@ static void ResetKaizoRogueRun(void)
     NewGameInitData();
 
     // --- 3. RIPRISTINO DATI HUB ---
+    gSaveBlock2Ptr->metaProgression = metaBackup;
     for (u32 i = 0; i < 16; i++)
     {
         VarSet(VAR_0x40F0 + i, hubVarsBackup[i]);
@@ -4294,5 +4314,5 @@ static void ResetKaizoRogueRun(void)
     SetContinueGameWarpStatusToDynamicWarp();
     SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
                        MAP_NUM(MAP_KAIZO_HUB),
-                       WARP_ID_NONE, 10, 7);
+                       WARP_ID_NONE, 4, 6);
 }

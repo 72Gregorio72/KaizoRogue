@@ -137,8 +137,7 @@ static void ClearFrontierRecord(void)
 
 static void WarpToTruck(void)
 {
-    // Il centro della mappa 20x20 è all'incirca coordinate X: 10, Y: 10
-    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB), MAP_NUM(MAP_KAIZO_HUB), WARP_ID_NONE, 10, 10);
+    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB), MAP_NUM(MAP_KAIZO_HUB), WARP_ID_NONE, 4, 6);
     WarpIntoMap();
 }
 

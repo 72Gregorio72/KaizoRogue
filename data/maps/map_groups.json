@@ -925,7 +925,10 @@
     "PalletTown_PlayersHouse_2F_Frlg",
     "PalletTown_RivalsHouse_Frlg",
     "PalletTown_ProfessorOaksLab_Frlg",
-    "Kaizo_Hub"
+    "Kaizo_Hub",
+    "Kaizo_Hub_Mart",
+    "Kaizo_Hub_Starter",
+    "Kaizo_Hub_Fortune"
   ],
   "gMapGroup_IndoorViridian_Frlg": [
     "ViridianCity_House_Frlg",

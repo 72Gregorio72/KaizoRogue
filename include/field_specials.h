@@ -101,4 +101,19 @@ void Script_MoveDraft_Select(void);
 void Script_Starter_RollAttackMoves(void);
 void Script_Starter_SelectAttackMove(void);
 
+// Kaizo Meta-Progression & Hub
+void Script_Meta_Init(void);
+void Script_Meta_GetShards(void);
+void Script_Meta_ShowShardsWindow(void);
+void Script_Meta_HideShardsWindow(void);
+void Script_Meta_PushMartChoices(void);
+void Script_Meta_BuyMartUpgrade(void);
+void Script_Meta_PushStarterChoices(void);
+void Script_Meta_BuyStarterUpgrade(void);
+void Script_Meta_PushFortuneChoices(void);
+void Script_Meta_BuyFortuneUpgrade(void);
+void Script_Meta_GetLastRunRecap(void);
+void Script_Starter_GetRerollsRemaining(void);
+void Script_Starter_ConsumeReroll(void);
+
 #endif // GUARD_FIELD_SPECIALS_H

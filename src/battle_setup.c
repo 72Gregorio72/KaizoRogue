@@ -1601,7 +1601,9 @@ static void CB2_EndTrainerBattle(void)
         }
         else
         {
+            extern void AwardTrainerDefeatRogueShards(u16 opponent);
             gSpecialVar_Result = FALSE;
+            AwardTrainerDefeatRogueShards(TRAINER_BATTLE_PARAM.opponentA);
         }
         DowngradeBadPoison();
         SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
@@ -1621,6 +1623,8 @@ static void CB2_EndTrainerBattle(void)
     }
     else
     {
+        extern void AwardTrainerDefeatRogueShards(u16 opponent);
+        AwardTrainerDefeatRogueShards(TRAINER_BATTLE_PARAM.opponentA);
         SetMainCallback2(CB2_ReturnToFieldContinueScriptPlayMapMusic);
         DowngradeBadPoison();
         if (CurrentBattlePyramidLocation() == PYRAMID_LOCATION_NONE && !InTrainerHillChallenge())

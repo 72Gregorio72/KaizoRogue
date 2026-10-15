@@ -19,7 +19,9 @@
 #include "data/kaizo_item_pool.h"
 #include "battle_main.h"
 #include "roguelike_rarity.h"
-
+#include "window.h"
+#include "menu.h"
+#include "constants/opponents_frlg.h"
 
 // --- PROTOTIPI GENERALI ---
 static bool32 IsValidKaizoSpecies(u16 species);
@@ -138,20 +140,26 @@ static const u8 sStarterValidTypes[] = {
     TYPE_FAIRY,
 };
 
-static u8 sOakDraftTypes[3];
-static bool8 sOakTypesGenerated;
-static u16 sStarterDraftMoves[3];
-static bool8 sStarterMovesGenerated;
-static u8 sMartBuildSessionUsed;
-static bool8 sDraftMovesGenerated;
-static u8 sDraftMovesCity;
-static u16 sDraftedMoves[5];
-static bool8 sDraftNaturesGenerated;
-static u8 sDraftedNatures[5];
-static bool8 sDraftAbilitiesGenerated;
-static u16 sDraftedAbilities[5];
+static EWRAM_DATA u8 sOakDraftTypes[3] = {0};
+static EWRAM_DATA bool8 sOakTypesGenerated = FALSE;
+static EWRAM_DATA u16 sStarterDraftMoves[3] = {0};
+static EWRAM_DATA bool8 sStarterMovesGenerated = FALSE;
+static EWRAM_DATA bool8 sDraftMovesGenerated = FALSE;
+static EWRAM_DATA u8 sDraftMovesCity = 0;
+static EWRAM_DATA u16 sDraftedMoves[5] = {0};
+static EWRAM_DATA bool8 sDraftNaturesGenerated = FALSE;
+static EWRAM_DATA u8 sDraftedNatures[5] = {0};
+static EWRAM_DATA bool8 sDraftAbilitiesGenerated = FALSE;
+static EWRAM_DATA u16 sDraftedAbilities[5] = {0};
 
-static u8 sOakRolledTier;
+static EWRAM_DATA u8 sOakRolledTier = 0;
+
+static EWRAM_DATA u8 sStarterRerollsRemaining = 0;
+static EWRAM_DATA u16 sLastRunLevel = 0;
+static EWRAM_DATA u16 sLastRunBadges = 0;
+static EWRAM_DATA u32 sLastRunShardsEarned = 0;
+static EWRAM_DATA u8 sShardsWindowId = 0;
+static EWRAM_DATA bool8 sShardsWindowOpen = FALSE;
 
 void GenerateStartersForTypeAndTier(u8 chosenType, u8 tier)
 {
@@ -219,13 +227,86 @@ void GenerateStartersForType(u8 chosenType)
     GenerateStartersForTypeAndTier(chosenType, sOakRolledTier);
 }
 
+void InitKaizoMetaProgression(void)
+{
+    if (gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel == 0)
+    {
+        gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel = 1;
+        gSaveBlock2Ptr->metaProgression.martStatPointsLevel = 0;
+        gSaveBlock2Ptr->metaProgression.martUnlockIV = FALSE;
+        gSaveBlock2Ptr->metaProgression.martUnlockEV = FALSE;
+        gSaveBlock2Ptr->metaProgression.martUnlockNature = FALSE;
+        gSaveBlock2Ptr->metaProgression.martUnlockAbility = FALSE;
+        gSaveBlock2Ptr->metaProgression.starterRerollCount = 0;
+        gSaveBlock2Ptr->metaProgression.starterMoveTierLevel = 0;
+        gSaveBlock2Ptr->metaProgression.starterItemPouchLevel = 0;
+        gSaveBlock2Ptr->metaProgression.lootLuckLevel = 0;
+    }
+}
+
+void AddRogueShards(u32 amount)
+{
+    InitKaizoMetaProgression();
+    gSaveBlock2Ptr->metaProgression.rogueShards += amount;
+    gSaveBlock2Ptr->metaProgression.totalShardsEarned += amount;
+}
+
+bool8 RemoveRogueShards(u32 amount)
+{
+    InitKaizoMetaProgression();
+    if (gSaveBlock2Ptr->metaProgression.rogueShards >= amount)
+    {
+        gSaveBlock2Ptr->metaProgression.rogueShards -= amount;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+void AwardTrainerDefeatRogueShards(u16 opponent)
+{
+    u32 shards = 5;
+    if (opponent == TRAINER_LEADER_BROCK)
+        shards = 100;
+    else if (opponent == TRAINER_LEADER_MISTY)
+        shards = 120;
+    else if (opponent == TRAINER_LEADER_LT_SURGE)
+        shards = 140;
+    else if (opponent == TRAINER_LEADER_ERIKA)
+        shards = 160;
+    else if (opponent == TRAINER_LEADER_KOGA)
+        shards = 180;
+    else if (opponent == TRAINER_LEADER_SABRINA)
+        shards = 200;
+    else if (opponent == TRAINER_LEADER_BLAINE)
+        shards = 220;
+    else if (opponent == TRAINER_LEADER_GIOVANNI)
+        shards = 250;
+    else if (opponent >= TRAINER_ELITE_FOUR_LORELEI && opponent <= TRAINER_ELITE_FOUR_LANCE)
+        shards = 250;
+    else if (opponent >= TRAINER_CHAMPION_FIRST_SQUIRTLE && opponent <= TRAINER_CHAMPION_FIRST_CHARMANDER)
+        shards = 400;
+
+    AddRogueShards(shards);
+}
+
+void SetLastRunStats(u16 level, u16 badges, u32 shards)
+{
+    sLastRunLevel = level;
+    sLastRunBadges = badges;
+    sLastRunShardsEarned = shards;
+}
+
 void GenerateNewKaizoSeedAndStarters(void)
 {
+    InitKaizoMetaProgression();
+    sStarterRerollsRemaining = gSaveBlock2Ptr->metaProgression.starterRerollCount;
+
     u32 entropy = REG_VCOUNT | (REG_TM1CNT_L << 16) | Random32();
     if (entropy == 0)
         entropy = 0x54321678;
     gSaveBlock2Ptr->randomizerSeed = entropy;
-    gSaveBlock2Ptr->martBuildUsedBitfield = 0;
+    for (int c = 0; c < 16; c++)
+        gSaveBlock2Ptr->martBuildCityOptionUsed[c] = 0;
     gSaveBlock2Ptr->starterChosenType = TYPE_NONE;
     for (int s = 0; s < 6; s++)
         gSaveBlock2Ptr->customStatPoints[s] = 0;
@@ -243,7 +324,6 @@ void GenerateNewKaizoSeedAndStarters(void)
     sDraftNaturesGenerated = FALSE;
     sDraftAbilitiesGenerated = FALSE;
     sDraftMovesCity = 0;
-    sMartBuildSessionUsed = 0;
     for (int i = 0; i < 5; i++)
     {
         sDraftedMoves[i] = MOVE_NONE;
@@ -286,11 +366,34 @@ void Script_Oak_RollDraftTypes(void)
         item.id = i;
         MultichoiceDynamic_PushElement(item);
     }
+
+    if (sStarterRerollsRemaining > 0)
+    {
+        static const u8 sText_RerollTypes[] = _("{COLOR GREEN}Reroll Types (");
+        static const u8 sText_CloseParen[] = _(")");
+        u8 *bufReroll = Alloc(48);
+        u8 *ptr = StringCopy(bufReroll, sText_RerollTypes);
+        ConvertIntToDecimalStringN(gStringVar1, sStarterRerollsRemaining, STR_CONV_MODE_LEFT_ALIGN, 2);
+        ptr = StringAppend(ptr, gStringVar1);
+        StringAppend(ptr, sText_CloseParen);
+        struct ListMenuItem rerollItem;
+        rerollItem.name = bufReroll;
+        rerollItem.id = 3;
+        MultichoiceDynamic_PushElement(rerollItem);
+    }
 }
 
 void Script_Oak_SelectType(void)
 {
     u8 choice = (u8)gSpecialVar_0x8005;
+    if (choice == 3 && sStarterRerollsRemaining > 0)
+    {
+        sStarterRerollsRemaining--;
+        sOakTypesGenerated = FALSE;
+        gSpecialVar_Result = 99; // signal reroll
+        return;
+    }
+
     if (choice >= 3)
         choice = 0;
 
@@ -306,10 +409,14 @@ void Script_Oak_SelectType(void)
     StringCopy(gStringVar2, GetRarityColoredName(sOakRolledTier));
 
     GenerateStartersForTypeAndTier(type, sOakRolledTier);
+    gSpecialVar_Result = choice;
 }
 
 void Script_Oak_RerollStarters(void)
 {
+    if (sStarterRerollsRemaining > 0)
+        sStarterRerollsRemaining--;
+
     u8 type = gSaveBlock2Ptr->starterChosenType;
     if (type == TYPE_NONE)
         type = TYPE_FIRE;
@@ -321,8 +428,24 @@ void Script_Oak_RerollStarters(void)
     sOakRolledTier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, &rng);
     StringCopy(gStringVar2, GetRarityColoredName(sOakRolledTier));
     StringCopy(gStringVar1, gTypesInfo[type].name);
+    ConvertIntToDecimalStringN(gStringVar3, sStarterRerollsRemaining, STR_CONV_MODE_LEFT_ALIGN, 2);
 
     GenerateStartersForTypeAndTier(type, sOakRolledTier);
+}
+
+void Script_Starter_GetRerollsRemaining(void)
+{
+    ConvertIntToDecimalStringN(gStringVar1, sStarterRerollsRemaining, STR_CONV_MODE_LEFT_ALIGN, 2);
+    ConvertIntToDecimalStringN(gStringVar2, sStarterRerollsRemaining, STR_CONV_MODE_LEFT_ALIGN, 2);
+    gSpecialVar_Result = sStarterRerollsRemaining;
+}
+
+void Script_Starter_ConsumeReroll(void)
+{
+    if (sStarterRerollsRemaining > 0)
+        sStarterRerollsRemaining--;
+    ConvertIntToDecimalStringN(gStringVar1, sStarterRerollsRemaining, STR_CONV_MODE_LEFT_ALIGN, 2);
+    gSpecialVar_Result = sStarterRerollsRemaining;
 }
 
 void Script_Oak_BufferChosenTypeName(void)
@@ -416,6 +539,18 @@ void Script_GiveKaizoStarter(void)
     SetMonData(&mon, MON_DATA_MOVE4, &moveNone);
     SetMonData(&mon, MON_DATA_PP4, &ppZero);
 
+    // Starting item based on starterItemPouchLevel
+    u16 heldItem = ITEM_NONE;
+    if (gSaveBlock2Ptr->metaProgression.starterItemPouchLevel == 1)
+        heldItem = ITEM_ORAN_BERRY;
+    else if (gSaveBlock2Ptr->metaProgression.starterItemPouchLevel == 2)
+        heldItem = ITEM_LUM_BERRY;
+    else if (gSaveBlock2Ptr->metaProgression.starterItemPouchLevel >= 3)
+        heldItem = ITEM_SITRUS_BERRY;
+
+    if (heldItem != ITEM_NONE)
+        SetMonData(&mon, MON_DATA_HELD_ITEM, &heldItem);
+
     CalculateMonStats(&mon);
     GiveCapturedMonToPlayer(&mon);
 
@@ -441,6 +576,13 @@ void Script_Starter_RollAttackMoves(void)
             bool32 valid;
             int tries = 0;
             u8 rolledTier = RollRarityTier(CATEGORY_MOVE, LOOT_CONTEXT_STANDARD, &rng);
+            if (i == 0)
+            {
+                if (gSaveBlock2Ptr->metaProgression.starterMoveTierLevel >= 2)
+                    rolledTier = RARITY_RARE;
+                else if (gSaveBlock2Ptr->metaProgression.starterMoveTierLevel == 1 && rolledTier == RARITY_COMMON)
+                    rolledTier = RARITY_UNCOMMON;
+            }
             do {
                 valid = TRUE;
                 if (tries < 250 && rolledTier != RARITY_NONE)
@@ -583,9 +725,9 @@ void BufferCurrentExpMultiplierName(void)
 }
 // --- LOGICA IV BOOSTER NPC ---
 
-static u8 sIvBoosterPartySlot;
-static u8 sIvBoosterRemainingPoints;
-static u8 sIvBoosterSelectedStat;
+static EWRAM_DATA u8 sIvBoosterPartySlot = 0;
+static EWRAM_DATA u8 sIvBoosterRemainingPoints = 0;
+static EWRAM_DATA u8 sIvBoosterSelectedStat = 0;
 
 // Ordine MON_DATA_*_IV: HP, ATK, DEF, SPATK, SPDEF, SPEED
 static const u8 sIvStatMonData[6] = {
@@ -755,11 +897,11 @@ void Script_IVBooster_ApplyPoints(void)
 
 // --- LOGICA EV MANAGER NPC ---
 
-static u8 sEvManagerPartySlot;
-static u16 sEvManagerRemainingPoints;
-static u8 sEvManagerSelectedStat;
-static u8 sEvManagerWorkingEVs[6];
-static u8 sEvManagerOriginalEVs[6];
+static EWRAM_DATA u8 sEvManagerPartySlot = 0;
+static EWRAM_DATA u16 sEvManagerRemainingPoints = 0;
+static EWRAM_DATA u8 sEvManagerSelectedStat = 0;
+static EWRAM_DATA u8 sEvManagerWorkingEVs[6] = {0};
+static EWRAM_DATA u8 sEvManagerOriginalEVs[6] = {0};
 
 static const u8 sEvStatMonData[6] = {
     MON_DATA_HP_EV,
@@ -1294,11 +1436,33 @@ static u8 GetCurrentCityMartIndex(void)
     }
 }
 
+static bool8 IsMartOptionUnlocked(u8 option)
+{
+    switch (option)
+    {
+    case 0: return TRUE; // Stat Points always available
+    case 1: return TRUE; // Move Draft always available
+    case 2: return gSaveBlock2Ptr->metaProgression.martUnlockIV;
+    case 3: return gSaveBlock2Ptr->metaProgression.martUnlockEV;
+    case 4: return gSaveBlock2Ptr->metaProgression.martUnlockNature;
+    case 5: return gSaveBlock2Ptr->metaProgression.martUnlockAbility;
+    default: return FALSE;
+    }
+}
+
 void Script_MartBuild_CheckCanUse(void)
 {
+    InitKaizoMetaProgression();
     u8 city = GetCurrentCityMartIndex();
-    if (gSaveBlock2Ptr->martBuildUsedBitfield & (1 << city))
-        gSpecialVar_Result = 0; // Already used for this city
+    u8 usedMask = gSaveBlock2Ptr->martBuildCityOptionUsed[city];
+    u8 availableMask = 0;
+    for (u8 i = 0; i < 6; i++)
+    {
+        if (IsMartOptionUnlocked(i))
+            availableMask |= (1 << i);
+    }
+    if ((usedMask & availableMask) == availableMask)
+        gSpecialVar_Result = 0; // All unlocked options already used for this city
     else
         gSpecialVar_Result = 1; // Available
 }
@@ -1306,7 +1470,7 @@ void Script_MartBuild_CheckCanUse(void)
 void Script_MartBuild_Consume(void)
 {
     u8 city = GetCurrentCityMartIndex();
-    gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
+    gSaveBlock2Ptr->martBuildCityOptionUsed[city] = 0x3F;
 }
 
 static void Script_MartDraft_Reset(void)
@@ -1325,7 +1489,6 @@ static void Script_MartDraft_Reset(void)
 void Script_MartBuild_InitSession(void)
 {
     u8 city = GetCurrentCityMartIndex() + 1;
-    sMartBuildSessionUsed = 0;
     if (sDraftMovesCity != city)
     {
         Script_MartDraft_Reset();
@@ -1335,12 +1498,10 @@ void Script_MartBuild_InitSession(void)
 
 static const u8 sMartMenuText_StatPoints[]      = _("Stat Points");
 static const u8 sMartMenuText_MoveDraft[]       = _("Draft Random Move");
-static const u8 sMartMenuText_MoveRelearner[]   = _("Remember Move");
 static const u8 sMartMenuText_IVBooster[]       = _("Modify IVs");
 static const u8 sMartMenuText_EVManager[]       = _("Train EVs");
 static const u8 sMartMenuText_NatureChanger[]   = _("Change Nature");
 static const u8 sMartMenuText_AbilityChanger[]  = _("Change Ability");
-static const u8 sMartMenuText_Shop[]            = _("Buy Items");
 static const u8 sMartMenuText_Exit[]            = _("Done / Exit");
 
 static const u8 sMartMenuText_RedPrefix[]       = _("{COLOR RED}{SHADOW LIGHT_RED}");
@@ -1348,20 +1509,25 @@ static const u8 sMartMenuText_UsedSuffix[]      = _(" (Used)");
 
 void Script_MartBuild_PushMainMenuChoices(void)
 {
+    InitKaizoMetaProgression();
     static const u8 *const sOptionNames[] = {
         sMartMenuText_StatPoints,
         sMartMenuText_MoveDraft,
-        sMartMenuText_MoveRelearner,
         sMartMenuText_IVBooster,
         sMartMenuText_EVManager,
         sMartMenuText_NatureChanger,
         sMartMenuText_AbilityChanger,
     };
+    u8 city = GetCurrentCityMartIndex();
+    u8 usedMask = gSaveBlock2Ptr->martBuildCityOptionUsed[city];
 
     for (u32 i = 0; i < ARRAY_COUNT(sOptionNames); i++)
     {
+        if (!IsMartOptionUnlocked(i))
+            continue;
+
         u8 *buf = Alloc(64);
-        if (sMartBuildSessionUsed & (1 << i))
+        if (usedMask & (1 << i))
         {
             u8 *ptr = StringCopy(buf, sMartMenuText_RedPrefix);
             ptr = StringAppend(ptr, sOptionNames[i]);
@@ -1378,20 +1544,11 @@ void Script_MartBuild_PushMainMenuChoices(void)
     }
 
     {
-        u8 *bufShop = Alloc(32);
-        StringCopy(bufShop, sMartMenuText_Shop);
-        struct ListMenuItem shopItem;
-        shopItem.name = bufShop;
-        shopItem.id = 7;
-        MultichoiceDynamic_PushElement(shopItem);
-    }
-
-    {
         u8 *bufExit = Alloc(32);
         StringCopy(bufExit, sMartMenuText_Exit);
         struct ListMenuItem exitItem;
         exitItem.name = bufExit;
-        exitItem.id = 8;
+        exitItem.id = 6;
         MultichoiceDynamic_PushElement(exitItem);
     }
 }
@@ -1399,7 +1556,8 @@ void Script_MartBuild_PushMainMenuChoices(void)
 void Script_MartBuild_SelectOption(void)
 {
     u8 option = (u8)gSpecialVar_0x8005;
-    if (option < 7 && (sMartBuildSessionUsed & (1 << option)))
+    u8 city = GetCurrentCityMartIndex();
+    if (option < 6 && (gSaveBlock2Ptr->martBuildCityOptionUsed[city] & (1 << option)))
     {
         gSpecialVar_Result = 100; // Already used
         return;
@@ -1410,28 +1568,20 @@ void Script_MartBuild_SelectOption(void)
 void Script_MartBuild_MarkOptionUsed(void)
 {
     u8 option = (u8)gSpecialVar_0x8005;
-    if (option < 7)
-        sMartBuildSessionUsed |= (1 << option);
+    u8 city = GetCurrentCityMartIndex();
+    if (option < 6)
+        gSaveBlock2Ptr->martBuildCityOptionUsed[city] |= (1 << option);
 }
 
 void Script_MartBuild_ExitSession(void)
 {
-    if (sMartBuildSessionUsed != 0)
-    {
-        u8 city = GetCurrentCityMartIndex();
-        gSaveBlock2Ptr->martBuildUsedBitfield |= (1 << city);
-        gSpecialVar_Result = 1; // Modifications were made, city token consumed!
-    }
-    else
-    {
-        gSpecialVar_Result = 0; // Exited without making any modifications
-    }
+    gSpecialVar_Result = 0;
 }
 
 // --- LOGIC STAT POINTS (+20 PER BADGE UP TO 500 BST) ---
 
-static u8 sStatPointsPartySlot = 0;
-static u8 sStatPointsSelectedStat = 0;
+static EWRAM_DATA u8 sStatPointsPartySlot = 0;
+static EWRAM_DATA u8 sStatPointsSelectedStat = 0;
 
 static const u8 sStatPointNames[6][16] = {
     _("HP"),
@@ -1452,6 +1602,16 @@ static const u8 sStatPointsText_Points[]        = _(" Points");
 static const u8 sStatPointsText_AllRemaining[]  = _("+All (");
 static const u8 sStatPointsText_Reset[]         = _("Reset stat bonus");
 static const u8 sStatPointsText_Back[]          = _("Back");
+
+static u16 GetStatPointsPerBadge(void)
+{
+    switch (gSaveBlock2Ptr->metaProgression.martStatPointsLevel)
+    {
+    case 1:  return 15;
+    case 2:  return 20;
+    default: return 10;
+    }
+}
 
 static u16 GetPlayerBadgesCount(void)
 {
@@ -1482,7 +1642,7 @@ void Script_StatPoints_Init(void)
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
     enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
-    u16 totalEarned = badges * 20;
+    u16 totalEarned = badges * GetStatPointsPerBadge();
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
     u16 naturalBST = GetSpeciesBaseStatTotal(species);
     u16 effectiveBST = naturalBST + totalUsed;
@@ -1526,7 +1686,7 @@ void Script_StatPoints_GetRemainingPoints(void)
     struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][sStatPointsPartySlot];
     enum Species species = GetMonData(mon, MON_DATA_SPECIES);
     u16 badges = GetPlayerBadgesCount();
-    u16 totalEarned = badges * 20;
+    u16 totalEarned = badges * GetStatPointsPerBadge();
     u16 totalUsed = GetTotalCustomStatPointsAllocated();
     u16 naturalBST = GetSpeciesBaseStatTotal(species);
     u16 effectiveBST = naturalBST + totalUsed;
@@ -1727,6 +1887,13 @@ void Script_StatPoints_Apply(void)
 
 void Script_MoveDraft_Roll(void)
 {
+    InitKaizoMetaProgression();
+    u8 maxChoices = gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel;
+    if (maxChoices < 1)
+        maxChoices = 1;
+    if (maxChoices > 5)
+        maxChoices = 5;
+
     if (!sDraftMovesGenerated)
     {
         struct Pokemon *mon = &gParties[B_TRAINER_PLAYER][0];
@@ -1734,7 +1901,7 @@ void Script_MoveDraft_Roll(void)
         for (int i = 0; i < 4; i++)
             monMoves[i] = GetMonData(mon, MON_DATA_MOVE1 + i);
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < maxChoices; i++)
         {
             u16 move;
             bool32 valid;
@@ -1783,7 +1950,7 @@ void Script_MoveDraft_Roll(void)
         sDraftMovesGenerated = TRUE;
     }
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < maxChoices; i++)
     {
         u16 m = sDraftedMoves[i];
         u8 tier = GetMoveRarityTier(m);
@@ -1816,6 +1983,503 @@ void Script_MoveDraft_Select(void)
     }
     gSpecialVar_0x8005 = move;
     gSpecialVar_Result = move;
+}
+
+// --- HUB META UPGRADES MENUS & SPECIALS ---
+
+void Script_Meta_Init(void)
+{
+    InitKaizoMetaProgression();
+}
+
+void Script_Meta_GetShards(void)
+{
+    InitKaizoMetaProgression();
+    ConvertIntToDecimalStringN(gStringVar1, gSaveBlock2Ptr->metaProgression.rogueShards, STR_CONV_MODE_LEFT_ALIGN, 6);
+    gSpecialVar_Result = gSaveBlock2Ptr->metaProgression.rogueShards;
+}
+
+static const u8 sText_ShardsHeader[] = _("SHARDS: ");
+
+static const u8 sText_DraftMax[] = _("Draft: 5 Mosse (MAX)");
+static const u8 sText_DraftPrefix[] = _("Draft: ");
+static const u8 sText_Arrow[] = _("->");
+static const u8 sText_MosseShards[] = _(" Mosse (");
+static const u8 sText_ShardsClose[] = _(" Shards)");
+
+static const u8 sText_StatPointsMax[] = _("Stat Points: +20 BST (MAX)");
+static const u8 sText_StatPrefix[] = _("Stat: +");
+static const u8 sText_ArrowPlus[] = _("->+");
+static const u8 sText_BstShards[] = _(" BST (");
+
+static const u8 sText_LicenzaIV_Done[] = _("Licenza IV (Sbloccata)");
+static const u8 sText_LicenzaIV_Buy[] = _("Licenza IV Booster (80 Shards)");
+static const u8 sText_LicenzaEV_Done[] = _("Licenza EV (Sbloccata)");
+static const u8 sText_LicenzaEV_Buy[] = _("Licenza EV Trainer (100 Shards)");
+static const u8 sText_LicenzaNature_Done[] = _("Licenza Natura (Sbloccata)");
+static const u8 sText_LicenzaNature_Buy[] = _("Licenza Natura (120 Shards)");
+static const u8 sText_LicenzaAbility_Done[] = _("Licenza Abilita' (Sbloccata)");
+static const u8 sText_LicenzaAbility_Buy[] = _("Licenza Abilita' (180 Shards)");
+static const u8 sText_Indietro[] = _("Indietro");
+
+static const u8 sText_RerollStarterMax[] = _("Reroll Starter: 2 (MAX)");
+static const u8 sText_RerollPrefix[] = _("Reroll: ");
+static const u8 sText_ParenShards[] = _(" (");
+
+static const u8 sText_MovesRareMax[] = _("Mosse: 1 Rare (MAX)");
+static const u8 sText_MovesRareBuy[] = _("Mosse: 1 Rare (300 Shards)");
+static const u8 sText_MovesUncommonBuy[] = _("Mosse: 1 Uncommon (120 Shards)");
+
+static const u8 sText_PouchSitrusMax[] = _("Tasca: Baccasugna (MAX)");
+static const u8 sText_PouchSitrusBuy[] = _("Tasca: Baccasugna (300 Shards)");
+static const u8 sText_PouchLumBuy[] = _("Tasca: Baccaprugna (150 Shards)");
+static const u8 sText_PouchOranBuy[] = _("Tasca: Baccacedro (60 Shards)");
+
+static const u8 sText_FortuneMax[] = _("Fortuna Drop: Liv. 3 (MAX)");
+static const u8 sText_FortunePrefix[] = _("Fortuna: Liv. ");
+
+void Script_Meta_ShowShardsWindow(void)
+{
+    InitKaizoMetaProgression();
+    if (!sShardsWindowOpen)
+    {
+        struct WindowTemplate template;
+        SetWindowTemplateFields(&template, 0, 1, 1, 11, 2, 0xF, 0x141);
+        sShardsWindowId = AddWindow(&template);
+        FillWindowPixelBuffer(sShardsWindowId, PIXEL_FILL(0));
+        PutWindowTilemap(sShardsWindowId);
+        DrawStdFrameWithCustomTileAndPalette(sShardsWindowId, FALSE, 0x214, 0xE);
+        sShardsWindowOpen = TRUE;
+    }
+    else
+    {
+        FillWindowPixelBuffer(sShardsWindowId, PIXEL_FILL(0));
+    }
+
+    u8 text[32];
+    u8 *ptr = StringCopy(text, sText_ShardsHeader);
+    ConvertIntToDecimalStringN(gStringVar1, gSaveBlock2Ptr->metaProgression.rogueShards, STR_CONV_MODE_LEFT_ALIGN, 6);
+    StringAppend(ptr, gStringVar1);
+    AddTextPrinterParameterized(sShardsWindowId, FONT_NORMAL, text, 4, 1, 0, NULL);
+    CopyWindowToVram(sShardsWindowId, COPYWIN_FULL);
+}
+
+void Script_Meta_HideShardsWindow(void)
+{
+    if (sShardsWindowOpen)
+    {
+        ClearStdWindowAndFrame(sShardsWindowId, TRUE);
+        RemoveWindow(sShardsWindowId);
+        sShardsWindowOpen = FALSE;
+    }
+}
+
+void Script_Meta_GetLastRunRecap(void)
+{
+    if (sLastRunShardsEarned > 0)
+    {
+        ConvertIntToDecimalStringN(gStringVar1, sLastRunLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
+        ConvertIntToDecimalStringN(gStringVar2, sLastRunBadges, STR_CONV_MODE_LEFT_ALIGN, 2);
+        ConvertIntToDecimalStringN(gStringVar3, sLastRunShardsEarned, STR_CONV_MODE_LEFT_ALIGN, 5);
+        ConvertIntToDecimalStringN(gStringVar4, gSaveBlock2Ptr->metaProgression.rogueShards, STR_CONV_MODE_LEFT_ALIGN, 6);
+        sLastRunShardsEarned = 0;
+        gSpecialVar_Result = 1;
+    }
+    else
+    {
+        gSpecialVar_Result = 0;
+    }
+}
+
+static const u16 sMartDraftCosts[] = { 0, 50, 120, 250, 500 };
+static const u16 sMartStatCosts[]  = { 150, 350 };
+static const u16 sStarterRerollCosts[] = { 100, 250 };
+static const u16 sStarterMoveCosts[]   = { 120, 300 };
+static const u16 sStarterItemCosts[]   = { 60, 150, 300 };
+static const u16 sFortuneCosts[]       = { 100, 250, 450 };
+
+void Script_Meta_PushMartChoices(void)
+{
+    InitKaizoMetaProgression();
+    
+    // 0: Move Draft Choices (Liv. 1..5)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel;
+        if (cur >= 5)
+        {
+            StringCopy(buf, sText_DraftMax);
+        }
+        else
+        {
+            u16 cost = sMartDraftCosts[cur];
+            ConvertIntToDecimalStringN(gStringVar1, cur, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar2, cur + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar3, cost, STR_CONV_MODE_LEFT_ALIGN, 4);
+            u8 *ptr = StringCopy(buf, sText_DraftPrefix);
+            ptr = StringAppend(ptr, gStringVar1);
+            ptr = StringAppend(ptr, sText_Arrow);
+            ptr = StringAppend(ptr, gStringVar2);
+            ptr = StringAppend(ptr, sText_MosseShards);
+            ptr = StringAppend(ptr, gStringVar3);
+            StringAppend(ptr, sText_ShardsClose);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 0;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 1: Stat Points Mastery (Liv. 0..2)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.martStatPointsLevel;
+        if (cur >= 2)
+        {
+            StringCopy(buf, sText_StatPointsMax);
+        }
+        else
+        {
+            u16 cost = sMartStatCosts[cur];
+            u16 curVal = (cur == 0) ? 10 : 15;
+            u16 nextVal = (cur == 0) ? 15 : 20;
+            ConvertIntToDecimalStringN(gStringVar1, curVal, STR_CONV_MODE_LEFT_ALIGN, 2);
+            ConvertIntToDecimalStringN(gStringVar2, nextVal, STR_CONV_MODE_LEFT_ALIGN, 2);
+            ConvertIntToDecimalStringN(gStringVar3, cost, STR_CONV_MODE_LEFT_ALIGN, 4);
+            u8 *ptr = StringCopy(buf, sText_StatPrefix);
+            ptr = StringAppend(ptr, gStringVar1);
+            ptr = StringAppend(ptr, sText_ArrowPlus);
+            ptr = StringAppend(ptr, gStringVar2);
+            ptr = StringAppend(ptr, sText_BstShards);
+            ptr = StringAppend(ptr, gStringVar3);
+            StringAppend(ptr, sText_ShardsClose);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 1;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 2: Licenza IV Booster (80 Shards)
+    {
+        u8 *buf = Alloc(64);
+        if (gSaveBlock2Ptr->metaProgression.martUnlockIV)
+            StringCopy(buf, sText_LicenzaIV_Done);
+        else
+            StringCopy(buf, sText_LicenzaIV_Buy);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 2;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 3: Licenza EV Trainer (100 Shards)
+    {
+        u8 *buf = Alloc(64);
+        if (gSaveBlock2Ptr->metaProgression.martUnlockEV)
+            StringCopy(buf, sText_LicenzaEV_Done);
+        else
+            StringCopy(buf, sText_LicenzaEV_Buy);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 3;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 4: Licenza Cambio Natura (120 Shards)
+    {
+        u8 *buf = Alloc(64);
+        if (gSaveBlock2Ptr->metaProgression.martUnlockNature)
+            StringCopy(buf, sText_LicenzaNature_Done);
+        else
+            StringCopy(buf, sText_LicenzaNature_Buy);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 4;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 5: Licenza Cambio Abilita' (180 Shards)
+    {
+        u8 *buf = Alloc(64);
+        if (gSaveBlock2Ptr->metaProgression.martUnlockAbility)
+            StringCopy(buf, sText_LicenzaAbility_Done);
+        else
+            StringCopy(buf, sText_LicenzaAbility_Buy);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 5;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 6: Esci
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sText_Indietro);
+        struct ListMenuItem exitItem;
+        exitItem.name = bufExit;
+        exitItem.id = 6;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_Meta_BuyMartUpgrade(void)
+{
+    u8 option = (u8)gSpecialVar_0x8005;
+    gSpecialVar_Result = 0; // default 0: cancel / invalid
+
+    switch (option)
+    {
+    case 0: // Move Draft
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel;
+        if (cur >= 5) { gSpecialVar_Result = 3; return; }
+        u16 cost = sMartDraftCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel++;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 1: // Stat Points
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.martStatPointsLevel;
+        if (cur >= 2) { gSpecialVar_Result = 3; return; }
+        u16 cost = sMartStatCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martStatPointsLevel++;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 2: // IV
+    {
+        if (gSaveBlock2Ptr->metaProgression.martUnlockIV) { gSpecialVar_Result = 3; return; }
+        if (!RemoveRogueShards(80)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martUnlockIV = TRUE;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 3: // EV
+    {
+        if (gSaveBlock2Ptr->metaProgression.martUnlockEV) { gSpecialVar_Result = 3; return; }
+        if (!RemoveRogueShards(100)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martUnlockEV = TRUE;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 4: // Nature
+    {
+        if (gSaveBlock2Ptr->metaProgression.martUnlockNature) { gSpecialVar_Result = 3; return; }
+        if (!RemoveRogueShards(120)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martUnlockNature = TRUE;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 5: // Ability
+    {
+        if (gSaveBlock2Ptr->metaProgression.martUnlockAbility) { gSpecialVar_Result = 3; return; }
+        if (!RemoveRogueShards(180)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.martUnlockAbility = TRUE;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    default:
+        gSpecialVar_Result = 0;
+        break;
+    }
+}
+
+void Script_Meta_PushStarterChoices(void)
+{
+    InitKaizoMetaProgression();
+
+    // 0: Reroll Starter & Tipi (Liv. 0..2)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterRerollCount;
+        if (cur >= 2)
+        {
+            StringCopy(buf, sText_RerollStarterMax);
+        }
+        else
+        {
+            u16 cost = sStarterRerollCosts[cur];
+            ConvertIntToDecimalStringN(gStringVar1, cur, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar2, cur + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar3, cost, STR_CONV_MODE_LEFT_ALIGN, 4);
+            u8 *ptr = StringCopy(buf, sText_RerollPrefix);
+            ptr = StringAppend(ptr, gStringVar1);
+            ptr = StringAppend(ptr, sText_Arrow);
+            ptr = StringAppend(ptr, gStringVar2);
+            ptr = StringAppend(ptr, sText_ParenShards);
+            ptr = StringAppend(ptr, gStringVar3);
+            StringAppend(ptr, sText_ShardsClose);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 0;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 1: Qualita' Mosse Starter (Liv. 0..2)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterMoveTierLevel;
+        if (cur >= 2)
+        {
+            StringCopy(buf, sText_MovesRareMax);
+        }
+        else if (cur == 1)
+        {
+            StringCopy(buf, sText_MovesRareBuy);
+        }
+        else
+        {
+            StringCopy(buf, sText_MovesUncommonBuy);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 1;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 2: Tasca Strumento Iniziale (Liv. 0..3)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterItemPouchLevel;
+        if (cur >= 3)
+        {
+            StringCopy(buf, sText_PouchSitrusMax);
+        }
+        else if (cur == 2)
+        {
+            StringCopy(buf, sText_PouchSitrusBuy);
+        }
+        else if (cur == 1)
+        {
+            StringCopy(buf, sText_PouchLumBuy);
+        }
+        else
+        {
+            StringCopy(buf, sText_PouchOranBuy);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 2;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 3: Indietro
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sText_Indietro);
+        struct ListMenuItem exitItem;
+        exitItem.name = bufExit;
+        exitItem.id = 3;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_Meta_BuyStarterUpgrade(void)
+{
+    u8 option = (u8)gSpecialVar_0x8005;
+    gSpecialVar_Result = 0;
+
+    switch (option)
+    {
+    case 0: // Rerolls
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterRerollCount;
+        if (cur >= 2) { gSpecialVar_Result = 3; return; }
+        u16 cost = sStarterRerollCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.starterRerollCount++;
+        sStarterRerollsRemaining = gSaveBlock2Ptr->metaProgression.starterRerollCount;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 1: // Move Quality
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterMoveTierLevel;
+        if (cur >= 2) { gSpecialVar_Result = 3; return; }
+        u16 cost = sStarterMoveCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.starterMoveTierLevel++;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    case 2: // Item Pouch
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.starterItemPouchLevel;
+        if (cur >= 3) { gSpecialVar_Result = 3; return; }
+        u16 cost = sStarterItemCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.starterItemPouchLevel++;
+        gSpecialVar_Result = 1;
+        break;
+    }
+    default:
+        gSpecialVar_Result = 0;
+        break;
+    }
+}
+
+void Script_Meta_PushFortuneChoices(void)
+{
+    InitKaizoMetaProgression();
+
+    // 0: Loot Luck (Liv. 0..3)
+    {
+        u8 *buf = Alloc(64);
+        u8 cur = gSaveBlock2Ptr->metaProgression.lootLuckLevel;
+        if (cur >= 3)
+        {
+            StringCopy(buf, sText_FortuneMax);
+        }
+        else
+        {
+            u16 cost = sFortuneCosts[cur];
+            ConvertIntToDecimalStringN(gStringVar1, cur, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar2, cur + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
+            ConvertIntToDecimalStringN(gStringVar3, cost, STR_CONV_MODE_LEFT_ALIGN, 4);
+            u8 *ptr = StringCopy(buf, sText_FortunePrefix);
+            ptr = StringAppend(ptr, gStringVar1);
+            ptr = StringAppend(ptr, sText_Arrow);
+            ptr = StringAppend(ptr, gStringVar2);
+            ptr = StringAppend(ptr, sText_ParenShards);
+            ptr = StringAppend(ptr, gStringVar3);
+            StringAppend(ptr, sText_ShardsClose);
+        }
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 0;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 1: Indietro
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sText_Indietro);
+        struct ListMenuItem exitItem;
+        exitItem.name = bufExit;
+        exitItem.id = 1;
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+}
+
+void Script_Meta_BuyFortuneUpgrade(void)
+{
+    u8 option = (u8)gSpecialVar_0x8005;
+    gSpecialVar_Result = 0;
+
+    if (option == 0)
+    {
+        u8 cur = gSaveBlock2Ptr->metaProgression.lootLuckLevel;
+        if (cur >= 3) { gSpecialVar_Result = 3; return; }
+        u16 cost = sFortuneCosts[cur];
+        if (!RemoveRogueShards(cost)) { gSpecialVar_Result = 2; return; }
+        gSaveBlock2Ptr->metaProgression.lootLuckLevel++;
+        gSpecialVar_Result = 1;
+    }
 }
 
 

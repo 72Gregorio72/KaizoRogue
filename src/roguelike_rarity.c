@@ -196,7 +196,27 @@ static const u8 *GetTierWeights(u8 category, u8 lootContext, u8 phase)
 
 u8 RollRarityTier(u8 category, u8 lootContext, u32 *rng)
 {
-    const u8 *weights = GetTierWeights(category, lootContext, GetCurrentGamePhase());
+    const u8 *baseWeights = GetTierWeights(category, lootContext, GetCurrentGamePhase());
+    u8 w[4];
+    w[0] = baseWeights[0];
+    w[1] = baseWeights[1];
+    w[2] = baseWeights[2];
+    w[3] = baseWeights[3];
+
+    // Apply Loot Luck upgrade from Hub meta-progression
+    u8 luck = gSaveBlock2Ptr->metaProgression.lootLuckLevel;
+    if (luck > 0 && w[0] > 0)
+    {
+        u8 boostRare = luck * 3;
+        u8 boostEpic = luck;
+        u8 totalBoost = boostRare + boostEpic;
+        if (totalBoost > w[0])
+            totalBoost = w[0];
+        w[0] -= totalBoost;
+        w[2] += boostRare;
+        w[3] += boostEpic;
+    }
+
     u32 roll;
     if (rng != NULL)
     {
@@ -208,13 +228,13 @@ u8 RollRarityTier(u8 category, u8 lootContext, u32 *rng)
         roll = Random() % 100;
     }
 
-    if (roll < weights[0])
+    if (roll < w[0])
         return RARITY_COMMON;
-    roll -= weights[0];
-    if (roll < weights[1])
+    roll -= w[0];
+    if (roll < w[1])
         return RARITY_UNCOMMON;
-    roll -= weights[1];
-    if (roll < weights[2])
+    roll -= w[1];
+    if (roll < w[2])
         return RARITY_RARE;
     return RARITY_EPIC;
 }

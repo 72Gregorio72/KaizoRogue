@@ -173,7 +173,7 @@ def classify_pokemon(name, blk, defines):
         return 'EPIC'
 
 # -------------------------------------------------------------
-# 2. MOVES CLASSIFICATION
+# 2. MOVES CLASSIFICATION (Balanced for Kaizo Ironmon)
 # -------------------------------------------------------------
 def classify_move(name, blk):
     if name in ('MOVE_NONE', 'MOVE_STRUGGLE'):
@@ -200,58 +200,89 @@ def classify_move(name, blk):
 
     # ----------------- STATUS MOVES -----------------
     if cat == 'DAMAGE_CATEGORY_STATUS':
-        # Specific user examples
-        if name in ('MOVE_QUIVER_DANCE', 'MOVE_SHELL_SMASH', 'MOVE_SPORE'):
+        # Specific user overrides
+        if name in ('MOVE_QUIVER_DANCE', 'MOVE_SHELL_SMASH', 'MOVE_SPORE', 'MOVE_TAIL_GLOW', 'MOVE_SHIFT_GEAR'):
             return 'EPIC'
-        if name in ('MOVE_DRAGON_DANCE', 'MOVE_TOXIC', 'MOVE_STEALTH_ROCK'):
+        if name in ('MOVE_DRAGON_DANCE', 'MOVE_TOXIC', 'MOVE_STEALTH_ROCK', 'MOVE_CALM_MIND'):
             return 'RARE'
-        if name in ('MOVE_BITE', 'MOVE_SILK_TRAP', 'MOVE_SWIFT', 'MOVE_BUBBLE_BEAM', 'MOVE_BULK_UP'):
-            return 'UNCOMMON'
-        if name in ('MOVE_TACKLE', 'MOVE_WATER_GUN', 'MOVE_LEER', 'MOVE_PECK', 'MOVE_GROWL', 'MOVE_SAND_ATTACK', 'MOVE_TAIL_WHIP', 'MOVE_SPLASH'):
+        if name in ('MOVE_SILK_TRAP', 'MOVE_BULK_UP', 'MOVE_WILL_O_WISP'):
+            return 'RARE'
+        if name in ('MOVE_GROWL', 'MOVE_SAND_ATTACK', 'MOVE_TAIL_WHIP', 'MOVE_SPLASH', 'MOVE_LEER'):
             return 'COMMON'
 
-        # Tier S (Setup sweep, pure recovery, protect)
+        score = 40  # base default for status
+
+        # 1. Supreme setup (+2 offensive stats, multi-stat sweeps, belly drum) -> EPIC
         if any(kw in blk for kw in [
             'EFFECT_BELLY_DRUM', 'EFFECT_GEOMANCY', 'EFFECT_NO_RETREAT', 'EFFECT_CLANGOROUS_SOUL',
-            'EFFECT_EXTREME_EVOBOOST', 'EFFECT_REVIVAL_BLESSING', 'EFFECT_SHED_TAIL'
+            'EFFECT_EXTREME_EVOBOOST', 'EFFECT_REVIVAL_BLESSING', 'EFFECT_SHED_TAIL', 'EFFECT_SHELL_SMASH',
+            'EFFECT_QUIVER_DANCE', 'EFFECT_SHIFT_GEAR', 'EFFECT_TAIL_GLOW'
         ]):
+            score = 135
+        elif 'EFFECT_STAT_CHANGE' in blk and any(f'.{s} = 2' in blk or f'.{s} = 3' in blk for s in ['attack', 'spAtk']):
             score = 130
+        elif 'EFFECT_STAT_CHANGE' in blk and ('.attack = 1' in blk or '.spAtk = 1' in blk) and '.speed = 1' in blk:
+            score = 130
+
+        # 2. Pure Recovery & Substitute -> EPIC (healing resources are vital in Kaizo Ironmon!)
         elif any(kw in blk for kw in [
             'EFFECT_RESTORE_HP', 'EFFECT_ROOST', 'EFFECT_SOFTBOILED', 'EFFECT_SHORE_UP',
-            'EFFECT_STRENGTH_SAP', 'EFFECT_JUNGLE_HEALING', 'EFFECT_LIFE_DEW'
+            'EFFECT_SLACK_OFF', 'EFFECT_MILK_DRINK', 'EFFECT_STRENGTH_SAP', 'EFFECT_WISH',
+            'EFFECT_HEAL_ORDER', 'EFFECT_PURIFY', 'EFFECT_JUNGLE_HEALING', 'EFFECT_LIFE_DEW'
+        ]):
+            score = 130
+        elif any(kw in blk for kw in ['EFFECT_SUBSTITUTE']):
+            score = 130
+        elif name in ('MOVE_SPORE'):
+            score = 130
+
+        # 3. High-tier status control, semi-recovery, hazards, protect -> RARE
+        elif any(kw in blk for kw in [
+            'EFFECT_PROTECT', 'EFFECT_DETECT', 'EFFECT_SPIKY_SHIELD', 'EFFECT_BANEFUL_BUNKER',
+            'EFFECT_KINGS_SHIELD', 'EFFECT_OBSTRUCT', 'EFFECT_SILK_TRAP', 'EFFECT_BURNING_BULWARK'
         ]):
             score = 115
-        elif 'EFFECT_PROTECT' in blk:
-            score = 110
-        elif 'EFFECT_STAT_CHANGE' in blk and any(f'.{stat} = 2' in blk for stat in ['attack', 'spAtk']):
-            # +2 Atk or SpA (Swords Dance, Nasty Plot, etc.)
-            score = 115
-        elif 'EFFECT_STAT_CHANGE' in blk and ('.attack = 1' in blk and '.speed = 1' in blk):
-            # Dragon dance-like
-            score = 115
-
-        # Tier A (Reliable status control, key hazard, utility pivot)
         elif any(kw in blk for kw in [
             'EFFECT_STEALTH_ROCK', 'EFFECT_SPIKES', 'EFFECT_TOXIC_SPIKES', 'EFFECT_STICKY_WEB',
             'EFFECT_CEASELESS_EDGE', 'EFFECT_STONE_AXE'
         ]):
-            score = 110
-        elif any(kw in blk for kw in ['EFFECT_NON_VOLATILE_STATUS', 'EFFECT_YAWN', 'EFFECT_DARK_VOID', 'EFFECT_WILL_O_WISP']):
+            score = 115
+        elif any(kw in blk for kw in [
+            'EFFECT_NON_VOLATILE_STATUS', 'EFFECT_WILL_O_WISP', 'EFFECT_TOXIC', 'EFFECT_THUNDER_WAVE',
+            'EFFECT_GLARE', 'EFFECT_YAWN', 'EFFECT_DARK_VOID', 'EFFECT_SLEEP_POWDER', 'EFFECT_HYPNOSIS'
+        ]):
+            score = 105
+        elif any(kw in blk for kw in [
+            'EFFECT_PARTING_SHOT', 'EFFECT_TAUNT', 'EFFECT_ENCORE', 'EFFECT_TORMENT',
+            'EFFECT_DISABLE', 'EFFECT_HAZE', 'EFFECT_CLEAR_SMOG', 'EFFECT_DESTINY_BOND',
+            'EFFECT_PAIN_SPLIT', 'EFFECT_LEECH_SEED', 'EFFECT_BATON_PASS', 'EFFECT_TRICK', 'EFFECT_SWITCHEROO'
+        ]):
+            score = 105
+        elif any(kw in blk for kw in [
+            'EFFECT_SYNTHESIS', 'EFFECT_MOONLIGHT', 'EFFECT_MORNING_SUN'
+        ]):
             score = 100
-        elif any(kw in blk for kw in ['EFFECT_PARTING_SHOT', 'EFFECT_TAUNT', 'EFFECT_ENCORE', 'EFFECT_DISABLE', 'EFFECT_TORMENT']):
-            score = 95
+        elif 'EFFECT_STAT_CHANGE' in blk and ('.self = TRUE' in blk or 'self' in blk):
+            # Single stage setup like Calm Mind, Bulk Up, Curse, Coil, Iron Defense, Amnesia, Agility
+            if any(f'.{s} = 1' in blk for s in ['attack', 'spAtk', 'defense', 'spDefense']):
+                score = 100
+            else:
+                score = 75
 
-        # Tier B (Single stage setup, screens, weather/terrain)
+        # 4. Mid-tier support: Screens, weather, terrain, speed control -> UNCOMMON
         elif any(kw in blk for kw in ['EFFECT_LIGHT_SCREEN', 'EFFECT_REFLECT', 'EFFECT_AURORA_VEIL']):
-            score = 75
-        elif any(kw in blk for kw in ['EFFECT_WEATHER', 'EFFECT_TERRAIN']):
-            score = 70
-        elif any(kw in blk for kw in ['EFFECT_SUBSTITUTE', 'EFFECT_BATON_PASS', 'EFFECT_TAILWIND', 'EFFECT_TRICK_ROOM', 'EFFECT_TRICK']):
             score = 80
-        elif 'EFFECT_STAT_CHANGE' in blk and '.self = TRUE' in blk:
+        elif any(kw in blk for kw in ['EFFECT_WEATHER', 'EFFECT_TERRAIN', 'EFFECT_TAILWIND', 'EFFECT_TRICK_ROOM']):
+            score = 75
+        elif any(kw in blk for kw in ['EFFECT_CONFUSION', 'EFFECT_ATTRACT', 'EFFECT_REST', 'EFFECT_SLEEP_TALK']):
             score = 70
-
-        # Tier C (Single debuffs / weak utility)
+        elif any(kw in blk for kw in ['EFFECT_DEFOG', 'EFFECT_RAPID_SPIN']):
+            score = 75
+        elif 'EFFECT_STAT_CHANGE' in blk and ('.target = TARGET_OPPONENT' in blk or '.target = TARGET_SELECTED' in blk):
+            if any(f'.{s} = -2' in blk for s in ['defense', 'spDefense', 'speed', 'attack', 'spAtk']):
+                score = 70  # Strong debuff (e.g. Screech, Metal Sound, Fake Tears, Scary Face)
+            else:
+                score = 40  # Weak debuff (e.g. Growl, Leer)
         else:
             score = 35
 
@@ -268,6 +299,10 @@ def classify_move(name, blk):
     if pwr == 0:
         return 'COMMON'
 
+    # OHKO moves (Fissure, Guillotine, Horn Drill, Sheer Cold) -> COMMON/GIMMICK (30% accuracy is suicidal in Ironmon)
+    if any(kw in blk for kw in ['EFFECT_OHKO']):
+        return 'COMMON'
+
     # Specific overrides from user prompt
     if name in ('MOVE_CLOSE_COMBAT', 'MOVE_V_CREATE', 'MOVE_MAKE_IT_RAIN'):
         return 'EPIC'
@@ -278,58 +313,89 @@ def classify_move(name, blk):
     if name in ('MOVE_TACKLE', 'MOVE_WATER_GUN', 'MOVE_PECK'):
         return 'COMMON'
 
-    # Multi-hit (2-5 hits, treat as power * 3.1)
+    # Multi-hit (2-5 hits -> treat as pwr * 3.1)
     is_multihit = bool(re.search(r'\.(strikeCount|multiHit)\s*=\s*(TRUE|[2-9])', blk)) or ('2 to 5' in blk)
     effective_pwr = pwr * 3.1 if is_multihit else pwr
 
+    # Base calculation
     accuracy_val = acc if acc > 0 else 100
     power_score = effective_pwr * (accuracy_val / 100.0)
 
-    # Priority
+    # ACCURACY PENALTIES / BONUSES (Essential for 1-mon Ironmon survival!)
+    if acc == 0:
+        power_score += 15  # Never misses (Aerial Ace, Aura Sphere, Swift, Shock Wave, etc.)
+    elif acc <= 70:
+        power_score -= 40  # Huge risk: Focus Blast, Blizzard, Thunder, Dynamic Punch
+    elif acc <= 80:
+        power_score -= 25  # High risk: Hydro Pump, Stone Edge, Fire Blast
+    elif acc <= 85:
+        power_score -= 15  # Moderate risk: Play Rough, Megahorn, Rock Slide
+    elif acc <= 95:
+        power_score -= 5
+
+    # DRAINING MOVES (Drains HP to heal self -> game-changer in Kaizo Ironmon!)
+    if 'MOVE_EFFECT_ABSORB' in blk or '.healingMove' in blk or 'EFFECT_ABSORB' in blk or 'EFFECT_PARABOLIC_CHARGE' in blk:
+        power_score += 45
+
+    # PRIORITY
     if prio > 0:
         power_score += prio * 25
     elif prio < 0:
-        power_score += prio * 15
+        power_score += prio * 20
 
-    # High crit
+    # HIGH CRITICAL HIT
     if 'criticalHitStage' in blk or 'alwaysCriticalHit' in blk:
-        power_score += 10
+        power_score += 12
 
-    # Drain
-    if 'MOVE_EFFECT_ABSORB' in blk or '.healingMove' in blk:
-        power_score += 20
-
-    # Flinch
-    if 'MOVE_EFFECT_FLINCH' in blk:
+    # HIGH-IMPACT SIDE EFFECTS
+    if name == 'MOVE_FAKE_OUT':
+        power_score += 35
+    elif 'MOVE_EFFECT_FLINCH' in blk:
         power_score += 15
 
-    # Status Altered
+    if name == 'MOVE_NUZZLE':
+        power_score += 40
+    elif name == 'MOVE_MORTAL_SPIN':
+        power_score += 35
+
+    # 100% Stat changes
+    if 'MOVE_EFFECT_STAT_PLUS' in blk and ('.self = TRUE' in blk or 'self' in blk):
+        power_score += 35
+    elif 'MOVE_EFFECT_STAT_MINUS' in blk and ('.self = TRUE' not in blk):
+        # 100% enemy debuff (Acid Spray, Icy Wind, Bulldoze, Mystical Fire, etc.)
+        power_score += 25
+    elif 'MOVE_EFFECT_STAT_PLUS' in blk:
+        power_score += 20
+    elif 'MOVE_EFFECT_STAT_MINUS' in blk:
+        power_score += 15
+
+    # Status alterations
     if any(st in blk for st in ['MOVE_EFFECT_BURN', 'MOVE_EFFECT_PARALYSIS', 'MOVE_EFFECT_SLEEP', 'MOVE_EFFECT_FREEZE', 'MOVE_EFFECT_POISON', 'MOVE_EFFECT_TOXIC']):
         chance_m = re.search(r'\.chance\s*=\s*(\d+)', blk)
         chance = int(chance_m.group(1)) if chance_m else 0
         if chance == 0 or chance >= 50:
             power_score += 40
         elif chance >= 30:
-            power_score += 25
+            power_score += 30  # Scald, Lava Plume (burn halves attack!)
         elif chance >= 10:
             power_score += 15
 
-    # Stat boost on self
-    if 'MOVE_EFFECT_STAT_PLUS' in blk and ('.self = TRUE' in blk or 'self' in blk):
-        power_score += 25
-    elif 'MOVE_EFFECT_STAT_MINUS' in blk and ('.self = TRUE' not in blk):
-        power_score += 15
+    # MALUS: Recoil & Self-Damage (Fatal or massive HP self-damage in Ironmon!)
+    if any(kw in blk for kw in ['EFFECT_MAX_HP_50_RECOIL', 'EFFECT_CHLOROBLAST', 'EFFECT_EXPLOSION', 'EFFECT_SELF_DESTRUCT', 'EFFECT_MIND_BLOWN', 'EFFECT_STEEL_BEAM', 'EFFECT_FINAL_GAMBIT']):
+        power_score -= 100
+    elif any(kw in blk for kw in ['EFFECT_RECOIL', 'MOVE_EFFECT_RECOIL_HP_25']):
+        power_score -= 25
 
-    # Malus: Recoil
-    if any(kw in blk for kw in ['EFFECT_RECOIL', 'EFFECT_MAX_HP_50_RECOIL', 'EFFECT_CHLOROBLAST', 'MOVE_EFFECT_RECOIL_HP_25']):
-        power_score -= 20
+    # MALUS: Charge / Recharge turns (Giving free turns is lethal)
+    if any(kw in blk for kw in ['MOVE_EFFECT_RECHARGE', 'EFFECT_RECHARGE']):
+        power_score -= 50
+    elif any(kw in blk for kw in ['EFFECT_TWO_TURNS_ATTACK', 'EFFECT_SOLAR_BEAM', 'EFFECT_SKULL_BASH', 'EFFECT_SKY_ATTACK', 'EFFECT_RAZOR_WIND', 'EFFECT_FREEZE_SHOCK', 'EFFECT_ICE_BURN', 'EFFECT_METEOR_BEAM']):
+        power_score -= 35
+    elif any(kw in blk for kw in ['EFFECT_SEMI_INVULNERABLE', 'EFFECT_FLY', 'EFFECT_DIG', 'EFFECT_DIVE', 'EFFECT_BOUNCE']):
+        power_score -= 15
 
-    # Malus: Turn of charge/recharge
-    if any(kw in blk for kw in ['EFFECT_TWO_TURNS_ATTACK', 'MOVE_EFFECT_RECHARGE']):
-        power_score -= 40
-
-    # Malus: Stat drop on user
-    if 'MOVE_EFFECT_STAT_MINUS' in blk and ('.self = TRUE' in blk):
+    # MALUS: Stat drop on user (Close Combat, Overheat, etc.)
+    if 'MOVE_EFFECT_STAT_MINUS' in blk and ('.self = TRUE' in blk or 'self' in blk):
         power_score -= 20
 
     if power_score < 65:
@@ -342,7 +408,7 @@ def classify_move(name, blk):
         return 'EPIC'
 
 # -------------------------------------------------------------
-# 3. ITEMS CLASSIFICATION
+# 3. ITEMS CLASSIFICATION (Balanced for Kaizo Ironmon)
 # -------------------------------------------------------------
 def classify_item(name, blk):
     if name == 'ITEM_NONE' or name.startswith('ITEM_TM') or name.startswith('ITEM_HM'):
@@ -352,7 +418,7 @@ def classify_item(name, blk):
 
     pocket_m = re.search(r'\.pocket\s*=\s*(POCKET_[A-Z_]+)', blk)
     pocket = pocket_m.group(1) if pocket_m else 'POCKET_ITEMS'
-    if pocket == 'POCKET_KEY_ITEMS' or pocket == 'POCKET_TM_HM':
+    if pocket in ('POCKET_KEY_ITEMS', 'POCKET_TM_HM'):
         return None
 
     imp_m = re.search(r'\.importance\s*=\s*(\d+)', blk)
@@ -368,62 +434,74 @@ def classify_item(name, blk):
     sort_m = re.search(r'\.sortType\s*=\s*(ITEM_TYPE_[A-Z_]+)', blk)
     sort = sort_m.group(1) if sort_m else 'ITEM_TYPE_UNCATEGORIZED'
 
-    # Hardcoded Epic items
-    if name in (
+    # 1. EPIC (Top game-changing items: Max PP, Rare Candies, Full revives/elixirs, Master Ball, Mega/Z-items)
+    epic_items = {
         'ITEM_MASTER_BALL', 'ITEM_ABILITY_PATCH', 'ITEM_ABILITY_CAPSULE',
-        'ITEM_PP_MAX', 'ITEM_GOLD_BOTTLE_CAP'
-    ) or hold in ('HOLD_EFFECT_Z_CRYSTAL', 'HOLD_EFFECT_MEGA_STONE') or sort in ('ITEM_TYPE_MEGA_STONE', 'ITEM_TYPE_Z_CRYSTAL'):
+        'ITEM_PP_MAX', 'ITEM_PP_UP', 'ITEM_GOLD_BOTTLE_CAP', 'ITEM_LUCKY_EGG',
+        'ITEM_RARE_CANDY', 'ITEM_EXP_CANDY_XL', 'ITEM_EXP_CANDY_L',
+        'ITEM_MAX_REVIVE', 'ITEM_REVIVAL_HERB', 'ITEM_SACRED_ASH',
+        'ITEM_MAX_ELIXIR', 'ITEM_ELIXIR'
+    }
+    if name in epic_items or hold in ('HOLD_EFFECT_Z_CRYSTAL', 'HOLD_EFFECT_MEGA_STONE') or sort in ('ITEM_TYPE_MEGA_STONE', 'ITEM_TYPE_Z_CRYSTAL'):
         return 'EPIC'
 
-    # Competitive / High-Value -> RARE
+    # 2. RARE (Vital recovery, Leppa berry, damage resist berries, competitive hold items)
+    rare_items = {
+        'ITEM_FULL_RESTORE', 'ITEM_MAX_POTION', 'ITEM_HYPER_POTION',
+        'ITEM_MAX_ETHER', 'ITEM_ETHER', 'ITEM_LEPPA_BERRY',
+        'ITEM_REVIVE', 'ITEM_BOTTLE_CAP', 'ITEM_EXP_CANDY_M',
+        'ITEM_SITRUS_BERRY', 'ITEM_LUM_BERRY'
+    }
+    if name in rare_items:
+        return 'RARE'
+
     rare_holds = {
         'HOLD_EFFECT_CHOICE_BAND', 'HOLD_EFFECT_CHOICE_SCARF', 'HOLD_EFFECT_CHOICE_SPECS',
         'HOLD_EFFECT_FOCUS_SASH', 'HOLD_EFFECT_LIFE_ORB', 'HOLD_EFFECT_LEFTOVERS',
         'HOLD_EFFECT_EVIOLITE', 'HOLD_EFFECT_ASSAULT_VEST', 'HOLD_EFFECT_HEAVY_DUTY_BOOTS',
         'HOLD_EFFECT_LOADED_DICE', 'HOLD_EFFECT_WEAKNESS_POLICY', 'HOLD_EFFECT_ROCKY_HELMET',
         'HOLD_EFFECT_AIR_BALLOON', 'HOLD_EFFECT_BOOSTER_ENERGY', 'HOLD_EFFECT_CLEAR_AMULET',
-        'HOLD_EFFECT_COVERT_CLOAK'
+        'HOLD_EFFECT_COVERT_CLOAK', 'HOLD_EFFECT_SHELL_BELL', 'HOLD_EFFECT_RESIST_BERRY'
     }
     if hold in rare_holds:
-        return 'RARE'
-
-    if name in ('ITEM_MAX_REVIVE', 'ITEM_RARE_CANDY', 'ITEM_BOTTLE_CAP', 'ITEM_EXP_CANDY_XL', 'ITEM_SACRED_ASH'):
         return 'RARE'
 
     if price >= 4000 and pocket == 'POCKET_ITEMS':
         return 'RARE'
 
-    # Mid-Game / Progression -> UNCOMMON
+    # 3. UNCOMMON (Mid-tier healing, pinch berries, evolution items, type boosts, good pokeballs)
+    uncommon_items = {
+        'ITEM_SUPER_POTION', 'ITEM_MOOMOO_MILK', 'ITEM_LEMONADE', 'ITEM_SODA_POP',
+        'ITEM_FRESH_WATER', 'ITEM_ENERGY_ROOT', 'ITEM_ENERGY_POWDER', 'ITEM_HEAL_POWDER',
+        'ITEM_FULL_HEAL', 'ITEM_LAVA_COOKIE', 'ITEM_OLD_GATEAU', 'ITEM_CASTELIACONE',
+        'ITEM_LUMIOSE_GALETTE', 'ITEM_SHALOUR_SABLE', 'ITEM_BIG_MALASADA', 'ITEM_PEWTER_CRUNCHIES',
+        'ITEM_EXP_CANDY_S', 'ITEM_EXP_CANDY_XS'
+    }
+    if name in uncommon_items:
+        return 'UNCOMMON'
+
     if pocket == 'POCKET_POKE_BALLS' and price >= 500:
         return 'UNCOMMON'
 
-    if sort in ('ITEM_TYPE_EVOLUTION_STONE', 'ITEM_TYPE_EVOLUTION_ITEM'):
+    if sort in ('ITEM_TYPE_EVOLUTION_STONE', 'ITEM_TYPE_EVOLUTION_ITEM', 'ITEM_TYPE_NATURE_MINT', 'ITEM_TYPE_STAT_BOOST_DRINK'):
         return 'UNCOMMON'
 
     uncommon_holds = {
         'HOLD_EFFECT_TYPE_POWER', 'HOLD_EFFECT_PLATE', 'HOLD_EFFECT_GEMS',
-        'HOLD_EFFECT_SHELL_BELL', 'HOLD_EFFECT_SCOPE_LENS', 'HOLD_EFFECT_WISE_GLASSES',
-        'HOLD_EFFECT_MUSCLE_BAND', 'HOLD_EFFECT_EXPERT_BELT', 'HOLD_EFFECT_WIDE_LENS',
-        'HOLD_EFFECT_ZOOM_LENS', 'HOLD_EFFECT_BIG_ROOT', 'HOLD_EFFECT_LIGHT_CLAY',
-        'HOLD_EFFECT_RESTORE_PCT_HP', 'HOLD_EFFECT_CURE_STATUS'
+        'HOLD_EFFECT_SCOPE_LENS', 'HOLD_EFFECT_WISE_GLASSES', 'HOLD_EFFECT_MUSCLE_BAND',
+        'HOLD_EFFECT_EXPERT_BELT', 'HOLD_EFFECT_WIDE_LENS', 'HOLD_EFFECT_ZOOM_LENS',
+        'HOLD_EFFECT_BIG_ROOT', 'HOLD_EFFECT_LIGHT_CLAY', 'HOLD_EFFECT_RESTORE_PCT_HP',
+        'HOLD_EFFECT_CURE_STATUS', 'HOLD_EFFECT_MICLE_BERRY', 'HOLD_EFFECT_CUSTAP_BERRY',
+        'HOLD_EFFECT_JABOCA_BERRY', 'HOLD_EFFECT_ROWAP_BERRY', 'HOLD_EFFECT_KEE_BERRY',
+        'HOLD_EFFECT_MARANGA_BERRY', 'HOLD_EFFECT_ENIGMA_BERRY', 'HOLD_EFFECT_CONFUSE_FLAVOR'
     }
     if hold in uncommon_holds:
-        return 'UNCOMMON'
-
-    if name in (
-        'ITEM_REVIVE', 'ITEM_HYPER_POTION', 'ITEM_MAX_POTION', 'ITEM_FULL_RESTORE',
-        'ITEM_FULL_HEAL', 'ITEM_MOOMOO_MILK', 'ITEM_ENERGY_ROOT', 'ITEM_REVIVAL_HERB',
-        'ITEM_MAX_ELIXIR', 'ITEM_MAX_ETHER', 'ITEM_SUPER_POTION'
-    ):
-        return 'UNCOMMON'
-
-    if sort in ('ITEM_TYPE_NATURE_MINT', 'ITEM_TYPE_STAT_BOOST_DRINK'):
         return 'UNCOMMON'
 
     if price >= 1000 and pocket == 'POCKET_ITEMS':
         return 'UNCOMMON'
 
-    # Default Trash / Utility Base -> COMMON
+    # 4. COMMON (Basic potions, status cures, single-status berries, X-items, basic balls)
     return 'COMMON'
 
 # -------------------------------------------------------------
@@ -431,6 +509,7 @@ def classify_item(name, blk):
 # -------------------------------------------------------------
 def main():
     force = '--force' in sys.argv
+    force_moves_items = '--force-moves-items' in sys.argv or '--recreate-moves-items' in sys.argv
     add_missing = '--add-missing' in sys.argv
 
     # 1. Check for existing Ground Truth JSON
@@ -442,7 +521,8 @@ def main():
             with open(JSON_PATH, 'r', encoding='utf-8') as f:
                 existing_data = json.load(f)
             print(f"Loaded existing Ground Truth from {JSON_PATH}")
-            for cat in ("pokemon", "moves", "items"):
+            cats_to_load = ("pokemon",) if force_moves_items else ("pokemon", "moves", "items")
+            for cat in cats_to_load:
                 if cat in existing_data:
                     for tier, names in existing_data[cat].items():
                         for nm in names:
@@ -474,7 +554,7 @@ def main():
 
     # Helper to insert into result
     def add_entry(cat, name, computed_tier):
-        if existing_data is not None:
+        if existing_data is not None and (cat not in ("moves", "items") or not force_moves_items):
             # If entry already existed in JSON, keep its tier!
             if name in existing_tiers[cat]:
                 actual_tier = existing_tiers[cat][name]
