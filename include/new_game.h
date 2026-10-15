@@ -12,5 +12,6 @@ void CopyTrainerId(u8 *dst, u8 *src);
 void NewGameInitData(void);
 void ResetMenuAndMonGlobals(void);
 void Sav2_ClearSetDefault(void);
+void SetPreservePokemonStorage(bool8 preserve);
 
 #endif // GUARD_NEW_GAME_H

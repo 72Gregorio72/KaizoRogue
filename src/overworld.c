@@ -4290,11 +4290,23 @@ static void ResetKaizoRogueRun(void)
         hubVarsBackup[i] = VarGet(VAR_0x40F0 + i);
     }
 
+    // --- 1b. SALVATAGGIO DEI POKÉMON DELLA RUN CADUTA NEL PC STORAGE ---
+    for (u32 i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) != SPECIES_NONE)
+        {
+            CopyMonToPC(&gParties[B_TRAINER_PLAYER][i]);
+        }
+    }
+
     // --- 2. RESET NATIVO TOTALE DI KANTO (Zero hardcoding) ---
     // Esegue esattamente lo stesso codice di "Nuovo Gioco":
     // azzera la mappa, nasconde Oak nel lab, imposta i flag iniziali corretti,
     // svuota borsa, squadra, trainer e oggetti raccolti.
+    extern void SetPreservePokemonStorage(bool8 preserve);
+    SetPreservePokemonStorage(TRUE);
     NewGameInitData();
+    SetPreservePokemonStorage(FALSE);
 
     // --- 3. RIPRISTINO DATI HUB ---
     gSaveBlock2Ptr->metaProgression = metaBackup;
@@ -4314,5 +4326,5 @@ static void ResetKaizoRogueRun(void)
     SetContinueGameWarpStatusToDynamicWarp();
     SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
                        MAP_NUM(MAP_KAIZO_HUB),
-                       WARP_ID_NONE, 4, 6);
+                       WARP_ID_NONE, 14, 13);
 }

@@ -113,7 +113,13 @@ void Script_Meta_BuyStarterUpgrade(void);
 void Script_Meta_PushFortuneChoices(void);
 void Script_Meta_BuyFortuneUpgrade(void);
 void Script_Meta_GetLastRunRecap(void);
+void Script_Meta_PushCheatChoices(void);
+void Script_Meta_CheatMaxAll(void);
+void Script_Meta_CheatInfiniteMoneyAndShards(void);
+void Script_Meta_CheatReset(void);
 void Script_Starter_GetRerollsRemaining(void);
 void Script_Starter_ConsumeReroll(void);
+void Script_Kaizo_PrepareNewRun(void);
+void Script_CheckIsKaizoHub(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

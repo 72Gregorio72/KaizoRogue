@@ -22,28 +22,31 @@ Kaizo_Hub_EventScript_RecapDone::
 Kaizo_Hub_EventScript_TesterNPC::
 	lock
 	faceplayer
-	getpartysize
-	goto_if_gt VAR_RESULT, 0, Kaizo_Hub_EventScript_AskWarpOnly
-
 	msgbox Kaizo_Hub_Text_Intro, MSGBOX_DEFAULT
-	special GenerateNewKaizoSeedAndStarters
-
+	special Script_Kaizo_PrepareNewRun
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_StartRunDirect
+	msgbox Kaizo_Hub_Text_PartyReturnedToPC, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_StartRunDirect::
 	msgbox Kaizo_Hub_Text_WarpToRoom, MSGBOX_DEFAULT
 	closemessage
-
-	// Teletrasporto diretto nella camera da letto (2F)
 	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
 	waitstate
 	release
 	end
 
-Kaizo_Hub_EventScript_AskWarpOnly::
-	msgbox Kaizo_Hub_Text_AskWarp, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_Cancel
-	msgbox Kaizo_Hub_Text_Warping, MSGBOX_DEFAULT
-	closemessage
-	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
+Kaizo_Hub_EventScript_PC::
+	lock
+	faceplayer
+	playse SE_PC_ON
+	msgbox Kaizo_Hub_Text_PCIntro, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_PCTurnOff
+	playse SE_PC_LOGIN
+	msgbox gText_StorageSystemOpened, MSGBOX_DEFAULT
+	special ShowPokemonStorageSystemPC
 	waitstate
+Kaizo_Hub_EventScript_PCTurnOff::
+	playse SE_PC_OFF
+	msgbox Kaizo_Hub_Text_PCGoodbye, MSGBOX_DEFAULT
 	release
 	end
 
@@ -51,10 +54,67 @@ Kaizo_Hub_EventScript_Cancel::
 	release
 	end
 
+Kaizo_Hub_Text_PartyReturnedToPC:
+	.string "I Pokémon che avevi in squadra sono stati\n"
+	.string "riposti al sicuro nel PC per la run!$"
+
+Kaizo_Hub_Text_PCIntro:
+	.string "BILL: Ciao! Questo e' il Terminale PC\n"
+	.string "del Memoriale dei Caduti.\p"
+	.string "Tutti i tuoi Pokémon caduti nelle run\n"
+	.string "sono salvati con statistiche, mosse,\l"
+	.string "abilita', natura e livello!\p"
+	.string "Vuoi accedere ai Box del PC?$"
+
+Kaizo_Hub_Text_PCGoodbye:
+	.string "BILL: Se ritiri un Pokémon nella Hub,\n"
+	.string "verra' riposto automaticamente nel PC\l"
+	.string "appena farai partire una nuova run!$"
+
+
 Kaizo_Hub_EventScript_Receptionist::
 	lock
 	faceplayer
 	msgbox Kaizo_Hub_Text_Receptionist, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_EventScript_CheatNPC::
+	lock
+	faceplayer
+	msgbox Kaizo_Hub_Text_CheatIntro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_CheatMenu::
+	special Script_Meta_PushCheatChoices
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_CheatExit
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_CheatExit
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_CheatMaxAll
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_CheatMoney
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_CheatReset
+	goto Kaizo_Hub_EventScript_CheatExit
+
+Kaizo_Hub_EventScript_CheatMaxAll::
+	special Script_Meta_CheatMaxAll
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_CheatMaxAllDone, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_CheatMenu
+
+Kaizo_Hub_EventScript_CheatMoney::
+	special Script_Meta_CheatInfiniteMoneyAndShards
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_CheatMoneyDone, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_CheatMenu
+
+Kaizo_Hub_EventScript_CheatReset::
+	special Script_Meta_CheatReset
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_CheatResetDone, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_CheatMenu
+
+Kaizo_Hub_EventScript_CheatExit::
+	msgbox Kaizo_Hub_Text_CheatGoodbye, MSGBOX_DEFAULT
 	release
 	end
 
@@ -74,53 +134,71 @@ Kaizo_Hub_EventScript_FortuneDoorSign::
 	msgbox Kaizo_Hub_Text_FortuneDoorSign, MSGBOX_SIGN
 	end
 
-Kaizo_Hub_EventScript_SouthExitTrigger::
-	lockall
-	msgbox Kaizo_Hub_Text_AskStartRunDoor, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_CancelExit
-	special GenerateNewKaizoSeedAndStarters
-	msgbox Kaizo_Hub_Text_WarpToRoom, MSGBOX_DEFAULT
-	closemessage
-	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
-	waitstate
-	releaseall
+Kaizo_Hub_EventScript_PierSign::
+	msgbox Kaizo_Hub_Text_PierSign, MSGBOX_SIGN
 	end
 
-Kaizo_Hub_EventScript_CancelExit::
-	applymovement OBJ_EVENT_ID_PLAYER, Common_Movement_WalkUp
-	waitmovement 0
-	releaseall
-	end
+Kaizo_Hub_Text_CheatIntro:
+	.string "DEBUGGER KAIZO:\n"
+	.string "Posso modificare i salvataggi per\n"
+	.string "facilitare il testing della Hub!$"
+
+Kaizo_Hub_Text_CheatMaxAllDone:
+	.string "Tutti i Powerup sono stati portati\n"
+	.string "al livello MASSIMO!\p"
+	.string "- Draft Mosse: 5 scelte\n"
+	.string "- Punti Stat: +20 BST\n"
+	.string "- Licenze IV, EV, Natura, Abilita'\n"
+	.string "- Reroll Starter: 2\n"
+	.string "- Mosse Starter: Rarita' Rara\n"
+	.string "- Tasca Iniziale: Baccacedro\n"
+	.string "- Dea Bendata: Livello 3 (MAX)$"
+
+Kaizo_Hub_Text_CheatMoneyDone:
+	.string "Ricevuti 999.999 Frammenti Kaizo\n"
+	.string "e 999.999 Pomenny!$"
+
+Kaizo_Hub_Text_CheatResetDone:
+	.string "Tutti i potenziamenti e le risorse\n"
+	.string "sono stati azzerati ai valori iniziali.$"
+
+Kaizo_Hub_Text_CheatGoodbye:
+	.string "Buon testing! Torna quando vuoi.$"
 
 Kaizo_Hub_Text_Receptionist:
-	.string "Benvenuto al Centro Operativo Kaizo!\p"
-	.string "Lungo il corridoio troverai 3 stanze\n"
-	.string "speciali dedicate ai tuoi potenziamenti:\p"
-	.string "- Sinistra: DOJO POKé MART\n"
-	.string "- Centro: LABORATORIO STARTER\n"
-	.string "- Destra: TEMPIO DELLA SORTE\p"
-	.string "Quando sei pronto per iniziare la run,\n"
-	.string "parla con il Maestro o attraversa la porta!$"
+	.string "Benvenuto al Villaggio Kaizo!\p"
+	.string "Esplora le strutture dedicate attorno\n"
+	.string "alla piazzetta per sbloccare upgrade:\p"
+	.string "- Ovest: Emporio e Dojo Licenze\n"
+	.string "- Nord: Laboratorio Ricerca Starter\n"
+	.string "- Est: Santuario della Sorte\p"
+	.string "Quando sei pronto, parla con l'Arbitro\n"
+	.string "al centro per iniziare la tua run!$"
 
 Kaizo_Hub_Text_MainMonument:
-	.string "KAIZO ROGUE - CENTRO OPERATIVO\n"
-	.string "Sconfiggi i Capipalestra e scala la vetta!$"
+	.string "PIAZZETTA CENTRALE KAIZO\n"
+	.string "Il cuore del villaggio aperto.\p"
+	.string "- PIAZZA: Arbitro Run e PC Memoriale\n"
+	.string "- NORD: Laboratorio Ricerca Starter\n"
+	.string "- OVEST: Emporio e Dojo Licenze\n"
+	.string "- EST: Santuario della Sorte\n"
+	.string "- SUD: Molo di Partenza$"
 
 Kaizo_Hub_Text_MartDoorSign:
-	.string "DOJO POKé MART ->\n"
-	.string "Sblocchi licenze e opzioni per i market.$"
+	.string "EMPORIO KAIZO & BUILD DOJO\n"
+	.string "Licenze di Mercato e Personalizzazione.$"
 
 Kaizo_Hub_Text_StarterDoorSign:
-	.string "LABORATORIO GENETICO ->\n"
-	.string "Reroll e potenziamento mosse Starter.$"
+	.string "LABORATORIO RICERCA GENETICA\n"
+	.string "Miglioramenti per Pokemon Iniziali.$"
 
 Kaizo_Hub_Text_FortuneDoorSign:
-	.string "TEMPIO DELLA SORTE ->\n"
-	.string "Migliora la probabilita' dei drop.$"
+	.string "SANTUARIO DELLA SORTE\n"
+	.string "Preghiere per il bottino raro ed epico.$"
 
-Kaizo_Hub_Text_AskStartRunDoor:
-	.string "Vuoi lasciare l'HUB e iniziare una\n"
-	.string "nuova run Kaizo Ironmon?$"
+Kaizo_Hub_Text_PierSign:
+	.string "MOLO KAIZO\n"
+	.string "Verso l'orizzonte della sfida Ironmon.$"
 
 Kaizo_Hub_Text_Intro:
 	.string "Nuova run Kaizo Ironmon!\nGenerazione del Seed in corso...$"

@@ -66,6 +66,12 @@ static void ResetDexNav(void);
 
 EWRAM_DATA bool8 gDifferentSaveFile = FALSE;
 EWRAM_DATA bool8 gEnableContestDebugging = FALSE;
+static bool8 sPreservePokemonStorage = FALSE;
+
+void SetPreservePokemonStorage(bool8 preserve)
+{
+    sPreservePokemonStorage = preserve;
+}
 
 static const struct ContestWinner sContestWinnerPicDummy =
 {
@@ -137,7 +143,7 @@ static void ClearFrontierRecord(void)
 
 static void WarpToTruck(void)
 {
-    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB), MAP_NUM(MAP_KAIZO_HUB), WARP_ID_NONE, 4, 6);
+    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB), MAP_NUM(MAP_KAIZO_HUB), WARP_ID_NONE, 14, 13);
     WarpIntoMap();
 }
 
@@ -218,7 +224,8 @@ void NewGameInitData(void)
     InitLotadSizeRecord();
     gPartiesCount[B_TRAINER_PLAYER] = 0;
     ZeroPlayerPartyMons();
-    ResetPokemonStorageSystem();
+    if (!sPreservePokemonStorage)
+        ResetPokemonStorageSystem();
     DeactivateAllRoamers();
     gSaveBlock1Ptr->registeredItem = ITEM_NONE;
     ClearBag();

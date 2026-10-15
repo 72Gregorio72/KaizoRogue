@@ -700,5 +700,11 @@ gSpecials::
 	def_special Script_Meta_PushFortuneChoices
 	def_special Script_Meta_BuyFortuneUpgrade
 	def_special Script_Meta_GetLastRunRecap
+	def_special Script_Meta_PushCheatChoices
+	def_special Script_Meta_CheatMaxAll
+	def_special Script_Meta_CheatInfiniteMoneyAndShards
+	def_special Script_Meta_CheatReset
 	def_special Script_Starter_GetRerollsRemaining
 	def_special Script_Starter_ConsumeReroll
+	def_special Script_Kaizo_PrepareNewRun
+	def_special Script_CheckIsKaizoHub

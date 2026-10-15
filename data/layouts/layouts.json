@@ -10209,14 +10209,14 @@
     {
       "id": "LAYOUT_KAIZO_HUB",
       "name": "Kaizo_Hub_Layout",
-      "width": 28,
-      "height": 11,
+      "width": 24,
+      "height": 20,
       "border_width": 2,
       "border_height": 2,
-      "primary_tileset": "gTileset_BuildingFrlg",
-      "secondary_tileset": "gTileset_Lab_Frlg",
-      "border_filepath": "data/layouts/CinnabarIsland_PokemonLab_Entrance_Frlg/border.bin",
-      "blockdata_filepath": "data/layouts/CinnabarIsland_PokemonLab_Entrance_Frlg/map.bin",
+      "primary_tileset": "gTileset_General_Frlg",
+      "secondary_tileset": "gTileset_SeviiIslands123",
+      "border_filepath": "data/layouts/OneIsland_Frlg/border.bin",
+      "blockdata_filepath": "data/layouts/OneIsland_Frlg/map.bin",
       "layout_version": "frlg"
     }
   ]

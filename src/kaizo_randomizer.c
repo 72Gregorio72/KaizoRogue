@@ -22,6 +22,9 @@
 #include "window.h"
 #include "menu.h"
 #include "constants/opponents_frlg.h"
+#include "money.h"
+#include "constants/map_groups.h"
+#include "pokemon_storage_system.h"
 
 // --- PROTOTIPI GENERALI ---
 static bool32 IsValidKaizoSpecies(u16 species);
@@ -2481,5 +2484,135 @@ void Script_Meta_BuyFortuneUpgrade(void)
         gSpecialVar_Result = 1;
     }
 }
+
+static const u8 sText_Cheat_MaxAll[] = _("Sblocca Tutti Powerup");
+static const u8 sText_Cheat_Money[] = _("Monete e Shards MAX");
+static const u8 sText_Cheat_Reset[] = _("Reset Meta a Default");
+static const u8 sText_Cheat_Exit[] = _("Esci");
+
+void Script_Meta_PushCheatChoices(void)
+{
+    InitKaizoMetaProgression();
+
+    // 0: Sblocca Tutti Powerup
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_MaxAll);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 0;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 1: Monete e Shards MAX
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_Money);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 1;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 2: Reset Meta a Default
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_Reset);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 2;
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 3: Esci
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_Exit);
+        struct ListMenuItem item;
+        item.name = buf;
+        item.id = 3;
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void Script_Meta_CheatMaxAll(void)
+{
+    InitKaizoMetaProgression();
+    gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel = 5;
+    gSaveBlock2Ptr->metaProgression.martStatPointsLevel = 2;
+    gSaveBlock2Ptr->metaProgression.martUnlockIV = TRUE;
+    gSaveBlock2Ptr->metaProgression.martUnlockEV = TRUE;
+    gSaveBlock2Ptr->metaProgression.martUnlockNature = TRUE;
+    gSaveBlock2Ptr->metaProgression.martUnlockAbility = TRUE;
+
+    gSaveBlock2Ptr->metaProgression.starterRerollCount = 2;
+    sStarterRerollsRemaining = 2;
+    gSaveBlock2Ptr->metaProgression.starterMoveTierLevel = 2;
+    gSaveBlock2Ptr->metaProgression.starterItemPouchLevel = 3;
+
+    gSaveBlock2Ptr->metaProgression.lootLuckLevel = 3;
+}
+
+void Script_Meta_CheatInfiniteMoneyAndShards(void)
+{
+    InitKaizoMetaProgression();
+    gSaveBlock2Ptr->metaProgression.rogueShards = 999999;
+    gSaveBlock2Ptr->metaProgression.totalShardsEarned += 999999;
+    SetMoney(&gSaveBlock1Ptr->money, MAX_MONEY);
+}
+
+void Script_Meta_CheatReset(void)
+{
+    gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel = 1;
+    gSaveBlock2Ptr->metaProgression.martStatPointsLevel = 0;
+    gSaveBlock2Ptr->metaProgression.martUnlockIV = FALSE;
+    gSaveBlock2Ptr->metaProgression.martUnlockEV = FALSE;
+    gSaveBlock2Ptr->metaProgression.martUnlockNature = FALSE;
+    gSaveBlock2Ptr->metaProgression.martUnlockAbility = FALSE;
+
+    gSaveBlock2Ptr->metaProgression.starterRerollCount = 0;
+    sStarterRerollsRemaining = 0;
+    gSaveBlock2Ptr->metaProgression.starterMoveTierLevel = 0;
+    gSaveBlock2Ptr->metaProgression.starterItemPouchLevel = 0;
+
+    gSaveBlock2Ptr->metaProgression.lootLuckLevel = 0;
+    gSaveBlock2Ptr->metaProgression.rogueShards = 0;
+    SetMoney(&gSaveBlock1Ptr->money, 3000);
+    ResetPokemonStorageSystem();
+}
+
+void Script_Kaizo_PrepareNewRun(void)
+{
+    u8 removedCount = 0;
+    for (u32 i = 0; i < PARTY_SIZE; i++)
+    {
+        if (GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SPECIES) != SPECIES_NONE)
+        {
+            CopyMonToPC(&gParties[B_TRAINER_PLAYER][i]);
+            removedCount++;
+        }
+    }
+    ZeroPlayerPartyMons();
+    gPartiesCount[B_TRAINER_PLAYER] = 0;
+
+    GenerateNewKaizoSeedAndStarters();
+
+    gSpecialVar_Result = removedCount;
+}
+
+void Script_CheckIsKaizoHub(void)
+{
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_KAIZO_HUB)
+     && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB))
+    {
+        gSpecialVar_Result = TRUE;
+    }
+    else
+    {
+        gSpecialVar_Result = FALSE;
+    }
+}
+
+
 
 

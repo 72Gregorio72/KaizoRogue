@@ -31,11 +31,19 @@ EventScript_AccessPlayersPC::
 	end
 
 EventScript_AccessPokemonStorage::
+	special Script_CheckIsKaizoHub
+	goto_if_eq VAR_RESULT, FALSE, EventScript_PCLockedDuringRun
 	playse SE_PC_LOGIN
 	call_if_unset FLAG_SYS_PC_LANETTE, EventScript_AccessSomeonesPC
 	call_if_set FLAG_SYS_PC_LANETTE, EventScript_AccessLanettesPC
 	msgbox gText_StorageSystemOpened, MSGBOX_DEFAULT
 	special ShowPokemonStorageSystemPC
+	goto EventScript_PCMainMenu
+	end
+
+EventScript_PCLockedDuringRun::
+	playse SE_NOT_EFFECTIVE
+	msgbox gText_PCLockedDuringRun, MSGBOX_DEFAULT
 	goto EventScript_PCMainMenu
 	end
 
@@ -71,3 +79,8 @@ EventScript_AccessPokemonBoxLink::
 	special ShowPokemonStorageSystemPC
 	goto EventScript_TurnOffPC
 	end
+
+gText_PCLockedDuringRun::
+	.string "Il Sistema Memoria e' bloccato durante\n"
+	.string "la run. Accessibile solo nell'HUB!$"
+
