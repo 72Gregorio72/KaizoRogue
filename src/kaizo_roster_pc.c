@@ -36,15 +36,15 @@ static const u8 sCompetitiveNatures[] = {
 };
 
 static const u8 sCompetitiveNatureDescs[][24] = {
-    _(" (+Att, -AttSp)"),
-    _(" (+Vel, -AttSp)"),
-    _(" (+AttSp, -Att)"),
-    _(" (+Vel, -Att)"),
-    _(" (+Dif, -AttSp)"),
-    _(" (+Dif, -Att)"),
-    _(" (+DifSp, -AttSp)"),
-    _(" (+DifSp, -Att)"),
-    _(" (Neutra)")
+    _(" (+Atk, -SpA)"),
+    _(" (+Spe, -SpA)"),
+    _(" (+SpA, -Atk)"),
+    _(" (+Spe, -Atk)"),
+    _(" (+Def, -SpA)"),
+    _(" (+Def, -Atk)"),
+    _(" (+SpD, -SpA)"),
+    _(" (+SpD, -Atk)"),
+    _(" (Neutral)")
 };
 
 static const u16 sTierStarterMoves[5][4] = {
@@ -54,28 +54,28 @@ static const u16 sTierStarterMoves[5][4] = {
     [RARITY_EPIC]     = { MOVE_DRAGON_PULSE, MOVE_SHADOW_BALL, MOVE_MOONBLAST, MOVE_EARTH_POWER }
 };
 
-static const u8 sText_BuildOpt_StarterSet[]    = _("Imposta Starter Run");
-static const u8 sText_BuildOpt_StarterRemove[] = _("Rimuovi Starter Run");
-static const u8 sText_BuildOpt_Nature[]        = _("Cambia Natura (5 Pt)");
-static const u8 sText_BuildOpt_Ability[]       = _("Cambia Abilita' (10 Pt)");
-static const u8 sText_BuildOpt_Move[]          = _("Modifica Mossa (10 Pt)");
-static const u8 sText_BuildOpt_Fuse[]          = _("Fondi Pokemon (+10 Pt)");
-static const u8 sText_BuildOpt_SwitchMon[]     = _("Scegli Altro Pokemon");
-static const u8 sText_BuildOpt_Exit[]          = _("Fine");
+static const u8 sText_BuildOpt_StarterSet[]    = _("Set as Run Starter");
+static const u8 sText_BuildOpt_StarterRemove[] = _("Remove Run Starter");
+static const u8 sText_BuildOpt_Nature[]        = _("Change Nature (5 Pts)");
+static const u8 sText_BuildOpt_Ability[]       = _("Change Ability (10 Pts)");
+static const u8 sText_BuildOpt_Move[]          = _("Change Starter Move (10 Pts)");
+static const u8 sText_BuildOpt_Fuse[]          = _("Fuse Pokémon (+10 Pts)");
+static const u8 sText_BuildOpt_SwitchMon[]     = _("Choose Other Pokémon");
+static const u8 sText_BuildOpt_Exit[]          = _("Done");
 
 void Script_BuildMon_ShowPointsSummary(void)
 {
     InitKaizoMetaProgression();
     u8 *ptr1 = gStringVar1;
-    ptr1 = StringCopy(ptr1, COMPOUND_STRING("Comune: "));
+    ptr1 = StringCopy(ptr1, COMPOUND_STRING("Common: "));
     ptr1 = ConvertIntToDecimalStringN(ptr1, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_COMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
-    ptr1 = StringAppend(ptr1, COMPOUND_STRING("  -  Non Comune: "));
+    ptr1 = StringAppend(ptr1, COMPOUND_STRING("  -  Uncommon: "));
     ConvertIntToDecimalStringN(ptr1, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_UNCOMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
 
     u8 *ptr2 = gStringVar2;
-    ptr2 = StringCopy(ptr2, COMPOUND_STRING("Raro: "));
+    ptr2 = StringCopy(ptr2, COMPOUND_STRING("Rare: "));
     ptr2 = ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_RARE], STR_CONV_MODE_LEFT_ALIGN, 4);
-    ptr2 = StringAppend(ptr2, COMPOUND_STRING("  -  Epico: "));
+    ptr2 = StringAppend(ptr2, COMPOUND_STRING("  -  Epic: "));
     ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_EPIC], STR_CONV_MODE_LEFT_ALIGN, 4);
 }
 
@@ -92,6 +92,10 @@ void Script_BuildMon_RefreshInfo(void)
     u16 points = gSaveBlock2Ptr->metaProgression.rarityPoints[tier];
 
     GetBoxMonNickname(sChosenBuildMon, gStringVar1);
+    if (GetBoxMonData(sChosenBuildMon, MON_DATA_IS_SHINY))
+    {
+        StringAppend(gStringVar1, COMPOUND_STRING(" {COLOR RED}{STAR}"));
+    }
     StringCopy(gStringVar2, GetRarityTierName(tier));
     ConvertIntToDecimalStringN(gStringVar3, points, STR_CONV_MODE_LEFT_ALIGN, 4);
 }
@@ -146,6 +150,8 @@ void Script_BuildMon_PushMainMenu(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     bool8 isStarter = (species != SPECIES_NONE && gSaveBlock2Ptr->metaProgression.chosenGachaSpecies == species);
+    bool8 shinyUnlocked = GetBoxMonData(sChosenBuildMon, MON_DATA_SHINY_UNLOCKED);
+    bool8 isShiny = GetBoxMonData(sChosenBuildMon, MON_DATA_IS_SHINY);
 
     // 0: Starter
     {
@@ -175,27 +181,57 @@ void Script_BuildMon_PushMainMenu(void)
         struct ListMenuItem item = { buf, 3 };
         MultichoiceDynamic_PushElement(item);
     }
-    // 4: Fondi
+    // 4: Shiny Skin
+    if (shinyUnlocked)
     {
         u8 *buf = Alloc(64);
-        StringCopy(buf, sText_BuildOpt_Fuse);
+        StringCopy(buf, isShiny ? COMPOUND_STRING("Shiny Skin: ON") : COMPOUND_STRING("Shiny Skin: OFF"));
         struct ListMenuItem item = { buf, 4 };
         MultichoiceDynamic_PushElement(item);
     }
-    // 5: Cambia Pokemon
+    // 5: Fondi
     {
         u8 *buf = Alloc(64);
-        StringCopy(buf, sText_BuildOpt_SwitchMon);
+        StringCopy(buf, sText_BuildOpt_Fuse);
         struct ListMenuItem item = { buf, 5 };
         MultichoiceDynamic_PushElement(item);
     }
-    // 6: Fine
+    // 6: Cambia Pokemon
     {
-        u8 *buf = Alloc(32);
-        StringCopy(buf, sText_BuildOpt_Exit);
+        u8 *buf = Alloc(64);
+        StringCopy(buf, sText_BuildOpt_SwitchMon);
         struct ListMenuItem item = { buf, 6 };
         MultichoiceDynamic_PushElement(item);
     }
+    // 7: Fine
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_BuildOpt_Exit);
+        struct ListMenuItem item = { buf, 7 };
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+void Script_BuildMon_ToggleShiny(void)
+{
+    if (sChosenBuildMon == NULL)
+    {
+        gSpecialVar_Result = 0;
+        return;
+    }
+
+    bool32 isShiny = GetBoxMonData(sChosenBuildMon, MON_DATA_IS_SHINY);
+    isShiny = !isShiny;
+    SetBoxMonData(sChosenBuildMon, MON_DATA_IS_SHINY, &isShiny);
+
+    if (sChosenMonIsParty)
+    {
+        SetMonData(&gParties[B_TRAINER_PLAYER][sChosenPartySlot], MON_DATA_IS_SHINY, &isShiny);
+        CalculateMonStats(&gParties[B_TRAINER_PLAYER][sChosenPartySlot]);
+    }
+
+    GetBoxMonNickname(sChosenBuildMon, gStringVar1);
+    gSpecialVar_Result = isShiny ? 1 : 2; // 1 = Activated, 2 = Deactivated
 }
 
 void Script_BuildMon_ToggleStarter(void)
@@ -252,7 +288,7 @@ void Script_BuildMon_PushNatures(void)
 
     {
         u8 *bufCancel = Alloc(32);
-        StringCopy(bufCancel, COMPOUND_STRING("Annulla"));
+        StringCopy(bufCancel, COMPOUND_STRING("Cancel"));
         struct ListMenuItem cancelItem = { bufCancel, 0xFF };
         MultichoiceDynamic_PushElement(cancelItem);
     }
@@ -351,7 +387,7 @@ void Script_BuildMon_PushAbilities(void)
 
     {
         u8 *bufCancel = Alloc(32);
-        StringCopy(bufCancel, COMPOUND_STRING("Annulla"));
+        StringCopy(bufCancel, COMPOUND_STRING("Cancel"));
         struct ListMenuItem cancelItem = { bufCancel, 0xFF };
         MultichoiceDynamic_PushElement(cancelItem);
     }
@@ -428,7 +464,7 @@ void Script_BuildMon_PushMoves(void)
 
     {
         u8 *bufCancel = Alloc(32);
-        StringCopy(bufCancel, COMPOUND_STRING("Annulla"));
+        StringCopy(bufCancel, COMPOUND_STRING("Cancel"));
         struct ListMenuItem cancelItem = { bufCancel, 0xFFFF };
         MultichoiceDynamic_PushElement(cancelItem);
     }

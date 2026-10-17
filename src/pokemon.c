@@ -2515,6 +2515,9 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
         case MON_DATA_DAYS_SINCE_FORM_CHANGE:
             retVal = boxMon->daysSinceFormChange;
             break;
+        case MON_DATA_SHINY_UNLOCKED:
+            retVal = boxMon->shinyUnlocked || GetBoxMonData(boxMon, MON_DATA_IS_SHINY);
+            break;
         default:
             break;
         }
@@ -2937,6 +2940,9 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
         }
         case MON_DATA_DAYS_SINCE_FORM_CHANGE:
             SET8(boxMon->daysSinceFormChange);
+            break;
+        case MON_DATA_SHINY_UNLOCKED:
+            SET8(boxMon->shinyUnlocked);
             break;
         }
     }
@@ -6442,6 +6448,7 @@ void UpdateMonPersonality(struct BoxPokemon *boxMon, u32 personality)
     struct BoxPokemon old;
 
     bool32 isShiny = GetBoxMonData(boxMon, MON_DATA_IS_SHINY);
+    bool32 shinyUnlocked = GetBoxMonData(boxMon, MON_DATA_SHINY_UNLOCKED);
     u32 hiddenNature = GetBoxMonData(boxMon, MON_DATA_HIDDEN_NATURE);
     enum Type teraType = GetBoxMonData(boxMon, MON_DATA_TERA_TYPE);
 
@@ -6465,6 +6472,7 @@ void UpdateMonPersonality(struct BoxPokemon *boxMon, u32 personality)
     boxMon->checksum = CalculateBoxMonChecksumReencrypt(boxMon);
 
     SetBoxMonData(boxMon, MON_DATA_IS_SHINY, &isShiny);
+    SetBoxMonData(boxMon, MON_DATA_SHINY_UNLOCKED, &shinyUnlocked);
     SetBoxMonData(boxMon, MON_DATA_HIDDEN_NATURE, &hiddenNature);
     SetBoxMonData(boxMon, MON_DATA_TERA_TYPE, &teraType);
 }

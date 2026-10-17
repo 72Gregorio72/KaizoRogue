@@ -41,6 +41,9 @@ void Script_BuildMon_ApplyAbility(void);
 void Script_BuildMon_PushMoves(void);
 void Script_BuildMon_ApplyMove(void);
 void Script_BuildMon_FuseSelectedMon(void);
+void Script_BuildMon_ToggleShiny(void);
+void Script_Gacha_ToggleShiny(void);
+void Script_Gacha_SetBanner(void);
 void Script_Meta_CheatCleanEggs(void);
 
 #endif // GUARD_KAIZO_ROSTER_H

@@ -737,4 +737,7 @@ gSpecials::
 	def_special Script_BuildMon_PushMoves
 	def_special Script_BuildMon_ApplyMove
 	def_special Script_BuildMon_FuseSelectedMon
+	def_special Script_BuildMon_ToggleShiny
+	def_special Script_Gacha_ToggleShiny
+	def_special Script_Gacha_SetBanner
 	def_special Script_Meta_CheatCleanEggs

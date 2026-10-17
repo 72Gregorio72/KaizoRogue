@@ -782,7 +782,7 @@ Kaizo_Hub_Text_StartingWithGachaStarter:
 	.string "e potrai andare subito all'avventura!$"
 
 Kaizo_Hub_Text_CheatGachaDone:
-	.string "Hai ottenuto +10 Biglietti Gacha\n"
+	.string "Hai ottenuto +100 Biglietti Gacha\n"
 	.string "e +50 Punti per ogni rarita'!$"
 
 Kaizo_Hub_Text_MartUpgrades_Intro:
@@ -849,6 +849,39 @@ Kaizo_Hub_EventScript_GachaInfo::
 Kaizo_Hub_EventScript_GachaPull::
 	special Script_Gacha_GetTicketsAndPoints
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_GachaNoTickets
+	msgbox Kaizo_Hub_Text_SelectSlotBanner, MSGBOX_DEFAULT
+	dynmultipush Kaizo_Hub_Text_SlotBanner_All, 0
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen1, 1
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen2, 2
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen3, 3
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen4, 4
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen5, 5
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen6, 6
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen7, 7
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen8, 8
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Gen9, 9
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Cancel, 10
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaMenu
+	goto_if_eq VAR_RESULT, 10, Kaizo_Hub_EventScript_GachaMenu
+	copyvar VAR_0x8004, VAR_RESULT
+	special Script_Gacha_GetTicketsAndPoints
+	goto_if_lt VAR_RESULT, 10, Kaizo_Hub_EventScript_GachaSingleDirect
+	msgbox Kaizo_Hub_Text_SelectPullCount, MSGBOX_DEFAULT
+	dynmultipush Kaizo_Hub_Text_PullCount_Single, 0
+	dynmultipush Kaizo_Hub_Text_PullCount_Multi10, 1
+	dynmultipush Kaizo_Hub_Text_SlotBanner_Cancel, 2
+	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaMenu
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_GachaMenu
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_GachaMulti10
+Kaizo_Hub_EventScript_GachaSingleDirect::
+	setvar VAR_0x8005, 0
+	goto Kaizo_Hub_EventScript_GachaOpenMachine
+Kaizo_Hub_EventScript_GachaMulti10::
+	setvar VAR_0x8005, 1
+Kaizo_Hub_EventScript_GachaOpenMachine::
+	special Script_Gacha_SetBanner
 	special OpenGachaSlotMachine
 	special Script_Gacha_GetTicketsAndPoints
 	goto Kaizo_Hub_EventScript_GachaMenu
@@ -893,15 +926,31 @@ Kaizo_Hub_EventScript_GachaRoster::
 Kaizo_Hub_EventScript_GachaMonBuildMenu::
 	msgbox Kaizo_Hub_Text_GachaMonDetails, MSGBOX_DEFAULT
 	special Script_Gacha_PushBuildOptions
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaRoster
-	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_GachaRoster
+	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_GachaRoster
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildToggleStarter
 	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNature
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildAbility
 	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildMove
-	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildFuseMon
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildToggleShiny
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildFuseMon
 	goto Kaizo_Hub_EventScript_GachaRoster
+
+Kaizo_Hub_EventScript_BuildToggleShiny::
+	special Script_Gacha_ToggleShiny
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_GachaShinyOn
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_ShinySkinOff, MSGBOX_DEFAULT
+	special Script_Gacha_SelectRosterMon
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_GachaShinyOn::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_ShinySkinOn, MSGBOX_DEFAULT
+	waitfanfare
+	special Script_Gacha_SelectRosterMon
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
 
 Kaizo_Hub_EventScript_GachaRosterEmpty::
 	msgbox Kaizo_Hub_Text_GachaRosterEmpty, MSGBOX_DEFAULT
@@ -987,130 +1036,178 @@ Kaizo_Hub_EventScript_GachaExit::
 	end
 
 Kaizo_Hub_Text_GachaIntro:
-	.string "DISTRIBUTORE GACHA UOVA\p"
-	.string "Biglietti Gacha posseduti: {STR_VAR_1}\p"
-	.string "Punti Rarita' accumulati:\n"
+	.string "EGG GACHA MACHINE\p"
+	.string "Gacha Tickets owned: {STR_VAR_1}\p"
+	.string "Accumulated Rarity Points:\n"
 	.string "{STR_VAR_2}\n"
 	.string "{STR_VAR_3}$"
 
 Kaizo_Hub_Text_GachaOpt_Pull:
-	.string "Schiudi Uovo (Slot Machine)$"
+	.string "Hatch Egg (Slot Machine)$"
 
 Kaizo_Hub_Text_GachaOpt_Roster:
-	.string "PC Roster & Starter Run$"
+	.string "PC Roster & Run Starter$"
 
 Kaizo_Hub_Text_GachaOpt_Info:
-	.string "Info Regole Gacha$"
+	.string "Gacha Rules & Info$"
 
 Kaizo_Hub_Text_GachaOpt_Exit:
-	.string "Esci$"
+	.string "Exit$"
 
 Kaizo_Hub_Text_GachaInfoText:
-	.string "COME FUNZIONA IL GACHA:\p"
-	.string "1. Ottieni Biglietti sconfiggendo i\n"
-	.string "Capipalestra durante le run.\p"
-	.string "2. Le uova schiudono Pokemon base a\n"
-	.string "Liv. 5 con IV, Natura e Abilita' random\n"
-	.string "e mossa iniziale Scratch.\p"
-	.string "3. Se trovi un duplicato, puoi scegliere\n"
-	.string "se tenere il nuovo o il vecchio:\n"
-	.string "quello fuso ti dara' 10 Punti Rarita'!\p"
-	.string "4. Spendi i Punti Rarita' per buildare\n"
-	.string "la Natura (5 pt), l'Abilita' (10 pt)\n"
-	.string "o la Mossa iniziale (10 pt) di qualsiasi\n"
-	.string "Pokemon della stessa rarita'!\p"
-	.string "5. Imposta un Pokemon come Starter per\n"
-	.string "portarlo direttamente nella run!$"
+	.string "HOW GACHA WORKS:\p"
+	.string "1. Earn Tickets by defeating Gym Leaders\n"
+	.string "during your runs.\p"
+	.string "2. Eggs hatch base form Pokémon at\n"
+	.string "Lv. 5 with random IVs, Nature, Ability,\n"
+	.string "and the starting move Scratch.\p"
+	.string "3. If you hatch a duplicate, choose\n"
+	.string "whether to keep the new or old one:\n"
+	.string "the fused one gives +10 Rarity Points!\p"
+	.string "4. Spend Rarity Points to customize\n"
+	.string "Nature (5 pts), Ability (10 pts), or the\n"
+	.string "starting move (10 pts) of any Pokémon\n"
+	.string "of the same rarity tier!\p"
+	.string "5. Set a Pokémon as Starter to bring\n"
+	.string "it directly into your next run!$"
+
+Kaizo_Hub_Text_SelectSlotBanner:
+	.string "Select the Slot Machine Banner:\n"
+	.string "Only Pokémon from that Gen will hatch!$"
+
+Kaizo_Hub_Text_SlotBanner_All:
+	.string "All Generations$"
+
+Kaizo_Hub_Text_SlotBanner_Gen1:
+	.string "Gen 1 (Kanto)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen2:
+	.string "Gen 2 (Johto)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen3:
+	.string "Gen 3 (Hoenn)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen4:
+	.string "Gen 4 (Sinnoh)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen5:
+	.string "Gen 5 (Unova)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen6:
+	.string "Gen 6 (Kalos)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen7:
+	.string "Gen 7 (Alola)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen8:
+	.string "Gen 8 (Galar)$"
+
+Kaizo_Hub_Text_SlotBanner_Gen9:
+	.string "Gen 9 (Paldea)$"
+
+Kaizo_Hub_Text_SlotBanner_Cancel:
+	.string "Cancel$"
+
+Kaizo_Hub_Text_SelectPullCount:
+	.string "Choose your Roll Type:\p"
+	.string "Single Hatch costs 1 Ticket.\n"
+	.string "Multi Hatch costs 10 Tickets.$"
+
+Kaizo_Hub_Text_PullCount_Single:
+	.string "Single Roll (1 Ticket)$"
+
+Kaizo_Hub_Text_PullCount_Multi10:
+	.string "10x Multi Roll (10 Tickets)$"
 
 Kaizo_Hub_Text_GachaNoTickets:
-	.string "Non hai abbastanza Biglietti Gacha!\n"
-	.string "Vincili battendo i Capipalestra nelle run!$"
+	.string "You don't have enough Gacha Tickets!\n"
+	.string "Defeat Gym Leaders in runs to earn more!$"
 
 Kaizo_Hub_Text_GachaBoxFull:
-	.string "Il tuo Roster e' pieno (max 30 Pokemon)!\n"
-	.string "Fondi prima un Pokemon dal menu Roster.$"
+	.string "Your Roster is full (max 30 Pokémon)!\n"
+	.string "Fuse a Pokémon from the Roster menu first.$"
 
 Kaizo_Hub_Text_GachaNewHatched:
-	.string "Dall'Uovo {STR_VAR_2} e' nato\n"
-	.string "{STR_VAR_1} (Liv. 5)!\p"
-	.string "Natura e Abilita':\n"
+	.string "From the {STR_VAR_2} Egg hatched\n"
+	.string "{STR_VAR_1} (Lv. 5)!\p"
+	.string "Nature & Ability:\n"
 	.string "{STR_VAR_3}\n"
-	.string "Mossa Iniziale: Scratch$"
+	.string "Starting Move: Scratch$"
 
 Kaizo_Hub_Text_GachaAddedToRoster:
-	.string "{STR_VAR_1} e' stato aggiunto al tuo\n"
-	.string "Roster dell'Hub!$"
+	.string "{STR_VAR_1} was added to your\n"
+	.string "Hub Roster!$"
 
 Kaizo_Hub_Text_GachaDuplicateHatched:
-	.string "Dall'Uovo e' nato un {STR_VAR_1} duplicato!$"
+	.string "A duplicate {STR_VAR_1} hatched from the Egg!$"
 
 Kaizo_Hub_Text_GachaDuplicateStats:
-	.string "Confronto statistiche:\p"
-	.string "Vecchio {STR_VAR_1} nel Roster:\n"
+	.string "Stat comparison:\p"
+	.string "Old {STR_VAR_1} in Roster:\n"
 	.string "{STR_VAR_2}\p"
-	.string "Nuovo {STR_VAR_1} schiuso:\n"
+	.string "New {STR_VAR_1} hatched:\n"
 	.string "{STR_VAR_3}\p"
-	.string "Quale vuoi tenere? L'altro verra' fuso\n"
-	.string "in +10 Punti Rarita'!$"
+	.string "Which one do you want to keep? The other\n"
+	.string "will be fused for +10 Rarity Points!$"
 
 Kaizo_Hub_Text_GachaDup_KeepNew:
-	.string "Tieni il NUOVO (Fondi il Vecchio)$"
+	.string "Keep NEW (Fuse Old)$"
 
 Kaizo_Hub_Text_GachaDup_KeepOld:
-	.string "Tieni il VECCHIO (Fondi il Nuovo)$"
+	.string "Keep OLD (Fuse New)$"
 
 Kaizo_Hub_Text_GachaFusedSuccess:
-	.string "Hai fuso {STR_VAR_1}!\p"
-	.string "Ottenuti: +10 Punti {STR_VAR_2}!\n"
-	.string "Nuovo totale: {STR_VAR_3} Punti.$"
+	.string "You fused {STR_VAR_1}!\p"
+	.string "Obtained: +10 {STR_VAR_2} Points!\n"
+	.string "New total: {STR_VAR_3} Points.$"
 
 Kaizo_Hub_Text_GachaRosterEmpty:
-	.string "Non possiedi nessun Pokemon nel Roster!\n"
-	.string "Tira un uovo per ottenere il tuo primo mon.$"
+	.string "You don't have any Pokémon in your Roster!\n"
+	.string "Pull an egg to get your first Pokémon.$"
 
 Kaizo_Hub_Text_GachaMonDetails:
 	.string "POKEMON: {STR_VAR_1}\n"
-	.string "Natura e Abilita': {STR_VAR_2}\n"
-	.string "Mossa: {STR_VAR_3}$"
+	.string "Nature & Ability: {STR_VAR_2}\n"
+	.string "Move: {STR_VAR_3}$"
 
 Kaizo_Hub_Text_StarterSetSuccess:
-	.string "{STR_VAR_1} e' ora il tuo Starter attivo!\p"
-	.string "Quando partirai per una nuova run,\n"
-	.string "inizierai direttamente con {STR_VAR_1}!$"
+	.string "{STR_VAR_1} is now your active Starter!\p"
+	.string "When starting a new run, you will\n"
+	.string "begin directly with {STR_VAR_1}!$"
 
 Kaizo_Hub_Text_StarterRemoved:
-	.string "{STR_VAR_1} non e' piu' lo Starter attivo.\n"
-	.string "Inizierai le run con la scelta da Oak.$"
+	.string "{STR_VAR_1} is no longer the active Starter.\n"
+	.string "You will start runs with Professor Oak's choice.$"
 
 Kaizo_Hub_Text_BuildNatureSuccess:
-	.string "La natura di {STR_VAR_1} e' ora {STR_VAR_2}!\n"
-	.string "Punti rimanenti: {STR_VAR_3}.$"
+	.string "{STR_VAR_1}'s nature is now {STR_VAR_2}!\n"
+	.string "Points remaining: {STR_VAR_3}.$"
 
 Kaizo_Hub_Text_BuildAbilitySuccess:
-	.string "L'abilita' di {STR_VAR_1} e' ora {STR_VAR_2}!\n"
-	.string "Punti rimanenti: {STR_VAR_3}.$"
+	.string "{STR_VAR_1}'s ability is now {STR_VAR_2}!\n"
+	.string "Points remaining: {STR_VAR_3}.$"
 
 Kaizo_Hub_Text_BuildMoveSuccess:
-	.string "{STR_VAR_1} ha imparato {STR_VAR_2}\n"
-	.string "come mossa iniziale di partenza!\p"
-	.string "Punti rimanenti: {STR_VAR_3}.$"
+	.string "{STR_VAR_1} learned {STR_VAR_2}\n"
+	.string "as its starting move!\p"
+	.string "Points remaining: {STR_VAR_3}.$"
 
 Kaizo_Hub_Text_BuildConfirmFuse:
-	.string "Sei sicuro di voler fondere {STR_VAR_1}?\n"
-	.string "Verra' rimosso dal tuo Roster e riceverai\l"
-	.string "+10 Punti di questa rarita'!$"
+	.string "Are you sure you want to fuse {STR_VAR_1}?\n"
+	.string "It will be removed from your Roster and\l"
+	.string "you will receive +10 Points of this rarity!$"
 
 Kaizo_Hub_Text_BuildFuseDone:
-	.string "Hai fuso {STR_VAR_1}!\p"
-	.string "Ottenuti: +10 Punti {STR_VAR_2}!\n"
-	.string "Totale punti: {STR_VAR_3}.$"
+	.string "You fused {STR_VAR_1}!\p"
+	.string "Obtained: +10 {STR_VAR_2} Points!\n"
+	.string "Total points: {STR_VAR_3}.$"
 
 Kaizo_Hub_Text_BuildNotEnoughPoints:
-	.string "Non hai abbastanza Punti Rarita' di questa\n"
-	.string "categoria per effettuare la modifica!$"
+	.string "You don't have enough Rarity Points in this\n"
+	.string "tier to make this change!$"
 
 Kaizo_Hub_Text_GachaGoodbye:
-	.string "Torna presto a trovarmi!$"
+	.string "See you again soon!$"
 
 Kaizo_Hub_EventScript_BuildNPC::
 	lock
@@ -1135,13 +1232,28 @@ Kaizo_Hub_EventScript_BuildNPC_MonMenu::
 	special Script_BuildMon_PushMainMenu
 	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_Exit
+	goto_if_eq VAR_RESULT, 7, Kaizo_Hub_EventScript_BuildNPC_Exit
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_StarterToggle
 	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_NatureMenu
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_AbilityMenu
 	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildNPC_MoveMenu
-	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildNPC_FuseMon
-	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildNPC_SelectMon
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildNPC_ShinyToggle
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildNPC_FuseMon
+	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_BuildNPC_SelectMon
 	goto Kaizo_Hub_EventScript_BuildNPC_Exit
+
+Kaizo_Hub_EventScript_BuildNPC_ShinyToggle::
+	special Script_BuildMon_ToggleShiny
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_ShinyOn
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_ShinySkinOff, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_ShinyOn::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_ShinySkinOn, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
 Kaizo_Hub_EventScript_BuildNPC_StarterToggle::
 	special Script_BuildMon_ToggleStarter
@@ -1310,6 +1422,10 @@ Kaizo_Hub_Text_BuildNPC_Goodbye:
 	.string "BUILD MASTER: Torna pure ogni volta che\n"
 	.string "vuoi perfezionare la tua build!$"
 
+Kaizo_Hub_Text_ShinySkinOn:
+	.string "Shiny Skin activated for\n"
+	.string "{STR_VAR_1}! {COLOR RED}{STAR}$"
 
-
-
+Kaizo_Hub_Text_ShinySkinOff:
+	.string "Shiny Skin deactivated for\n"
+	.string "{STR_VAR_1}.$"
