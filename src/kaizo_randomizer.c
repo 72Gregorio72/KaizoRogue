@@ -2517,6 +2517,7 @@ static const u8 sText_Cheat_MaxAll[] = _("Sblocca Tutti Powerup");
 static const u8 sText_Cheat_Money[] = _("Monete e Shards MAX");
 static const u8 sText_Cheat_Gacha[] = _("Biglietti Gacha + Punti");
 static const u8 sText_Cheat_Reset[] = _("Reset Meta a Default");
+static const u8 sText_Cheat_CleanEggs[] = _("Pulisci Uova dai Box");
 static const u8 sText_Cheat_Exit[] = _("Esci");
 
 void Script_Meta_PushCheatChoices(void)
@@ -2555,11 +2556,19 @@ void Script_Meta_PushCheatChoices(void)
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 4: Esci
+    // 4: Pulisci Uova dai Box
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_CleanEggs);
+        struct ListMenuItem item = { buf, 4 };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 5: Esci
     {
         u8 *buf = Alloc(32);
         StringCopy(buf, sText_Cheat_Exit);
-        struct ListMenuItem item = { buf, 4 };
+        struct ListMenuItem item = { buf, 5 };
         MultichoiceDynamic_PushElement(item);
     }
 }
@@ -2614,6 +2623,27 @@ void Script_Meta_CheatReset(void)
 
     SetMoney(&gSaveBlock1Ptr->money, 3000);
     ResetPokemonStorageSystem();
+}
+
+void Script_Meta_CheatCleanEggs(void)
+{
+    u32 count = 0;
+    for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+    {
+        for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+        {
+            struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+            if (b != NULL)
+            {
+                if (b->isEgg || b->isBadEgg || GetBoxMonData(b, MON_DATA_IS_EGG) || GetBoxMonData(b, MON_DATA_SPECIES) == SPECIES_EGG)
+                {
+                    ZeroBoxMonAt(box, slot);
+                    count++;
+                }
+            }
+        }
+    }
+    ConvertIntToDecimalStringN(gStringVar1, count, STR_CONV_MODE_LEFT_ALIGN, 3);
 }
 
 void Script_Kaizo_PrepareNewRun(void)
@@ -2850,7 +2880,7 @@ struct BoxPokemon *GetUnlockedRosterMon(u16 species)
         for (int slot = 0; slot < IN_BOX_COUNT; slot++)
         {
             struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
-            if (GetBoxMonData(b, MON_DATA_SPECIES) == species)
+            if (!GetBoxMonData(b, MON_DATA_IS_EGG) && GetBoxMonData(b, MON_DATA_SPECIES) == species)
                 return b;
         }
     }

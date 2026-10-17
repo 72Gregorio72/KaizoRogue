@@ -2,6 +2,7 @@
 #define GUARD_KAIZO_ROSTER_H
 
 #include "global.h"
+#include "main.h"
 
 #define NUM_GENERATIONS 9
 
@@ -26,5 +27,20 @@ void AddRarityPoints(u8 tier, u16 amount);
 
 void OpenGachaSlotMachine(void);
 void OpenGachaRosterPC(void);
+void OpenMonBuildScreen(struct BoxPokemon *mon, MainCallback exitCallback);
+
+void Script_BuildMon_ShowPointsSummary(void);
+void Script_BuildMon_Select(void);
+void Script_BuildMon_RefreshInfo(void);
+void Script_BuildMon_PushMainMenu(void);
+void Script_BuildMon_ToggleStarter(void);
+void Script_BuildMon_PushNatures(void);
+void Script_BuildMon_ApplyNature(void);
+void Script_BuildMon_PushAbilities(void);
+void Script_BuildMon_ApplyAbility(void);
+void Script_BuildMon_PushMoves(void);
+void Script_BuildMon_ApplyMove(void);
+void Script_BuildMon_FuseSelectedMon(void);
+void Script_Meta_CheatCleanEggs(void);
 
 #endif // GUARD_KAIZO_ROSTER_H

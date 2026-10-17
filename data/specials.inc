@@ -725,3 +725,16 @@ gSpecials::
 	def_special Script_Meta_CheatAddTicketsAndPoints
 	def_special OpenGachaSlotMachine, waitstate=1
 	def_special OpenGachaRosterPC, waitstate=1
+	def_special Script_BuildMon_ShowPointsSummary
+	def_special Script_BuildMon_Select
+	def_special Script_BuildMon_RefreshInfo
+	def_special Script_BuildMon_PushMainMenu
+	def_special Script_BuildMon_ToggleStarter
+	def_special Script_BuildMon_PushNatures
+	def_special Script_BuildMon_ApplyNature
+	def_special Script_BuildMon_PushAbilities
+	def_special Script_BuildMon_ApplyAbility
+	def_special Script_BuildMon_PushMoves
+	def_special Script_BuildMon_ApplyMove
+	def_special Script_BuildMon_FuseSelectedMon
+	def_special Script_Meta_CheatCleanEggs

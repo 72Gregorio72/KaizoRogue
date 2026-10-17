@@ -51,28 +51,9 @@ Kaizo_Hub_EventScript_PC::
 	faceplayer
 	playse SE_PC_ON
 	msgbox Kaizo_Hub_Text_PCIntro, MSGBOX_DEFAULT
-	dynmultipush Kaizo_Hub_Text_PCOpt_Roster, 0
-	dynmultipush Kaizo_Hub_Text_PCOpt_Classic, 1
-	dynmultipush Kaizo_Hub_Text_PCOpt_Exit, 2
-	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
-	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_PCTurnOff
-	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_PCTurnOff
-	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_OpenRosterPC
-	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_OpenClassicPC
-	goto Kaizo_Hub_EventScript_PCTurnOff
-
-Kaizo_Hub_EventScript_OpenRosterPC::
-	playse SE_PC_LOGIN
-	special OpenGachaRosterPC
-	goto Kaizo_Hub_EventScript_PCTurnOff
-
-Kaizo_Hub_EventScript_OpenClassicPC::
 	playse SE_PC_LOGIN
 	msgbox gText_StorageSystemOpened, MSGBOX_DEFAULT
 	special ShowPokemonStorageSystemPC
-	goto Kaizo_Hub_EventScript_PCTurnOff
-
-Kaizo_Hub_EventScript_PCTurnOff::
 	playse SE_PC_OFF
 	msgbox Kaizo_Hub_Text_PCGoodbye, MSGBOX_DEFAULT
 	release
@@ -122,13 +103,14 @@ Kaizo_Hub_EventScript_CheatNPC::
 	msgbox Kaizo_Hub_Text_CheatIntro, MSGBOX_DEFAULT
 Kaizo_Hub_EventScript_CheatMenu::
 	special Script_Meta_PushCheatChoices
-	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_CheatExit
-	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_CheatExit
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_CheatExit
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_CheatMaxAll
 	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_CheatMoney
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_CheatGacha
 	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_CheatReset
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_CheatCleanEggs
 	goto Kaizo_Hub_EventScript_CheatExit
 
 Kaizo_Hub_EventScript_CheatMaxAll::
@@ -156,6 +138,13 @@ Kaizo_Hub_EventScript_CheatReset::
 	special Script_Meta_CheatReset
 	playse SE_NOT_EFFECTIVE
 	msgbox Kaizo_Hub_Text_CheatResetDone, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_CheatMenu
+
+Kaizo_Hub_EventScript_CheatCleanEggs::
+	special Script_Meta_CheatCleanEggs
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_CheatCleanEggsDone, MSGBOX_DEFAULT
+	waitfanfare
 	goto Kaizo_Hub_EventScript_CheatMenu
 
 Kaizo_Hub_EventScript_CheatExit::
@@ -206,6 +195,10 @@ Kaizo_Hub_Text_CheatMoneyDone:
 Kaizo_Hub_Text_CheatResetDone:
 	.string "Tutti i potenziamenti e le risorse\n"
 	.string "sono stati azzerati ai valori iniziali.$"
+
+Kaizo_Hub_Text_CheatCleanEggsDone:
+	.string "Pulizia completata!\n"
+	.string "Rimosse {STR_VAR_1} uova/bad eggs dai Box del PC.$"
 
 Kaizo_Hub_Text_CheatGoodbye:
 	.string "Buon testing! Torna quando vuoi.$"
@@ -894,7 +887,7 @@ Kaizo_Hub_EventScript_GachaDuplicateMon::
 	goto Kaizo_Hub_EventScript_GachaMenu
 
 Kaizo_Hub_EventScript_GachaRoster::
-	special OpenGachaRosterPC
+	special ShowPokemonStorageSystemPC
 	special Script_Gacha_GetTicketsAndPoints
 	goto Kaizo_Hub_EventScript_GachaMenu
 Kaizo_Hub_EventScript_GachaMonBuildMenu::
@@ -1118,6 +1111,205 @@ Kaizo_Hub_Text_BuildNotEnoughPoints:
 
 Kaizo_Hub_Text_GachaGoodbye:
 	.string "Torna presto a trovarmi!$"
+
+Kaizo_Hub_EventScript_BuildNPC::
+	lock
+	faceplayer
+	msgbox Kaizo_Hub_Text_BuildNPC_Intro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_BuildNPC_StartMenu::
+	special Script_BuildMon_ShowPointsSummary
+	msgbox Kaizo_Hub_Text_BuildNPC_PointsSummary, MSGBOX_DEFAULT
+	msgbox Kaizo_Hub_Text_BuildNPC_AskChoose, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_BuildNPC_Exit
+Kaizo_Hub_EventScript_BuildNPC_SelectMon::
+	msgbox Kaizo_Hub_Text_BuildNPC_OpenPC, MSGBOX_DEFAULT
+	chooseboxmon
+	waitstate
+	goto_if_eq VAR_0x8004, PARTY_NOTHING_CHOSEN, Kaizo_Hub_EventScript_BuildNPC_Exit
+	special Script_BuildMon_Select
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_IsEgg
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_InvalidMon
+Kaizo_Hub_EventScript_BuildNPC_MonMenu::
+	special Script_BuildMon_RefreshInfo
+	msgbox Kaizo_Hub_Text_BuildNPC_MonStatus, MSGBOX_DEFAULT
+	special Script_BuildMon_PushMainMenu
+	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_Exit
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_StarterToggle
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_NatureMenu
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_AbilityMenu
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildNPC_MoveMenu
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildNPC_FuseMon
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildNPC_SelectMon
+	goto Kaizo_Hub_EventScript_BuildNPC_Exit
+
+Kaizo_Hub_EventScript_BuildNPC_StarterToggle::
+	special Script_BuildMon_ToggleStarter
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_StarterSet
+	msgbox Kaizo_Hub_Text_BuildNPC_StarterRemoved, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_StarterSet::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_StarterActive, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_NatureMenu::
+	special Script_BuildMon_PushNatures
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_BuildMon_ApplyNature
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_NatureSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_AbilityMenu::
+	special Script_BuildMon_PushAbilities
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints10
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_BuildMon_ApplyAbility
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints10
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_AbilitySuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_MoveMenu::
+	special Script_BuildMon_PushMoves
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints10
+	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFFFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_BuildMon_ApplyMove
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints10
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_MoveSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_FuseMon::
+	msgbox Kaizo_Hub_Text_BuildNPC_ConfirmFuse, MSGBOX_YESNO
+	goto_if_ne VAR_RESULT, YES, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	special Script_BuildMon_FuseSelectedMon
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_BuildNPC_FuseSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_StartMenu
+
+Kaizo_Hub_EventScript_BuildNPC_NoPoints5::
+	playse SE_BOO
+	msgbox Kaizo_Hub_Text_BuildNPC_NotEnough5, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_NoPoints10::
+	playse SE_BOO
+	msgbox Kaizo_Hub_Text_BuildNPC_NotEnough10, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_IsEgg::
+	msgbox Kaizo_Hub_Text_BuildNPC_IsEgg, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_SelectMon
+
+Kaizo_Hub_EventScript_BuildNPC_InvalidMon::
+	msgbox Kaizo_Hub_Text_BuildNPC_InvalidMon, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_SelectMon
+
+Kaizo_Hub_EventScript_BuildNPC_Exit::
+	msgbox Kaizo_Hub_Text_BuildNPC_Goodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_BuildNPC_Intro:
+	.string "BUILD MASTER: Ciao! Sei nel posto giusto\n"
+	.string "per personalizzare i tuoi Pokémon!\p"
+	.string "Spendi i tuoi Punti Rarità per cambiare\n"
+	.string "Natura, Abilità, Mossa iniziale e\l"
+	.string "impostare il tuo Starter per la Run!$"
+
+Kaizo_Hub_Text_BuildNPC_PointsSummary:
+	.string "I tuoi Punti Rarità attuali:\n"
+	.string "{STR_VAR_1}\l"
+	.string "{STR_VAR_2}$"
+
+Kaizo_Hub_Text_BuildNPC_AskChoose:
+	.string "Vuoi scegliere un Pokémon da buildare?$"
+
+Kaizo_Hub_Text_BuildNPC_OpenPC:
+	.string "Scegli il Pokémon che vuoi potenziare\n"
+	.string "dai tuoi Box del PC o dalla Squadra!$"
+
+Kaizo_Hub_Text_BuildNPC_MonStatus:
+	.string "Hai scelto: {STR_VAR_1}!\n"
+	.string "Rarità: {STR_VAR_2}  -  Punti: {STR_VAR_3}\p"
+	.string "Cosa desideri modificare?$"
+
+Kaizo_Hub_Text_BuildNPC_StarterActive:
+	.string "Perfetto! {STR_VAR_1} e' stato impostato\n"
+	.string "come Starter per la prossima Run!\p"
+	.string "Inizierai la run direttamente con lui\n"
+	.string "al livello 5 con questa build!$"
+
+Kaizo_Hub_Text_BuildNPC_StarterRemoved:
+	.string "{STR_VAR_1} e' stato rimosso dagli Starter.\n"
+	.string "Sceglierai uno starter normale nella run.$"
+
+Kaizo_Hub_Text_BuildNPC_NatureSuccess:
+	.string "Ottimo lavoro! La nuova natura di\n"
+	.string "{STR_VAR_1} e' diventata {STR_VAR_2}!\p"
+	.string "Punti rimasti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_AbilitySuccess:
+	.string "Magnifico! L'abilità di {STR_VAR_1}\n"
+	.string "e' stata cambiata in {STR_VAR_2}!\p"
+	.string "Punti rimasti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_MoveSuccess:
+	.string "Eccellente! {STR_VAR_1} ha imparato\n"
+	.string "la mossa {STR_VAR_2} come mossa iniziale!\p"
+	.string "Punti rimasti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_ConfirmFuse:
+	.string "Vuoi fondere {STR_VAR_1}?\n"
+	.string "Riceverai +10 Punti Rarità {STR_VAR_2},\l"
+	.string "ma il Pokémon verrà rimosso per sempre!$"
+
+Kaizo_Hub_Text_BuildNPC_FuseSuccess:
+	.string "{STR_VAR_1} e' stato fuso con successo!\n"
+	.string "Hai guadagnato +10 Punti {STR_VAR_2}!\l"
+	.string "Punti {STR_VAR_2} totali: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_NotEnough5:
+	.string "Non hai abbastanza Punti Rarità!\n"
+	.string "Servono 5 Punti per cambiare Natura.$"
+
+Kaizo_Hub_Text_BuildNPC_NotEnough10:
+	.string "Non hai abbastanza Punti Rarità!\n"
+	.string "Servono 10 Punti per questa modifica.$"
+
+Kaizo_Hub_Text_BuildNPC_IsEgg:
+	.string "Quello e' un Uovo! Non puoi potenziare\n"
+	.string "un Uovo prima che si schiuda!$"
+
+Kaizo_Hub_Text_BuildNPC_InvalidMon:
+	.string "Nessun Pokémon valido selezionato.$"
+
+Kaizo_Hub_Text_BuildNPC_Goodbye:
+	.string "BUILD MASTER: Torna pure ogni volta che\n"
+	.string "vuoi perfezionare la tua build!$"
+
 
 
 
