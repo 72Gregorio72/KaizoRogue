@@ -4277,10 +4277,18 @@ static void ResetKaizoRogueRun(void)
     if (runBonus < 20)
         runBonus = 20;
 
+    u16 ticketsEarned = badges;
+    if (badges >= NUM_BADGES)
+        ticketsEarned += 3;
+    else if (badges == 0 && level >= 15)
+        ticketsEarned = 1;
+
     extern void AddRogueShards(u32 amount);
-    extern void SetLastRunStats(u16 level, u16 badges, u32 shards);
+    extern void AddGachaTickets(u16 amount);
+    extern void SetLastRunStats(u16 level, u16 badges, u32 shards, u16 tickets);
     AddRogueShards(runBonus);
-    SetLastRunStats(level, badges, runBonus);
+    AddGachaTickets(ticketsEarned);
+    SetLastRunStats(level, badges, runBonus, ticketsEarned);
 
     // --- 1. BACKUP DEI DATI DELLA HUB (META-PROGRESSION) ---
     struct KaizoMetaProgression metaBackup = gSaveBlock2Ptr->metaProgression;

@@ -708,3 +708,20 @@ gSpecials::
 	def_special Script_Starter_ConsumeReroll
 	def_special Script_Kaizo_PrepareNewRun
 	def_special Script_CheckIsKaizoHub
+	def_special Script_Gacha_PullEgg
+	def_special Script_Gacha_HandleDuplicate
+	def_special Script_Gacha_PushRosterList
+	def_special Script_Gacha_SelectRosterMon
+	def_special Script_Gacha_PushBuildOptions
+	def_special Script_Gacha_PushNatureList
+	def_special Script_Gacha_ApplyNature
+	def_special Script_Gacha_PushAbilityList
+	def_special Script_Gacha_ApplyAbility
+	def_special Script_Gacha_PushMoveChoices
+	def_special Script_Gacha_ApplyMove
+	def_special Script_Gacha_ToggleStarter
+	def_special Script_Gacha_FuseSelectedMon
+	def_special Script_Gacha_GetTicketsAndPoints
+	def_special Script_Meta_CheatAddTicketsAndPoints
+	def_special OpenGachaSlotMachine, waitstate=1
+	def_special OpenGachaRosterPC, waitstate=1

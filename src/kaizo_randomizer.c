@@ -25,6 +25,10 @@
 #include "money.h"
 #include "constants/map_groups.h"
 #include "pokemon_storage_system.h"
+#include "kaizo_roster.h"
+
+#define GACHA_BOX_INDEX (TOTAL_BOXES_COUNT - 1)
+#define GACHA_SLOT_NONE 0xFF
 
 // --- PROTOTIPI GENERALI ---
 static bool32 IsValidKaizoSpecies(u16 species);
@@ -161,6 +165,7 @@ static EWRAM_DATA u8 sStarterRerollsRemaining = 0;
 static EWRAM_DATA u16 sLastRunLevel = 0;
 static EWRAM_DATA u16 sLastRunBadges = 0;
 static EWRAM_DATA u32 sLastRunShardsEarned = 0;
+static EWRAM_DATA u16 sLastRunTicketsEarned = 0;
 static EWRAM_DATA u8 sShardsWindowId = 0;
 static EWRAM_DATA bool8 sShardsWindowOpen = FALSE;
 
@@ -244,6 +249,11 @@ void InitKaizoMetaProgression(void)
         gSaveBlock2Ptr->metaProgression.starterMoveTierLevel = 0;
         gSaveBlock2Ptr->metaProgression.starterItemPouchLevel = 0;
         gSaveBlock2Ptr->metaProgression.lootLuckLevel = 0;
+        gSaveBlock2Ptr->metaProgression.gachaTickets = 0;
+        gSaveBlock2Ptr->metaProgression.gachaTicketsTotal = 0;
+        for (int i = 0; i < 5; i++)
+            gSaveBlock2Ptr->metaProgression.rarityPoints[i] = 0;
+        gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
     }
 }
 
@@ -292,11 +302,19 @@ void AwardTrainerDefeatRogueShards(u16 opponent)
     AddRogueShards(shards);
 }
 
-void SetLastRunStats(u16 level, u16 badges, u32 shards)
+void AddGachaTickets(u16 amount)
+{
+    InitKaizoMetaProgression();
+    gSaveBlock2Ptr->metaProgression.gachaTickets += amount;
+    gSaveBlock2Ptr->metaProgression.gachaTicketsTotal += amount;
+}
+
+void SetLastRunStats(u16 level, u16 badges, u32 shards, u16 tickets)
 {
     sLastRunLevel = level;
     sLastRunBadges = badges;
     sLastRunShardsEarned = shards;
+    sLastRunTicketsEarned = tickets;
 }
 
 void GenerateNewKaizoSeedAndStarters(void)
@@ -2077,15 +2095,25 @@ void Script_Meta_HideShardsWindow(void)
     }
 }
 
+static const u8 sText_RecapPlus[]  = _("+");
+static const u8 sText_RecapFramm[] = _(" Framm. / +");
+static const u8 sText_RecapBigl[]  = _(" Biglietti");
+
 void Script_Meta_GetLastRunRecap(void)
 {
-    if (sLastRunShardsEarned > 0)
+    if (sLastRunShardsEarned > 0 || sLastRunTicketsEarned > 0)
     {
         ConvertIntToDecimalStringN(gStringVar1, sLastRunLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
         ConvertIntToDecimalStringN(gStringVar2, sLastRunBadges, STR_CONV_MODE_LEFT_ALIGN, 2);
-        ConvertIntToDecimalStringN(gStringVar3, sLastRunShardsEarned, STR_CONV_MODE_LEFT_ALIGN, 5);
-        ConvertIntToDecimalStringN(gStringVar4, gSaveBlock2Ptr->metaProgression.rogueShards, STR_CONV_MODE_LEFT_ALIGN, 6);
+
+        u8 *ptr = StringCopy(gStringVar3, sText_RecapPlus);
+        ptr = ConvertIntToDecimalStringN(ptr, sLastRunShardsEarned, STR_CONV_MODE_LEFT_ALIGN, 5);
+        ptr = StringAppend(ptr, sText_RecapFramm);
+        ptr = ConvertIntToDecimalStringN(ptr, sLastRunTicketsEarned, STR_CONV_MODE_LEFT_ALIGN, 2);
+        StringAppend(ptr, sText_RecapBigl);
+
         sLastRunShardsEarned = 0;
+        sLastRunTicketsEarned = 0;
         gSpecialVar_Result = 1;
     }
     else
@@ -2487,6 +2515,7 @@ void Script_Meta_BuyFortuneUpgrade(void)
 
 static const u8 sText_Cheat_MaxAll[] = _("Sblocca Tutti Powerup");
 static const u8 sText_Cheat_Money[] = _("Monete e Shards MAX");
+static const u8 sText_Cheat_Gacha[] = _("Biglietti Gacha + Punti");
 static const u8 sText_Cheat_Reset[] = _("Reset Meta a Default");
 static const u8 sText_Cheat_Exit[] = _("Esci");
 
@@ -2498,9 +2527,7 @@ void Script_Meta_PushCheatChoices(void)
     {
         u8 *buf = Alloc(32);
         StringCopy(buf, sText_Cheat_MaxAll);
-        struct ListMenuItem item;
-        item.name = buf;
-        item.id = 0;
+        struct ListMenuItem item = { buf, 0 };
         MultichoiceDynamic_PushElement(item);
     }
 
@@ -2508,29 +2535,31 @@ void Script_Meta_PushCheatChoices(void)
     {
         u8 *buf = Alloc(32);
         StringCopy(buf, sText_Cheat_Money);
-        struct ListMenuItem item;
-        item.name = buf;
-        item.id = 1;
+        struct ListMenuItem item = { buf, 1 };
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 2: Reset Meta a Default
+    // 2: Biglietti Gacha + Punti Rarity
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_Cheat_Gacha);
+        struct ListMenuItem item = { buf, 2 };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // 3: Reset Meta a Default
     {
         u8 *buf = Alloc(32);
         StringCopy(buf, sText_Cheat_Reset);
-        struct ListMenuItem item;
-        item.name = buf;
-        item.id = 2;
+        struct ListMenuItem item = { buf, 3 };
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 3: Esci
+    // 4: Esci
     {
         u8 *buf = Alloc(32);
         StringCopy(buf, sText_Cheat_Exit);
-        struct ListMenuItem item;
-        item.name = buf;
-        item.id = 3;
+        struct ListMenuItem item = { buf, 4 };
         MultichoiceDynamic_PushElement(item);
     }
 }
@@ -2577,6 +2606,12 @@ void Script_Meta_CheatReset(void)
 
     gSaveBlock2Ptr->metaProgression.lootLuckLevel = 0;
     gSaveBlock2Ptr->metaProgression.rogueShards = 0;
+    gSaveBlock2Ptr->metaProgression.gachaTickets = 0;
+    gSaveBlock2Ptr->metaProgression.gachaTicketsTotal = 0;
+    for (int i = 0; i < 5; i++)
+        gSaveBlock2Ptr->metaProgression.rarityPoints[i] = 0;
+    gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
+
     SetMoney(&gSaveBlock1Ptr->money, 3000);
     ResetPokemonStorageSystem();
 }
@@ -2597,6 +2632,69 @@ void Script_Kaizo_PrepareNewRun(void)
 
     GenerateNewKaizoSeedAndStarters();
 
+    // Check Gacha starter
+    u16 starterSpecies = gSaveBlock2Ptr->metaProgression.chosenGachaSpecies;
+    if (starterSpecies != SPECIES_NONE && starterSpecies < NUM_SPECIES)
+    {
+        struct BoxPokemon *bMon = GetUnlockedRosterMon(starterSpecies);
+        if (bMon != NULL)
+        {
+            BoxMonToMon(bMon, &gParties[B_TRAINER_PLAYER][0]);
+            u8 level = 5;
+            SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_LEVEL, &level);
+            u32 exp = gExperienceTables[gSpeciesInfo[starterSpecies].growthRate][5];
+            SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_EXP, &exp);
+            CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
+            extern void HealPlayerParty(void);
+            HealPlayerParty();
+            gPartiesCount[B_TRAINER_PLAYER] = 1;
+
+            FlagSet(FLAG_SYS_POKEMON_GET);
+            FlagSet(FLAG_SYS_POKEDEX_GET);
+            FlagSet(FLAG_SYS_B_DASH);
+            FlagSet(FLAG_PALLET_LADY_NOT_BLOCKING_SIGN);
+            FlagSet(FLAG_CAN_USE_ROCKET_HIDEOUT_LIFT);
+
+            FlagSet(FLAG_HIDE_BULBASAUR_BALL);
+            FlagSet(FLAG_HIDE_SQUIRTLE_BALL);
+            FlagSet(FLAG_HIDE_CHARMANDER_BALL);
+            FlagSet(FLAG_HIDE_RIVAL_IN_LAB);
+            FlagSet(FLAG_BEAT_RIVAL_IN_OAKS_LAB);
+            FlagSet(FLAG_HIDE_POKEDEX);
+            FlagClear(FLAG_HIDE_OAK_IN_HIS_LAB);
+
+            extern void SetUnlockedPokedexFlags(void);
+            SetUnlockedPokedexFlags();
+
+            AddBagItem(ITEM_MASTER_BALL, 999);
+            AddBagItem(ITEM_RARE_CANDY, 999);
+            AddBagItem(ITEM_WILD_ENCOUNTERS, 1);
+            AddBagItem(ITEM_LIFT_KEY, 1);
+            AddBagItem(ITEM_SILPH_SCOPE, 1);
+
+            VarSet(VAR_MAP_SCENE_PALLET_TOWN_OAK, 1);
+            VarSet(VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 6);
+            VarSet(VAR_MAP_SCENE_VIRIDIAN_CITY_OLD_MAN, 2);
+            VarSet(VAR_MAP_SCENE_VIRIDIAN_CITY_MART, 2);
+            VarSet(VAR_MAP_SCENE_ROUTE22, 1);
+            VarSet(VAR_MAP_SCENE_PALLET_TOWN_RIVALS_HOUSE, 1);
+            VarSet(VAR_MAP_SCENE_POKEMON_CENTER_TEALA, 1);
+
+            GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_NICKNAME, gStringVar1);
+            StringGet_Nickname(gStringVar1);
+
+            gSpecialVar_0x8004 = 1; // Has Gacha starter
+        }
+        else
+        {
+            gSpecialVar_0x8004 = 0;
+        }
+    }
+    else
+    {
+        gSpecialVar_0x8004 = 0;
+    }
+
     gSpecialVar_Result = removedCount;
 }
 
@@ -2613,6 +2711,893 @@ void Script_CheckIsKaizoHub(void)
     }
 }
 
+// --- GACHA & ROSTER SYSTEM ---
 
+static EWRAM_DATA struct BoxPokemon sHatchedTempMon = {0};
+static EWRAM_DATA u8 sDuplicateExistingSlot = 0;
+static EWRAM_DATA u8 sSelectedRosterSlot = 0;
+static EWRAM_DATA u16 sGachaMoveChoices[4] = {0};
 
+static const u8 sText_RarityCommon[]   = _("{COLOR DARK_GRAY}Comune");
+static const u8 sText_RarityUncommon[] = _("{COLOR GREEN}Non Comune");
+static const u8 sText_RarityRare[]     = _("{COLOR BLUE}Raro");
+static const u8 sText_RarityEpic[]     = _("{COLOR RED}Epico");
+static const u8 sText_RarityUnknown[]  = _("Sconosciuto");
 
+static const u8 sText_GachaCom[]         = _("Com:");
+static const u8 sText_GachaNonCom[]      = _(" NonCom:");
+static const u8 sText_GachaRaro[]        = _("Raro:");
+static const u8 sText_GachaEpico[]       = _(" Epico:");
+static const u8 sText_SlashSpace[]       = _(" / ");
+static const u8 sText_OpenIv[]           = _(" (IV ");
+static const u8 sText_CloseIv[]          = _("/186)");
+static const u8 sText_DashPt[]           = _(" - Pt: ");
+static const u8 sText_HiddenAbilityTag[] = _(" (HA)");
+
+const u8 *GetRarityTierName(u8 tier)
+{
+    switch (tier)
+    {
+    case RARITY_COMMON:   return sText_RarityCommon;
+    case RARITY_UNCOMMON: return sText_RarityUncommon;
+    case RARITY_RARE:     return sText_RarityRare;
+    case RARITY_EPIC:     return sText_RarityEpic;
+    default:              return sText_RarityUnknown;
+    }
+}
+
+static const u8 sText_Gen1[] = _("GEN 1: KANTO");
+static const u8 sText_Gen2[] = _("GEN 2: JOHTO");
+static const u8 sText_Gen3[] = _("GEN 3: HOENN");
+static const u8 sText_Gen4[] = _("GEN 4: SINNOH");
+static const u8 sText_Gen5[] = _("GEN 5: UNOVA");
+static const u8 sText_Gen6[] = _("GEN 6: KALOS");
+static const u8 sText_Gen7[] = _("GEN 7: ALOLA");
+static const u8 sText_Gen8[] = _("GEN 8: GALAR");
+static const u8 sText_Gen9[] = _("GEN 9: PALDEA");
+
+const struct GenerationInfo gGenerationTable[NUM_GENERATIONS] = {
+    { sText_Gen1, SPECIES_BULBASAUR,  SPECIES_MEW },
+    { sText_Gen2, SPECIES_CHIKORITA,  SPECIES_CELEBI },
+    { sText_Gen3, SPECIES_TREECKO,    SPECIES_DEOXYS },
+    { sText_Gen4, SPECIES_TURTWIG,    SPECIES_ARCEUS },
+    { sText_Gen5, SPECIES_VICTINI,    SPECIES_GENESECT },
+    { sText_Gen6, SPECIES_CHESPIN,    SPECIES_VOLCANION },
+    { sText_Gen7, SPECIES_ROWLET,     SPECIES_MELMETAL },
+    { sText_Gen8, SPECIES_GROOKEY,    SPECIES_ENAMORUS },
+    { sText_Gen9, SPECIES_SPRIGATITO, SPECIES_PECHARUNT },
+};
+
+static EWRAM_DATA u16 sGenBaseSpeciesList[NUM_GENERATIONS][120];
+static EWRAM_DATA u16 sGenBaseSpeciesCount[NUM_GENERATIONS] = {0};
+static EWRAM_DATA bool8 sGenBaseSpeciesInitialized = FALSE;
+
+static void InitGenBaseSpeciesTables(void)
+{
+    if (sGenBaseSpeciesInitialized)
+        return;
+
+    u8 *hasPreEvo = AllocZeroed(NUM_SPECIES);
+    if (hasPreEvo == NULL)
+        return;
+
+    for (u16 i = 1; i < NUM_SPECIES; i++)
+    {
+        if (!IsSpeciesEnabled(i))
+            continue;
+        const struct Evolution *evolutions = GetSpeciesEvolutions(i);
+        if (evolutions == NULL)
+            continue;
+        for (int j = 0; evolutions[j].method != EVOLUTIONS_END; j++)
+        {
+            u16 target = SanitizeSpeciesId(evolutions[j].targetSpecies);
+            if (target < NUM_SPECIES && IsSpeciesEnabled(target))
+                hasPreEvo[target] = 1;
+        }
+    }
+
+    for (u8 g = 0; g < NUM_GENERATIONS; g++)
+    {
+        u16 start = gGenerationTable[g].startSpecies;
+        u16 end = gGenerationTable[g].endSpecies;
+        u16 count = 0;
+
+        for (u16 sp = start; sp <= end && sp < NUM_SPECIES; sp++)
+        {
+            if (!hasPreEvo[sp]
+             && gSpeciesInfo[sp].speciesName[0] != '\0'
+             && gSpeciesInfo[sp].speciesName[0] != '?'
+             && IsSpeciesEnabled(sp))
+            {
+                if (count < 120)
+                {
+                    sGenBaseSpeciesList[g][count] = sp;
+                    count++;
+                }
+            }
+        }
+        sGenBaseSpeciesCount[g] = count;
+    }
+
+    Free(hasPreEvo);
+    sGenBaseSpeciesInitialized = TRUE;
+}
+
+u16 GetGenBaseSpecies(u8 gen, u16 *outList, u16 maxCount)
+{
+    if (gen >= NUM_GENERATIONS)
+        return 0;
+
+    InitGenBaseSpeciesTables();
+
+    u16 count = sGenBaseSpeciesCount[gen];
+    if (count > maxCount)
+        count = maxCount;
+
+    if (outList && count > 0)
+        CpuCopy16(sGenBaseSpeciesList[gen], outList, count * sizeof(u16));
+
+    return sGenBaseSpeciesCount[gen];
+}
+
+struct BoxPokemon *GetUnlockedRosterMon(u16 species)
+{
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return NULL;
+
+    for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+    {
+        for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+        {
+            struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+            if (GetBoxMonData(b, MON_DATA_SPECIES) == species)
+                return b;
+        }
+    }
+    return NULL;
+}
+
+void SortRosterBoxes(void)
+{
+    struct BoxPokemon *list = Alloc(sizeof(struct BoxPokemon) * TOTAL_BOXES_COUNT * IN_BOX_COUNT);
+    if (list == NULL)
+        return;
+
+    u32 count = 0;
+    for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+    {
+        for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+        {
+            struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+            u16 sp = GetBoxMonData(b, MON_DATA_SPECIES);
+            if (sp != SPECIES_NONE && sp < NUM_SPECIES)
+            {
+                list[count++] = *b;
+            }
+        }
+    }
+
+    for (u32 i = 0; i < count; i++)
+    {
+        for (u32 j = i + 1; j < count; j++)
+        {
+            u16 spA = GetBoxMonData(&list[i], MON_DATA_SPECIES);
+            u16 spB = GetBoxMonData(&list[j], MON_DATA_SPECIES);
+            if (spA > spB)
+            {
+                struct BoxPokemon tmp = list[i];
+                list[i] = list[j];
+                list[j] = tmp;
+            }
+        }
+    }
+
+    u32 idx = 0;
+    for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+    {
+        for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+        {
+            struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+            if (idx < count)
+                *b = list[idx++];
+            else
+                ZeroBoxMonData(b);
+        }
+    }
+
+    Free(list);
+}
+
+bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
+{
+    u16 species = GetBoxMonData(newMon, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return FALSE;
+
+    struct BoxPokemon *existing = GetUnlockedRosterMon(species);
+    if (existing != NULL)
+    {
+        *existing = *newMon;
+        return TRUE;
+    }
+
+    for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+    {
+        for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+        {
+            struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+            if (GetBoxMonData(b, MON_DATA_SPECIES) == SPECIES_NONE)
+            {
+                *b = *newMon;
+                SortRosterBoxes();
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+void AddRarityPoints(u8 tier, u16 amount)
+{
+    if (tier >= 1 && tier <= RARITY_EPIC)
+    {
+        InitKaizoMetaProgression();
+        gSaveBlock2Ptr->metaProgression.rarityPoints[tier] += amount;
+    }
+}
+
+static u16 GetRosterMonAbility(struct BoxPokemon *boxMon)
+{
+    u16 customAbility = GetBoxMonData(boxMon, MON_DATA_CUSTOM_ABILITY);
+    if (customAbility != ABILITY_NONE && customAbility < ABILITIES_COUNT)
+        return customAbility;
+
+    u16 species = GetBoxMonData(boxMon, MON_DATA_SPECIES);
+    u8 abilityNum = GetBoxMonData(boxMon, MON_DATA_ABILITY_NUM);
+    return GetAbilityBySpecies(species, abilityNum);
+}
+
+void Script_Gacha_GetTicketsAndPoints(void)
+{
+    InitKaizoMetaProgression();
+    ConvertIntToDecimalStringN(gStringVar1, gSaveBlock2Ptr->metaProgression.gachaTickets, STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    u8 *ptr = StringCopy(gStringVar2, sText_GachaCom);
+    ptr = ConvertIntToDecimalStringN(ptr, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_COMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
+    ptr = StringAppend(ptr, sText_GachaNonCom);
+    ConvertIntToDecimalStringN(ptr, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_UNCOMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    ptr = StringCopy(gStringVar3, sText_GachaRaro);
+    ptr = ConvertIntToDecimalStringN(ptr, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_RARE], STR_CONV_MODE_LEFT_ALIGN, 4);
+    ptr = StringAppend(ptr, sText_GachaEpico);
+    ConvertIntToDecimalStringN(ptr, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_EPIC], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = gSaveBlock2Ptr->metaProgression.gachaTickets;
+}
+
+void Script_Gacha_PullEgg(void)
+{
+    InitKaizoMetaProgression();
+    if (gSaveBlock2Ptr->metaProgression.gachaTickets < 1)
+    {
+        gSpecialVar_Result = 0; // No tickets
+        return;
+    }
+
+    gSaveBlock2Ptr->metaProgression.gachaTickets--;
+
+    u8 rolledTier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, NULL);
+    if (rolledTier == RARITY_NONE || rolledTier > RARITY_EPIC)
+        rolledTier = RARITY_COMMON;
+
+    u16 species = GetRandomRaritySpeciesByTier(rolledTier, NULL);
+    if (species == SPECIES_NONE)
+        species = SPECIES_CHARMANDER;
+
+    while (GetSpeciesPreEvolution(species) != SPECIES_NONE)
+        species = GetSpeciesPreEvolution(species);
+
+    u8 monTier = GetSpeciesRarityTier(species);
+    if (monTier == RARITY_NONE || monTier > RARITY_EPIC)
+        monTier = RARITY_COMMON;
+
+    struct Pokemon tempMon;
+    ZeroMonData(&tempMon);
+    CreateMon(&tempMon, species, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+
+    u16 scratch = MOVE_SCRATCH;
+    u16 noneMove = MOVE_NONE;
+    SetMonData(&tempMon, MON_DATA_MOVE1, &scratch);
+    SetMonData(&tempMon, MON_DATA_MOVE2, &noneMove);
+    SetMonData(&tempMon, MON_DATA_MOVE3, &noneMove);
+    SetMonData(&tempMon, MON_DATA_MOVE4, &noneMove);
+    u8 pp = gMovesInfo[MOVE_SCRATCH].pp;
+    u8 zeroPP = 0;
+    SetMonData(&tempMon, MON_DATA_PP1, &pp);
+    SetMonData(&tempMon, MON_DATA_PP2, &zeroPP);
+    SetMonData(&tempMon, MON_DATA_PP3, &zeroPP);
+    SetMonData(&tempMon, MON_DATA_PP4, &zeroPP);
+    CalculateMonStats(&tempMon);
+
+    s32 duplicateSlot = -1;
+    s32 freeSlot = -1;
+    for (int i = 0; i < IN_BOX_COUNT; i++)
+    {
+        struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, i);
+        u16 sp = GetBoxMonData(b, MON_DATA_SPECIES);
+        if (sp == SPECIES_NONE)
+        {
+            if (freeSlot == -1)
+                freeSlot = i;
+        }
+        else if (sp == species)
+        {
+            duplicateSlot = i;
+            break;
+        }
+    }
+
+    if (duplicateSlot != -1)
+    {
+        // DUPLICATO!
+        sDuplicateExistingSlot = duplicateSlot;
+        sHatchedTempMon = tempMon.box;
+
+        StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+
+        // Format old mon stats
+        struct BoxPokemon *oldB = GetBoxedMonPtr(GACHA_BOX_INDEX, duplicateSlot);
+        u8 oldNat = GetBoxMonData(oldB, MON_DATA_HIDDEN_NATURE);
+        if (oldNat >= NUM_NATURES)
+            oldNat = GetNatureFromPersonality(GetBoxMonData(oldB, MON_DATA_PERSONALITY));
+        u16 oldAbil = GetRosterMonAbility(oldB);
+        u16 oldIvSum = GetBoxMonData(oldB, MON_DATA_HP_IV) + GetBoxMonData(oldB, MON_DATA_ATK_IV)
+                     + GetBoxMonData(oldB, MON_DATA_DEF_IV) + GetBoxMonData(oldB, MON_DATA_SPEED_IV)
+                     + GetBoxMonData(oldB, MON_DATA_SPATK_IV) + GetBoxMonData(oldB, MON_DATA_SPDEF_IV);
+
+        u8 *ptr = StringCopy(gStringVar2, gNaturesInfo[oldNat].name);
+        ptr = StringAppend(ptr, sText_SlashSpace);
+        ptr = StringAppend(ptr, gAbilitiesInfo[oldAbil].name);
+        ptr = StringAppend(ptr, sText_OpenIv);
+        ptr = ConvertIntToDecimalStringN(ptr, oldIvSum, STR_CONV_MODE_LEFT_ALIGN, 3);
+        StringAppend(ptr, sText_CloseIv);
+
+        // Format new mon stats
+        u8 newNat = GetNatureFromPersonality(GetBoxMonData(&sHatchedTempMon, MON_DATA_PERSONALITY));
+        u16 newAbil = GetRosterMonAbility(&sHatchedTempMon);
+        u16 newIvSum = GetBoxMonData(&sHatchedTempMon, MON_DATA_HP_IV) + GetBoxMonData(&sHatchedTempMon, MON_DATA_ATK_IV)
+                     + GetBoxMonData(&sHatchedTempMon, MON_DATA_DEF_IV) + GetBoxMonData(&sHatchedTempMon, MON_DATA_SPEED_IV)
+                     + GetBoxMonData(&sHatchedTempMon, MON_DATA_SPATK_IV) + GetBoxMonData(&sHatchedTempMon, MON_DATA_SPDEF_IV);
+
+        ptr = StringCopy(gStringVar3, gNaturesInfo[newNat].name);
+        ptr = StringAppend(ptr, sText_SlashSpace);
+        ptr = StringAppend(ptr, gAbilitiesInfo[newAbil].name);
+        ptr = StringAppend(ptr, sText_OpenIv);
+        ptr = ConvertIntToDecimalStringN(ptr, newIvSum, STR_CONV_MODE_LEFT_ALIGN, 3);
+        StringAppend(ptr, sText_CloseIv);
+
+        gSpecialVar_Result = 2; // Duplicate
+    }
+    else if (freeSlot == -1)
+    {
+        // Roster pieno!
+        gSaveBlock2Ptr->metaProgression.gachaTickets++; // rimborso
+        gSpecialVar_Result = 3; // Box full
+    }
+    else
+    {
+        // Nuovo Pokemon!
+        SetBoxMonAt(GACHA_BOX_INDEX, freeSlot, &tempMon.box);
+        StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+        StringCopy(gStringVar2, GetRarityTierName(monTier));
+
+        u8 nat = GetNatureFromPersonality(GetBoxMonData(&tempMon.box, MON_DATA_PERSONALITY));
+        u16 abil = GetRosterMonAbility(&tempMon.box);
+        u8 *ptr = StringCopy(gStringVar3, gNaturesInfo[nat].name);
+        ptr = StringAppend(ptr, sText_SlashSpace);
+        StringAppend(ptr, gAbilitiesInfo[abil].name);
+
+        gSpecialVar_Result = 1; // Success new mon
+    }
+}
+
+void Script_Gacha_HandleDuplicate(void)
+{
+    u8 choice = (u8)gSpecialVar_0x8005;
+    u16 species = GetBoxMonData(&sHatchedTempMon, MON_DATA_SPECIES);
+    u8 monTier = GetSpeciesRarityTier(species);
+    if (monTier == RARITY_NONE || monTier > RARITY_EPIC)
+        monTier = RARITY_COMMON;
+
+    if (choice == 0)
+    {
+        // Tieni il NUOVO, fondi il VECCHIO
+        SetBoxMonAt(GACHA_BOX_INDEX, sDuplicateExistingSlot, &sHatchedTempMon);
+    }
+    // else scelta 1: tieni il VECCHIO, fondi il NUOVO
+
+    gSaveBlock2Ptr->metaProgression.rarityPoints[monTier] += 10;
+
+    StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    StringCopy(gStringVar2, GetRarityTierName(monTier));
+    ConvertIntToDecimalStringN(gStringVar3, gSaveBlock2Ptr->metaProgression.rarityPoints[monTier], STR_CONV_MODE_LEFT_ALIGN, 4);
+    gSpecialVar_Result = 1;
+}
+
+static const u8 sText_StarterStar[] = _("{COLOR GREEN}> ");
+static const u8 sText_RosterSpace[] = _("  ");
+static const u8 sText_ParenOpen[]   = _(" (");
+static const u8 sText_ParenClose[]  = _(")");
+static const u8 sText_RosterExit[]  = _("Esci");
+
+void Script_Gacha_PushRosterList(void)
+{
+    u8 count = 0;
+    u16 chosenSpecies = gSaveBlock2Ptr->metaProgression.chosenGachaSpecies;
+
+    for (int i = 0; i < IN_BOX_COUNT; i++)
+    {
+        struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, i);
+        u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+        if (species != SPECIES_NONE)
+        {
+            u8 tier = GetSpeciesRarityTier(species);
+            if (tier == RARITY_NONE || tier > RARITY_EPIC)
+                tier = RARITY_COMMON;
+
+            u8 *buf = Alloc(64);
+            u8 *ptr = buf;
+            if (species == chosenSpecies)
+                ptr = StringCopy(ptr, sText_StarterStar);
+            else
+                ptr = StringCopy(ptr, sText_RosterSpace);
+
+            ptr = StringAppend(ptr, gSpeciesInfo[species].speciesName);
+            ptr = StringAppend(ptr, sText_ParenOpen);
+            ptr = StringAppend(ptr, GetRarityTierName(tier));
+            ptr = StringAppend(ptr, sText_ParenClose);
+
+            struct ListMenuItem item = { buf, i };
+            MultichoiceDynamic_PushElement(item);
+            count++;
+        }
+    }
+
+    if (count > 0)
+    {
+        u8 *bufExit = Alloc(32);
+        StringCopy(bufExit, sText_RosterExit);
+        struct ListMenuItem exitItem = { bufExit, 0xFF };
+        MultichoiceDynamic_PushElement(exitItem);
+    }
+
+    gSpecialVar_Result = count;
+}
+
+void Script_Gacha_SelectRosterMon(void)
+{
+    u8 slot = (u8)gSpecialVar_0x8005;
+    if (slot >= IN_BOX_COUNT)
+    {
+        gSpecialVar_Result = 0xFF;
+        return;
+    }
+
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, slot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE)
+    {
+        gSpecialVar_Result = 0xFF;
+        return;
+    }
+
+    sSelectedRosterSlot = slot;
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    u8 nat = GetBoxMonData(b, MON_DATA_HIDDEN_NATURE);
+    if (nat >= NUM_NATURES)
+        nat = GetNatureFromPersonality(GetBoxMonData(b, MON_DATA_PERSONALITY));
+
+    u16 abil = GetRosterMonAbility(b);
+    u16 move = GetBoxMonData(b, MON_DATA_MOVE1);
+
+    u8 *ptr = StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    ptr = StringAppend(ptr, sText_ParenOpen);
+    ptr = StringAppend(ptr, GetRarityTierName(tier));
+    StringAppend(ptr, sText_ParenClose);
+
+    ptr = StringCopy(gStringVar2, gNaturesInfo[nat].name);
+    ptr = StringAppend(ptr, sText_SlashSpace);
+    StringAppend(ptr, gAbilitiesInfo[abil].name);
+
+    ptr = StringCopy(gStringVar3, gMovesInfo[move].name);
+    ptr = StringAppend(ptr, sText_DashPt);
+    ConvertIntToDecimalStringN(ptr, gSaveBlock2Ptr->metaProgression.rarityPoints[tier], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = (species == gSaveBlock2Ptr->metaProgression.chosenGachaSpecies) ? 1 : 0;
+}
+
+void Script_Gacha_ToggleStarter(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    if (species != SPECIES_NONE && gSaveBlock2Ptr->metaProgression.chosenGachaSpecies == species)
+    {
+        gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
+        gSpecialVar_Result = 0; // Removed starter
+    }
+    else
+    {
+        gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = species;
+        gSpecialVar_Result = 1; // Set as starter
+    }
+}
+
+static const u8 sText_BuildOpt_StarterSet[]    = _("Imposta come Starter Run");
+static const u8 sText_BuildOpt_StarterRemove[] = _("Rimuovi da Starter Run");
+static const u8 sText_BuildOpt_Nature[]        = _("Cambia Natura (5 Punti)");
+static const u8 sText_BuildOpt_Ability[]       = _("Cambia Abilita' (10 Punti)");
+static const u8 sText_BuildOpt_Move[]          = _("Modifica Mossa Iniziale (10 Punti)");
+static const u8 sText_BuildOpt_Fuse[]          = _("Fondi Pokemon (+10 Punti)");
+static const u8 sText_BuildOpt_Back[]          = _("Indietro");
+
+void Script_Gacha_PushBuildOptions(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 isStarter = (species != SPECIES_NONE && species == gSaveBlock2Ptr->metaProgression.chosenGachaSpecies);
+
+    // 0: Starter
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, isStarter ? sText_BuildOpt_StarterRemove : sText_BuildOpt_StarterSet);
+        struct ListMenuItem item = { buf, 0 };
+        MultichoiceDynamic_PushElement(item);
+    }
+    // 1: Natura
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, sText_BuildOpt_Nature);
+        struct ListMenuItem item = { buf, 1 };
+        MultichoiceDynamic_PushElement(item);
+    }
+    // 2: Abilita
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, sText_BuildOpt_Ability);
+        struct ListMenuItem item = { buf, 2 };
+        MultichoiceDynamic_PushElement(item);
+    }
+    // 3: Mossa Iniziale
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, sText_BuildOpt_Move);
+        struct ListMenuItem item = { buf, 3 };
+        MultichoiceDynamic_PushElement(item);
+    }
+    // 4: Fondi
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, sText_BuildOpt_Fuse);
+        struct ListMenuItem item = { buf, 4 };
+        MultichoiceDynamic_PushElement(item);
+    }
+    // 5: Indietro
+    {
+        u8 *buf = Alloc(32);
+        StringCopy(buf, sText_BuildOpt_Back);
+        struct ListMenuItem item = { buf, 5 };
+        MultichoiceDynamic_PushElement(item);
+    }
+}
+
+static const u8 sCompetitiveNatures[] = {
+    NATURE_ADAMANT,
+    NATURE_JOLLY,
+    NATURE_MODEST,
+    NATURE_TIMID,
+    NATURE_IMPISH,
+    NATURE_BOLD,
+    NATURE_CAREFUL,
+    NATURE_CALM,
+    NATURE_HARDY
+};
+
+static const u8 sCompetitiveNatureDescs[][24] = {
+    _(" (+Atk, -SpA)"),
+    _(" (+Spe, -SpA)"),
+    _(" (+SpA, -Atk)"),
+    _(" (+Spe, -Atk)"),
+    _(" (+Def, -SpA)"),
+    _(" (+Def, -Atk)"),
+    _(" (+SpD, -SpA)"),
+    _(" (+SpD, -Atk)"),
+    _(" (Neutra)")
+};
+
+void Script_Gacha_PushNatureList(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 5)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    for (int i = 0; i < ARRAY_COUNT(sCompetitiveNatures); i++)
+    {
+        u8 nat = sCompetitiveNatures[i];
+        u8 *buf = Alloc(64);
+        u8 *ptr = StringCopy(buf, gNaturesInfo[nat].name);
+        StringAppend(ptr, sCompetitiveNatureDescs[i]);
+        struct ListMenuItem item = { buf, nat };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sText_BuildOpt_Back);
+        struct ListMenuItem cancelItem = { bufCancel, 0xFF };
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+
+    gSpecialVar_Result = 0;
+}
+
+void Script_Gacha_ApplyNature(void)
+{
+    u8 chosenNature = (u8)gSpecialVar_0x8005;
+    if (chosenNature >= NUM_NATURES)
+    {
+        gSpecialVar_Result = 0; // Cancelled
+        return;
+    }
+
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 5)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    gSaveBlock2Ptr->metaProgression.rarityPoints[tier] -= 5;
+    SetBoxMonDataAt(GACHA_BOX_INDEX, sSelectedRosterSlot, MON_DATA_HIDDEN_NATURE, &chosenNature);
+
+    StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    StringCopy(gStringVar2, gNaturesInfo[chosenNature].name);
+    ConvertIntToDecimalStringN(gStringVar3, gSaveBlock2Ptr->metaProgression.rarityPoints[tier], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = 1; // Success
+}
+
+void Script_Gacha_PushAbilityList(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    u16 abil0 = GetAbilityBySpecies(species, 0);
+    u16 abil1 = GetAbilityBySpecies(species, 1);
+    u16 abilHA = GetAbilityBySpecies(species, 2);
+
+    // Slot 0
+    if (abil0 != ABILITY_NONE)
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gAbilitiesInfo[abil0].name);
+        struct ListMenuItem item = { buf, 0 };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // Slot 1
+    if (abil1 != ABILITY_NONE && abil1 != abil0)
+    {
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gAbilitiesInfo[abil1].name);
+        struct ListMenuItem item = { buf, 1 };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    // Hidden Ability
+    if (abilHA != ABILITY_NONE && abilHA != abil0 && abilHA != abil1)
+    {
+        u8 *buf = Alloc(64);
+        u8 *ptr = StringCopy(buf, gAbilitiesInfo[abilHA].name);
+        StringAppend(ptr, sText_HiddenAbilityTag);
+        struct ListMenuItem item = { buf, 2 };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sText_BuildOpt_Back);
+        struct ListMenuItem cancelItem = { bufCancel, 0xFF };
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+
+    gSpecialVar_Result = 0;
+}
+
+void Script_Gacha_ApplyAbility(void)
+{
+    u8 abilitySlot = (u8)gSpecialVar_0x8005;
+    if (abilitySlot > 2)
+    {
+        gSpecialVar_Result = 0; // Cancelled
+        return;
+    }
+
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    u16 chosenAbility = GetAbilityBySpecies(species, abilitySlot);
+    if (chosenAbility == ABILITY_NONE)
+    {
+        gSpecialVar_Result = 0;
+        return;
+    }
+
+    gSaveBlock2Ptr->metaProgression.rarityPoints[tier] -= 10;
+    u16 noneAbility = ABILITY_NONE;
+    SetBoxMonDataAt(GACHA_BOX_INDEX, sSelectedRosterSlot, MON_DATA_CUSTOM_ABILITY, &noneAbility);
+    SetBoxMonDataAt(GACHA_BOX_INDEX, sSelectedRosterSlot, MON_DATA_ABILITY_NUM, &abilitySlot);
+
+    StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    StringCopy(gStringVar2, gAbilitiesInfo[chosenAbility].name);
+    ConvertIntToDecimalStringN(gStringVar3, gSaveBlock2Ptr->metaProgression.rarityPoints[tier], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = 1; // Success
+}
+
+void Script_Gacha_PushMoveChoices(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    u16 currentMove = GetBoxMonData(b, MON_DATA_MOVE1);
+
+    for (int i = 0; i < 4; i++)
+    {
+        u16 move;
+        bool32 valid;
+        int tries = 0;
+        do {
+            valid = TRUE;
+            move = GetRandomRarityMoveByTier(tier, NULL);
+            if (move == MOVE_NONE || move == currentMove)
+                valid = FALSE;
+            for (int d = 0; d < i; d++)
+            {
+                if (sGachaMoveChoices[d] == move)
+                {
+                    valid = FALSE;
+                    break;
+                }
+            }
+            tries++;
+        } while (!valid && tries < 1000);
+
+        sGachaMoveChoices[i] = move;
+
+        u8 *buf = Alloc(64);
+        StringCopy(buf, gMovesInfo[move].name);
+        struct ListMenuItem item = { buf, move };
+        MultichoiceDynamic_PushElement(item);
+    }
+
+    {
+        u8 *bufCancel = Alloc(32);
+        StringCopy(bufCancel, sText_BuildOpt_Back);
+        struct ListMenuItem cancelItem = { bufCancel, MOVE_NONE };
+        MultichoiceDynamic_PushElement(cancelItem);
+    }
+
+    gSpecialVar_Result = 0;
+}
+
+void Script_Gacha_ApplyMove(void)
+{
+    u16 move = (u16)gSpecialVar_0x8005;
+    if (move == MOVE_NONE || move >= MOVES_COUNT)
+    {
+        gSpecialVar_Result = 0; // Cancelled
+        return;
+    }
+
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
+    {
+        gSpecialVar_Result = 2; // Not enough points
+        return;
+    }
+
+    gSaveBlock2Ptr->metaProgression.rarityPoints[tier] -= 10;
+    SetBoxMonDataAt(GACHA_BOX_INDEX, sSelectedRosterSlot, MON_DATA_MOVE1, &move);
+    u8 pp = gMovesInfo[move].pp;
+    SetBoxMonDataAt(GACHA_BOX_INDEX, sSelectedRosterSlot, MON_DATA_PP1, &pp);
+
+    StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    StringCopy(gStringVar2, gMovesInfo[move].name);
+    ConvertIntToDecimalStringN(gStringVar3, gSaveBlock2Ptr->metaProgression.rarityPoints[tier], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = 1; // Success
+}
+
+void Script_Gacha_FuseSelectedMon(void)
+{
+    struct BoxPokemon *b = GetBoxedMonPtr(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    u16 species = GetBoxMonData(b, MON_DATA_SPECIES);
+    if (species == SPECIES_NONE)
+    {
+        gSpecialVar_Result = 0;
+        return;
+    }
+
+    u8 tier = GetSpeciesRarityTier(species);
+    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+        tier = RARITY_COMMON;
+
+    if (gSaveBlock2Ptr->metaProgression.chosenGachaSpecies == species)
+        gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
+
+    ZeroBoxMonAt(GACHA_BOX_INDEX, sSelectedRosterSlot);
+    gSaveBlock2Ptr->metaProgression.rarityPoints[tier] += 10;
+
+    StringCopy(gStringVar1, gSpeciesInfo[species].speciesName);
+    StringCopy(gStringVar2, GetRarityTierName(tier));
+    ConvertIntToDecimalStringN(gStringVar3, gSaveBlock2Ptr->metaProgression.rarityPoints[tier], STR_CONV_MODE_LEFT_ALIGN, 4);
+
+    gSpecialVar_Result = 1;
+}
+
+void Script_Meta_CheatAddTicketsAndPoints(void)
+{
+    InitKaizoMetaProgression();
+    gSaveBlock2Ptr->metaProgression.gachaTickets += 10;
+    gSaveBlock2Ptr->metaProgression.gachaTicketsTotal += 10;
+    for (int i = 1; i <= 4; i++)
+        gSaveBlock2Ptr->metaProgression.rarityPoints[i] += 50;
+}

@@ -605,6 +605,12 @@ struct KaizoMetaProgression
 
     // Sblocchi Fortuna
     u8 lootLuckLevel;          // 0..3
+
+    // Gacha & Roster System
+    u16 gachaTickets;          // Biglietti Gacha posseduti
+    u16 gachaTicketsTotal;     // Statistica storica biglietti
+    u16 rarityPoints[5];       // Punti per tier: [1]=Common, [2]=Uncommon, [3]=Rare, [4]=Epic
+    u16 chosenGachaSpecies;    // SPECIES_NONE (0) = starter casuale Oak, altrimenti Specie dello starter scelto
 };
 
 struct SaveBlock2

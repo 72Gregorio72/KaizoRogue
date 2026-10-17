@@ -122,4 +122,23 @@ void Script_Starter_ConsumeReroll(void);
 void Script_Kaizo_PrepareNewRun(void);
 void Script_CheckIsKaizoHub(void);
 
+// Gacha & Roster System
+void Script_Gacha_PullEgg(void);
+void Script_Gacha_HandleDuplicate(void);
+void Script_Gacha_PushRosterList(void);
+void Script_Gacha_SelectRosterMon(void);
+void Script_Gacha_PushBuildOptions(void);
+void Script_Gacha_PushNatureList(void);
+void Script_Gacha_ApplyNature(void);
+void Script_Gacha_PushAbilityList(void);
+void Script_Gacha_ApplyAbility(void);
+void Script_Gacha_PushMoveChoices(void);
+void Script_Gacha_ApplyMove(void);
+void Script_Gacha_ToggleStarter(void);
+void Script_Gacha_FuseSelectedMon(void);
+void Script_Gacha_GetTicketsAndPoints(void);
+void Script_Meta_CheatAddTicketsAndPoints(void);
+void OpenGachaSlotMachine(void);
+void OpenGachaRosterPC(void);
+
 #endif // GUARD_FIELD_SPECIALS_H

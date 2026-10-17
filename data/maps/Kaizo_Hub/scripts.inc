@@ -24,9 +24,21 @@ Kaizo_Hub_EventScript_TesterNPC::
 	faceplayer
 	msgbox Kaizo_Hub_Text_Intro, MSGBOX_DEFAULT
 	special Script_Kaizo_PrepareNewRun
+	goto_if_eq VAR_0x8004, 1, Kaizo_Hub_EventScript_StartRunWithGacha
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_StartRunDirect
 	msgbox Kaizo_Hub_Text_PartyReturnedToPC, MSGBOX_DEFAULT
 Kaizo_Hub_EventScript_StartRunDirect::
+	msgbox Kaizo_Hub_Text_WarpToRoom, MSGBOX_DEFAULT
+	closemessage
+	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
+	waitstate
+	release
+	end
+
+Kaizo_Hub_EventScript_StartRunWithGacha::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_StartingWithGachaStarter, MSGBOX_DEFAULT
+	waitfanfare
 	msgbox Kaizo_Hub_Text_WarpToRoom, MSGBOX_DEFAULT
 	closemessage
 	warp MAP_PALLET_TOWN_PLAYERS_HOUSE_2F, 3, 6
@@ -38,12 +50,28 @@ Kaizo_Hub_EventScript_PC::
 	lock
 	faceplayer
 	playse SE_PC_ON
-	msgbox Kaizo_Hub_Text_PCIntro, MSGBOX_YESNO
-	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_PCTurnOff
+	msgbox Kaizo_Hub_Text_PCIntro, MSGBOX_DEFAULT
+	dynmultipush Kaizo_Hub_Text_PCOpt_Roster, 0
+	dynmultipush Kaizo_Hub_Text_PCOpt_Classic, 1
+	dynmultipush Kaizo_Hub_Text_PCOpt_Exit, 2
+	dynmultistack 0, 0, FALSE, 3, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_PCTurnOff
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_PCTurnOff
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_OpenRosterPC
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_OpenClassicPC
+	goto Kaizo_Hub_EventScript_PCTurnOff
+
+Kaizo_Hub_EventScript_OpenRosterPC::
+	playse SE_PC_LOGIN
+	special OpenGachaRosterPC
+	goto Kaizo_Hub_EventScript_PCTurnOff
+
+Kaizo_Hub_EventScript_OpenClassicPC::
 	playse SE_PC_LOGIN
 	msgbox gText_StorageSystemOpened, MSGBOX_DEFAULT
 	special ShowPokemonStorageSystemPC
-	waitstate
+	goto Kaizo_Hub_EventScript_PCTurnOff
+
 Kaizo_Hub_EventScript_PCTurnOff::
 	playse SE_PC_OFF
 	msgbox Kaizo_Hub_Text_PCGoodbye, MSGBOX_DEFAULT
@@ -71,6 +99,15 @@ Kaizo_Hub_Text_PCGoodbye:
 	.string "verra' riposto automaticamente nel PC\l"
 	.string "appena farai partire una nuova run!$"
 
+Kaizo_Hub_Text_PCOpt_Roster:
+	.string "PC Roster & Starter Run$"
+
+Kaizo_Hub_Text_PCOpt_Classic:
+	.string "Deposito Box Classico$"
+
+Kaizo_Hub_Text_PCOpt_Exit:
+	.string "Spegni PC$"
+
 
 Kaizo_Hub_EventScript_Receptionist::
 	lock
@@ -85,12 +122,13 @@ Kaizo_Hub_EventScript_CheatNPC::
 	msgbox Kaizo_Hub_Text_CheatIntro, MSGBOX_DEFAULT
 Kaizo_Hub_EventScript_CheatMenu::
 	special Script_Meta_PushCheatChoices
-	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_CheatExit
-	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_CheatExit
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_CheatExit
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_CheatMaxAll
 	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_CheatMoney
-	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_CheatReset
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_CheatGacha
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_CheatReset
 	goto Kaizo_Hub_EventScript_CheatExit
 
 Kaizo_Hub_EventScript_CheatMaxAll::
@@ -104,6 +142,13 @@ Kaizo_Hub_EventScript_CheatMoney::
 	special Script_Meta_CheatInfiniteMoneyAndShards
 	playfanfare MUS_OBTAIN_ITEM
 	msgbox Kaizo_Hub_Text_CheatMoneyDone, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_CheatMenu
+
+Kaizo_Hub_EventScript_CheatGacha::
+	special Script_Meta_CheatAddTicketsAndPoints
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_CheatGachaDone, MSGBOX_DEFAULT
 	waitfanfare
 	goto Kaizo_Hub_EventScript_CheatMenu
 
@@ -733,8 +778,19 @@ Kaizo_Hub_Text_RunRecap:
 	.string "RESOCONTO ULTIMA RUN\p"
 	.string "Livello raggiunto: {STR_VAR_1}\n"
 	.string "Medaglie ottenute: {STR_VAR_2}\p"
-	.string "Bonus Frammenti Kaizo: +{STR_VAR_3}!\n"
+	.string "Ricompense: {STR_VAR_3}!\n"
 	.string "Ben tornato nell'HUB!$"
+
+Kaizo_Hub_Text_StartingWithGachaStarter:
+	.string "Preparati!\p"
+	.string "Inizierai la run con il tuo Starter\n"
+	.string "del Roster: {STR_VAR_1} (Liv. 5)!\p"
+	.string "La selezione da Oak verra' saltata\n"
+	.string "e potrai andare subito all'avventura!$"
+
+Kaizo_Hub_Text_CheatGachaDone:
+	.string "Hai ottenuto +10 Biglietti Gacha\n"
+	.string "e +50 Punti per ogni rarita'!$"
 
 Kaizo_Hub_Text_MartUpgrades_Intro:
 	.string "Benvenuto! Posso potenziare i servizi\n"
@@ -769,6 +825,299 @@ Kaizo_Hub_Text_AlreadyMaxed:
 Kaizo_Hub_Text_UpgradesGoodbye:
 	.string "Torna quando vuoi per altri\n"
 	.string "potenziamenti!$"
+
+// ========================================================
+// GACHA MACHINE & ROSTER BUILD SYSTEM
+// ========================================================
+
+Kaizo_Hub_EventScript_GachaMachine::
+	lock
+	faceplayer
+	playse SE_PIN
+	special Script_Gacha_GetTicketsAndPoints
+	msgbox Kaizo_Hub_Text_GachaIntro, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_GachaMenu::
+	dynmultipush Kaizo_Hub_Text_GachaOpt_Pull, 0
+	dynmultipush Kaizo_Hub_Text_GachaOpt_Roster, 1
+	dynmultipush Kaizo_Hub_Text_GachaOpt_Info, 2
+	dynmultipush Kaizo_Hub_Text_GachaOpt_Exit, 3
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaExit
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_GachaExit
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_GachaPull
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_GachaRoster
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_GachaInfo
+	goto Kaizo_Hub_EventScript_GachaExit
+
+Kaizo_Hub_EventScript_GachaInfo::
+	msgbox Kaizo_Hub_Text_GachaInfoText, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaPull::
+	special Script_Gacha_GetTicketsAndPoints
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_GachaNoTickets
+	special OpenGachaSlotMachine
+	special Script_Gacha_GetTicketsAndPoints
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaNoTickets::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_GachaNoTickets, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaBoxFull::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_GachaBoxFull, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaNewMon::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_GachaNewHatched, MSGBOX_DEFAULT
+	waitfanfare
+	msgbox Kaizo_Hub_Text_GachaAddedToRoster, MSGBOX_DEFAULT
+	special Script_Gacha_GetTicketsAndPoints
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaDuplicateMon::
+	playfanfare MUS_OBTAIN_ITEM
+	msgbox Kaizo_Hub_Text_GachaDuplicateHatched, MSGBOX_DEFAULT
+	waitfanfare
+	msgbox Kaizo_Hub_Text_GachaDuplicateStats, MSGBOX_DEFAULT
+	dynmultipush Kaizo_Hub_Text_GachaDup_KeepNew, 0
+	dynmultipush Kaizo_Hub_Text_GachaDup_KeepOld, 1
+	dynmultistack 0, 0, FALSE, 2, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Gacha_HandleDuplicate
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_GachaFusedSuccess, MSGBOX_DEFAULT
+	special Script_Gacha_GetTicketsAndPoints
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_GachaRoster::
+	special OpenGachaRosterPC
+	special Script_Gacha_GetTicketsAndPoints
+	goto Kaizo_Hub_EventScript_GachaMenu
+Kaizo_Hub_EventScript_GachaMonBuildMenu::
+	msgbox Kaizo_Hub_Text_GachaMonDetails, MSGBOX_DEFAULT
+	special Script_Gacha_PushBuildOptions
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaRoster
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_GachaRoster
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildToggleStarter
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNature
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildAbility
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildMove
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildFuseMon
+	goto Kaizo_Hub_EventScript_GachaRoster
+
+Kaizo_Hub_EventScript_GachaRosterEmpty::
+	msgbox Kaizo_Hub_Text_GachaRosterEmpty, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMenu
+
+Kaizo_Hub_EventScript_BuildToggleStarter::
+	special Script_Gacha_ToggleStarter
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_StarterSet
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_StarterRemoved, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+Kaizo_Hub_EventScript_StarterSet::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_StarterSetSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_BuildNature::
+	special Script_Gacha_PushNatureList
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNoPoints
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Gacha_ApplyNature
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNatureSuccess
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+Kaizo_Hub_EventScript_BuildNatureSuccess::
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_BuildNatureSuccess, MSGBOX_DEFAULT
+	special Script_Gacha_SelectRosterMon
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_BuildAbility::
+	special Script_Gacha_PushAbilityList
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNoPoints
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Gacha_ApplyAbility
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildAbilitySuccess
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+Kaizo_Hub_EventScript_BuildAbilitySuccess::
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_BuildAbilitySuccess, MSGBOX_DEFAULT
+	special Script_Gacha_SelectRosterMon
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_BuildMove::
+	special Script_Gacha_PushMoveChoices
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNoPoints
+	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_Gacha_ApplyMove
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildMoveSuccess
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+Kaizo_Hub_EventScript_BuildMoveSuccess::
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildMoveSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	special Script_Gacha_SelectRosterMon
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_BuildFuseMon::
+	msgbox Kaizo_Hub_Text_BuildConfirmFuse, MSGBOX_YESNO
+	goto_if_eq VAR_RESULT, NO, Kaizo_Hub_EventScript_GachaMonBuildMenu
+	special Script_Gacha_FuseSelectedMon
+	playse SE_EXP
+	msgbox Kaizo_Hub_Text_BuildFuseDone, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaRoster
+
+Kaizo_Hub_EventScript_BuildNoPoints::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_BuildNotEnoughPoints, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_GachaMonBuildMenu
+
+Kaizo_Hub_EventScript_GachaExit::
+	msgbox Kaizo_Hub_Text_GachaGoodbye, MSGBOX_DEFAULT
+	release
+	end
+
+Kaizo_Hub_Text_GachaIntro:
+	.string "DISTRIBUTORE GACHA UOVA\p"
+	.string "Biglietti Gacha posseduti: {STR_VAR_1}\p"
+	.string "Punti Rarita' accumulati:\n"
+	.string "{STR_VAR_2}\n"
+	.string "{STR_VAR_3}$"
+
+Kaizo_Hub_Text_GachaOpt_Pull:
+	.string "Schiudi Uovo (Slot Machine)$"
+
+Kaizo_Hub_Text_GachaOpt_Roster:
+	.string "PC Roster & Starter Run$"
+
+Kaizo_Hub_Text_GachaOpt_Info:
+	.string "Info Regole Gacha$"
+
+Kaizo_Hub_Text_GachaOpt_Exit:
+	.string "Esci$"
+
+Kaizo_Hub_Text_GachaInfoText:
+	.string "COME FUNZIONA IL GACHA:\p"
+	.string "1. Ottieni Biglietti sconfiggendo i\n"
+	.string "Capipalestra durante le run.\p"
+	.string "2. Le uova schiudono Pokemon base a\n"
+	.string "Liv. 5 con IV, Natura e Abilita' random\n"
+	.string "e mossa iniziale Scratch.\p"
+	.string "3. Se trovi un duplicato, puoi scegliere\n"
+	.string "se tenere il nuovo o il vecchio:\n"
+	.string "quello fuso ti dara' 10 Punti Rarita'!\p"
+	.string "4. Spendi i Punti Rarita' per buildare\n"
+	.string "la Natura (5 pt), l'Abilita' (10 pt)\n"
+	.string "o la Mossa iniziale (10 pt) di qualsiasi\n"
+	.string "Pokemon della stessa rarita'!\p"
+	.string "5. Imposta un Pokemon come Starter per\n"
+	.string "portarlo direttamente nella run!$"
+
+Kaizo_Hub_Text_GachaNoTickets:
+	.string "Non hai abbastanza Biglietti Gacha!\n"
+	.string "Vincili battendo i Capipalestra nelle run!$"
+
+Kaizo_Hub_Text_GachaBoxFull:
+	.string "Il tuo Roster e' pieno (max 30 Pokemon)!\n"
+	.string "Fondi prima un Pokemon dal menu Roster.$"
+
+Kaizo_Hub_Text_GachaNewHatched:
+	.string "Dall'Uovo {STR_VAR_2} e' nato\n"
+	.string "{STR_VAR_1} (Liv. 5)!\p"
+	.string "Natura e Abilita':\n"
+	.string "{STR_VAR_3}\n"
+	.string "Mossa Iniziale: Scratch$"
+
+Kaizo_Hub_Text_GachaAddedToRoster:
+	.string "{STR_VAR_1} e' stato aggiunto al tuo\n"
+	.string "Roster dell'Hub!$"
+
+Kaizo_Hub_Text_GachaDuplicateHatched:
+	.string "Dall'Uovo e' nato un {STR_VAR_1} duplicato!$"
+
+Kaizo_Hub_Text_GachaDuplicateStats:
+	.string "Confronto statistiche:\p"
+	.string "Vecchio {STR_VAR_1} nel Roster:\n"
+	.string "{STR_VAR_2}\p"
+	.string "Nuovo {STR_VAR_1} schiuso:\n"
+	.string "{STR_VAR_3}\p"
+	.string "Quale vuoi tenere? L'altro verra' fuso\n"
+	.string "in +10 Punti Rarita'!$"
+
+Kaizo_Hub_Text_GachaDup_KeepNew:
+	.string "Tieni il NUOVO (Fondi il Vecchio)$"
+
+Kaizo_Hub_Text_GachaDup_KeepOld:
+	.string "Tieni il VECCHIO (Fondi il Nuovo)$"
+
+Kaizo_Hub_Text_GachaFusedSuccess:
+	.string "Hai fuso {STR_VAR_1}!\p"
+	.string "Ottenuti: +10 Punti {STR_VAR_2}!\n"
+	.string "Nuovo totale: {STR_VAR_3} Punti.$"
+
+Kaizo_Hub_Text_GachaRosterEmpty:
+	.string "Non possiedi nessun Pokemon nel Roster!\n"
+	.string "Tira un uovo per ottenere il tuo primo mon.$"
+
+Kaizo_Hub_Text_GachaMonDetails:
+	.string "POKEMON: {STR_VAR_1}\n"
+	.string "Natura e Abilita': {STR_VAR_2}\n"
+	.string "Mossa: {STR_VAR_3}$"
+
+Kaizo_Hub_Text_StarterSetSuccess:
+	.string "{STR_VAR_1} e' ora il tuo Starter attivo!\p"
+	.string "Quando partirai per una nuova run,\n"
+	.string "inizierai direttamente con {STR_VAR_1}!$"
+
+Kaizo_Hub_Text_StarterRemoved:
+	.string "{STR_VAR_1} non e' piu' lo Starter attivo.\n"
+	.string "Inizierai le run con la scelta da Oak.$"
+
+Kaizo_Hub_Text_BuildNatureSuccess:
+	.string "La natura di {STR_VAR_1} e' ora {STR_VAR_2}!\n"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildAbilitySuccess:
+	.string "L'abilita' di {STR_VAR_1} e' ora {STR_VAR_2}!\n"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildMoveSuccess:
+	.string "{STR_VAR_1} ha imparato {STR_VAR_2}\n"
+	.string "come mossa iniziale di partenza!\p"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildConfirmFuse:
+	.string "Sei sicuro di voler fondere {STR_VAR_1}?\n"
+	.string "Verra' rimosso dal tuo Roster e riceverai\l"
+	.string "+10 Punti di questa rarita'!$"
+
+Kaizo_Hub_Text_BuildFuseDone:
+	.string "Hai fuso {STR_VAR_1}!\p"
+	.string "Ottenuti: +10 Punti {STR_VAR_2}!\n"
+	.string "Totale punti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNotEnoughPoints:
+	.string "Non hai abbastanza Punti Rarita' di questa\n"
+	.string "categoria per effettuare la modifica!$"
+
+Kaizo_Hub_Text_GachaGoodbye:
+	.string "Torna presto a trovarmi!$"
 
 
 
