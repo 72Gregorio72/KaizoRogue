@@ -30,16 +30,23 @@ static const u16 sRarityFramePal_Epic[16] = {
     0x2B9F, 0x0000, 0x0000, 0x15BE, 0x14DA, 0x0428, 0x7FFF, 0x0428
 };
 
-// Colored Rarity Strings
-static const u8 sText_RarityCommon[]   = _("{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}COMMON{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
-static const u8 sText_RarityUncommon[] = _("{COLOR GREEN}{SHADOW LIGHT_GREEN}UNCOMMON{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
-static const u8 sText_RarityRare[]     = _("{COLOR BLUE}{SHADOW LIGHT_BLUE}RARE{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
-static const u8 sText_RarityEpic[]     = _("{COLOR RED}{SHADOW LIGHT_RED}EPIC{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u16 sRarityFramePal_Legendary[16] = {
+    0x0000, 0x0014, 0x0478, 0x10DC, 0x1D1E, 0x2980, 0x3600, 0x46A0,
+    0x5740, 0x0000, 0x0000, 0x3600, 0x1D1E, 0x0014, 0x7FFF, 0x0014
+};
 
-static const u8 sText_ColorCommon[]    = _("{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
-static const u8 sText_ColorUncommon[]  = _("{COLOR GREEN}{SHADOW LIGHT_GREEN}");
-static const u8 sText_ColorRare[]      = _("{COLOR BLUE}{SHADOW LIGHT_BLUE}");
-static const u8 sText_ColorEpic[]      = _("{COLOR RED}{SHADOW LIGHT_RED}");
+// Colored Rarity Strings
+static const u8 sText_RarityCommon[]    = _("{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}COMMON{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u8 sText_RarityUncommon[]  = _("{COLOR GREEN}{SHADOW LIGHT_GREEN}UNCOMMON{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u8 sText_RarityRare[]      = _("{COLOR BLUE}{SHADOW LIGHT_BLUE}RARE{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u8 sText_RarityEpic[]      = _("{COLOR RED}{SHADOW LIGHT_RED}EPIC{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u8 sText_RarityLegendary[] = _("{COLOR LIGHT_RED}{SHADOW RED}LEGENDARY{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+
+static const u8 sText_ColorCommon[]     = _("{COLOR DARK_GRAY}{SHADOW LIGHT_GRAY}");
+static const u8 sText_ColorUncommon[]   = _("{COLOR GREEN}{SHADOW LIGHT_GREEN}");
+static const u8 sText_ColorRare[]       = _("{COLOR BLUE}{SHADOW LIGHT_BLUE}");
+static const u8 sText_ColorEpic[]       = _("{COLOR RED}{SHADOW LIGHT_RED}");
+static const u8 sText_ColorLegendary[]  = _("{COLOR LIGHT_RED}{SHADOW RED}");
 
 bool32 IsSpeciesInRarityPool(u16 species)
 {
@@ -301,6 +308,10 @@ u16 GetRandomRaritySpeciesByTier(u8 tier, u32 *rng)
         pool = sRarityPokemon_Epic;
         count = ARRAY_COUNT(sRarityPokemon_Epic);
         break;
+    case RARITY_LEGENDARY:
+        pool = sRarityPokemon_Legendary;
+        count = ARRAY_COUNT(sRarityPokemon_Legendary);
+        break;
     default:
         return GetRandomRaritySpecies(rng);
     }
@@ -339,6 +350,10 @@ u16 GetRandomRarityMoveByTier(u8 tier, u32 *rng)
         pool = sRarityMoves_Epic;
         count = ARRAY_COUNT(sRarityMoves_Epic);
         break;
+    case RARITY_LEGENDARY:
+        pool = sRarityMoves_Legendary;
+        count = ARRAY_COUNT(sRarityMoves_Legendary);
+        break;
     default:
         return GetRandomRarityMove(rng);
     }
@@ -376,6 +391,10 @@ u16 GetRandomRarityItemByTier(u8 tier, u32 *rng)
     case RARITY_EPIC:
         pool = sRarityItems_Epic;
         count = ARRAY_COUNT(sRarityItems_Epic);
+        break;
+    case RARITY_LEGENDARY:
+        pool = sRarityItems_Legendary;
+        count = ARRAY_COUNT(sRarityItems_Legendary);
         break;
     default:
         return GetRandomRarityItem(rng);
@@ -422,6 +441,8 @@ const u8 *GetRarityColoredName(u8 tier)
         return sText_RarityRare;
     case RARITY_EPIC:
         return sText_RarityEpic;
+    case RARITY_LEGENDARY:
+        return sText_RarityLegendary;
     default:
         return sText_RarityCommon;
     }
@@ -439,6 +460,8 @@ const u8 *GetRarityColorPrefix(u8 tier)
         return sText_ColorRare;
     case RARITY_EPIC:
         return sText_ColorEpic;
+    case RARITY_LEGENDARY:
+        return sText_ColorLegendary;
     default:
         return sText_ColorCommon;
     }
@@ -457,6 +480,9 @@ void LoadRarityFramePalette(u8 tier, u8 paletteNum)
         break;
     case RARITY_EPIC:
         pal = sRarityFramePal_Epic;
+        break;
+    case RARITY_LEGENDARY:
+        pal = sRarityFramePal_Legendary;
         break;
     case RARITY_COMMON:
     default:

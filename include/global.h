@@ -609,8 +609,10 @@ struct KaizoMetaProgression
     // Gacha & Roster System
     u16 gachaTickets;          // Biglietti Gacha posseduti
     u16 gachaTicketsTotal;     // Statistica storica biglietti
-    u16 rarityPoints[5];       // Punti per tier: [1]=Common, [2]=Uncommon, [3]=Rare, [4]=Epic
+    u16 rarityPoints[6];       // Punti per tier: [1]=Common, [2]=Uncommon, [3]=Rare, [4]=Epic, [5]=Legendary
     u16 chosenGachaSpecies;    // SPECIES_NONE (0) = starter casuale Oak, altrimenti Specie dello starter scelto
+    u16 gachaPityLegendary;    // Contatore pity per Leggendario garantito (a 100 pull garantito)
+    bool8 shinyDefaultMigrationDone;
 };
 
 struct SaveBlock2

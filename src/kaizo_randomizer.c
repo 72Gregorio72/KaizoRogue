@@ -251,9 +251,28 @@ void InitKaizoMetaProgression(void)
         gSaveBlock2Ptr->metaProgression.lootLuckLevel = 0;
         gSaveBlock2Ptr->metaProgression.gachaTickets = 0;
         gSaveBlock2Ptr->metaProgression.gachaTicketsTotal = 0;
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i <= RARITY_TIERS_COUNT; i++)
             gSaveBlock2Ptr->metaProgression.rarityPoints[i] = 0;
+        gSaveBlock2Ptr->metaProgression.gachaPityLegendary = 0;
         gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
+        gSaveBlock2Ptr->metaProgression.shinyDefaultMigrationDone = FALSE;
+    }
+
+    if (!gSaveBlock2Ptr->metaProgression.shinyDefaultMigrationDone)
+    {
+        for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
+        {
+            for (int slot = 0; slot < IN_BOX_COUNT; slot++)
+            {
+                struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+                if (b != NULL && GetBoxMonData(b, MON_DATA_SPECIES) != SPECIES_NONE && GetBoxMonData(b, MON_DATA_SHINY_UNLOCKED))
+                {
+                    bool32 trueVal = TRUE;
+                    SetBoxMonData(b, MON_DATA_IS_SHINY, &trueVal);
+                }
+            }
+        }
+        gSaveBlock2Ptr->metaProgression.shinyDefaultMigrationDone = TRUE;
     }
 }
 
@@ -2617,8 +2636,9 @@ void Script_Meta_CheatReset(void)
     gSaveBlock2Ptr->metaProgression.rogueShards = 0;
     gSaveBlock2Ptr->metaProgression.gachaTickets = 0;
     gSaveBlock2Ptr->metaProgression.gachaTicketsTotal = 0;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i <= RARITY_TIERS_COUNT; i++)
         gSaveBlock2Ptr->metaProgression.rarityPoints[i] = 0;
+    gSaveBlock2Ptr->metaProgression.gachaPityLegendary = 0;
     gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_NONE;
 
     SetMoney(&gSaveBlock1Ptr->money, 3000);
@@ -2739,11 +2759,12 @@ static EWRAM_DATA u8 sDuplicateExistingSlot = 0;
 static EWRAM_DATA u8 sSelectedRosterSlot = 0;
 static EWRAM_DATA u16 sGachaMoveChoices[4] = {0};
 
-static const u8 sText_RarityCommon[]   = _("{COLOR DARK_GRAY}Common");
-static const u8 sText_RarityUncommon[] = _("{COLOR GREEN}Uncommon");
-static const u8 sText_RarityRare[]     = _("{COLOR BLUE}Rare");
-static const u8 sText_RarityEpic[]     = _("{COLOR RED}Epic");
-static const u8 sText_RarityUnknown[]  = _("Unknown");
+static const u8 sText_RarityCommon[]    = _("{COLOR DARK_GRAY}Common");
+static const u8 sText_RarityUncommon[]  = _("{COLOR GREEN}Uncommon");
+static const u8 sText_RarityRare[]      = _("{COLOR BLUE}Rare");
+static const u8 sText_RarityEpic[]      = _("{COLOR RED}Epic");
+static const u8 sText_RarityLegendary[] = _("{COLOR LIGHT_RED}Legendary");
+static const u8 sText_RarityUnknown[]   = _("Unknown");
 
 static const u8 sText_GachaCom[]         = _("Com:");
 static const u8 sText_GachaNonCom[]      = _(" UnCom:");
@@ -2759,11 +2780,12 @@ const u8 *GetRarityTierName(u8 tier)
 {
     switch (tier)
     {
-    case RARITY_COMMON:   return sText_RarityCommon;
-    case RARITY_UNCOMMON: return sText_RarityUncommon;
-    case RARITY_RARE:     return sText_RarityRare;
-    case RARITY_EPIC:     return sText_RarityEpic;
-    default:              return sText_RarityUnknown;
+    case RARITY_COMMON:    return sText_RarityCommon;
+    case RARITY_UNCOMMON:  return sText_RarityUncommon;
+    case RARITY_RARE:      return sText_RarityRare;
+    case RARITY_EPIC:      return sText_RarityEpic;
+    case RARITY_LEGENDARY: return sText_RarityLegendary;
+    default:               return sText_RarityUnknown;
     }
 }
 
@@ -2906,14 +2928,17 @@ void SortRosterBoxes(void)
     for (u32 i = 0; i < count; i++)
     {
         struct BoxPokemon *monA = GetBoxedMonPtr(i / IN_BOX_COUNT, i % IN_BOX_COUNT);
+        u16 spA = GetBoxMonData(monA, MON_DATA_SPECIES);
         for (u32 j = i + 1; j < count; j++)
         {
             struct BoxPokemon *monB = GetBoxedMonPtr(j / IN_BOX_COUNT, j % IN_BOX_COUNT);
-            if (GetBoxMonData(monA, MON_DATA_SPECIES) > GetBoxMonData(monB, MON_DATA_SPECIES))
+            u16 spB = GetBoxMonData(monB, MON_DATA_SPECIES);
+            if (spA > spB)
             {
                 struct BoxPokemon tmp = *monA;
                 *monA = *monB;
                 *monB = tmp;
+                spA = spB;
             }
         }
     }
@@ -2932,6 +2957,7 @@ bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
         {
             bool32 trueVal = TRUE;
             SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+            SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
         }
         return TRUE;
     }
@@ -2944,10 +2970,11 @@ bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
             if (GetBoxMonData(b, MON_DATA_SPECIES) == SPECIES_NONE)
             {
                 *b = *newMon;
-                if (GetBoxMonData(newMon, MON_DATA_IS_SHINY))
+                if (GetBoxMonData(newMon, MON_DATA_IS_SHINY) || GetBoxMonData(newMon, MON_DATA_SHINY_UNLOCKED))
                 {
                     bool32 trueVal = TRUE;
                     SetBoxMonData(b, MON_DATA_SHINY_UNLOCKED, &trueVal);
+                    SetBoxMonData(b, MON_DATA_IS_SHINY, &trueVal);
                 }
                 SortRosterBoxes();
                 return TRUE;
@@ -3134,6 +3161,7 @@ void Script_Gacha_HandleDuplicate(void)
     {
         bool32 trueVal = TRUE;
         SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+        SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
     }
 
     // Merge best IVs into existing, keeping existing customizations (starter, nature, ability, starter move, etc.)
@@ -3666,6 +3694,6 @@ void Script_Meta_CheatAddTicketsAndPoints(void)
     InitKaizoMetaProgression();
     gSaveBlock2Ptr->metaProgression.gachaTickets += 100;
     gSaveBlock2Ptr->metaProgression.gachaTicketsTotal += 100;
-    for (int i = 1; i <= 4; i++)
+    for (int i = 1; i <= RARITY_TIERS_COUNT; i++)
         gSaveBlock2Ptr->metaProgression.rarityPoints[i] += 50;
 }

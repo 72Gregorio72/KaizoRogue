@@ -79,10 +79,12 @@ static const u8 ALIGNED(4) sCheckerBg_Gfx[288] = {
 #define PALTAG_GACHA_UNCOMMON       0x2802
 #define PALTAG_GACHA_RARE           0x2803
 #define PALTAG_GACHA_EPIC           0x2804
-#define PALTAG_GACHA_SHINY_COMMON   0x2805
-#define PALTAG_GACHA_SHINY_UNCOMMON 0x2806
-#define PALTAG_GACHA_SHINY_RARE     0x2807
-#define PALTAG_GACHA_SHINY_EPIC     0x2808
+#define PALTAG_GACHA_LEGENDARY      0x2805
+#define PALTAG_GACHA_SHINY_COMMON   0x2806
+#define PALTAG_GACHA_SHINY_UNCOMMON 0x2807
+#define PALTAG_GACHA_SHINY_RARE     0x2808
+#define PALTAG_GACHA_SHINY_EPIC     0x2809
+#define PALTAG_GACHA_SHINY_LEGENDARY 0x280A
 
 #define NUM_REELS 3
 #define EGGS_PER_REEL 3
@@ -140,6 +142,18 @@ static const u16 sEggPal_Epic[16] = {
     RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(16, 28, 28)
 };
 
+static const u16 sEggPal_Legendary[16] = {
+    RGB(0, 0, 0),
+    RGB(8, 9, 9),
+    RGB(16, 17, 18),
+    RGB(30, 30, 28),
+    RGB(28, 28, 26),
+    RGB(23, 23, 22),
+    RGB(24, 6, 30),      // spots primary - Royal Purple / Violet
+    RGB(14, 2, 18),      // spots shadow - Deep Royal Violet
+    RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(16, 28, 28)
+};
+
 // Shiny Egg Palettes (Yellow/Gold body instead of white, Tier-colored spots)
 static const u16 sEggPal_ShinyCommon[16] = {
     RGB(0, 0, 0),       // transparent
@@ -189,9 +203,21 @@ static const u16 sEggPal_ShinyEpic[16] = {
     RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(16, 28, 28)
 };
 
+static const u16 sEggPal_ShinyLegendary[16] = {
+    RGB(0, 0, 0),
+    RGB(8, 9, 9),
+    RGB(16, 17, 18),
+    RGB(31, 31, 14),
+    RGB(31, 26, 4),
+    RGB(26, 20, 2),
+    RGB(24, 6, 30),      // spots primary - Royal Purple / Violet
+    RGB(14, 2, 18),      // spots shadow - Deep Royal Violet
+    RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(28, 0, 0), RGB(16, 28, 28)
+};
+
 static u16 GetEggPaletteTag(u8 tier, bool8 isShiny)
 {
-    if (tier < RARITY_COMMON || tier > RARITY_EPIC)
+    if (tier < RARITY_COMMON || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
     if (isShiny)
         return PALTAG_GACHA_SHINY_COMMON + tier - 1;
@@ -251,14 +277,16 @@ static const struct SpriteSheet sEggSpriteSheet =
 
 static const struct SpritePalette sEggSpritePalettes[] =
 {
-    { sEggPal_Common,        PALTAG_GACHA_COMMON },
-    { sEggPal_Uncommon,      PALTAG_GACHA_UNCOMMON },
-    { sEggPal_Rare,          PALTAG_GACHA_RARE },
-    { sEggPal_Epic,          PALTAG_GACHA_EPIC },
-    { sEggPal_ShinyCommon,   PALTAG_GACHA_SHINY_COMMON },
-    { sEggPal_ShinyUncommon, PALTAG_GACHA_SHINY_UNCOMMON },
-    { sEggPal_ShinyRare,     PALTAG_GACHA_SHINY_RARE },
-    { sEggPal_ShinyEpic,     PALTAG_GACHA_SHINY_EPIC },
+    { sEggPal_Common,         PALTAG_GACHA_COMMON },
+    { sEggPal_Uncommon,       PALTAG_GACHA_UNCOMMON },
+    { sEggPal_Rare,           PALTAG_GACHA_RARE },
+    { sEggPal_Epic,           PALTAG_GACHA_EPIC },
+    { sEggPal_Legendary,      PALTAG_GACHA_LEGENDARY },
+    { sEggPal_ShinyCommon,    PALTAG_GACHA_SHINY_COMMON },
+    { sEggPal_ShinyUncommon,  PALTAG_GACHA_SHINY_UNCOMMON },
+    { sEggPal_ShinyRare,      PALTAG_GACHA_SHINY_RARE },
+    { sEggPal_ShinyEpic,      PALTAG_GACHA_SHINY_EPIC },
+    { sEggPal_ShinyLegendary, PALTAG_GACHA_SHINY_LEGENDARY },
     {}
 };
 
@@ -595,30 +623,33 @@ static void FormatTypeString(u8 *dest, u8 type1, u8 type2)
     }
 }
 
-static const u8 *const sGradeColors[5] = {
-    sColor_Purple, // 0: S (Viola)
-    sColor_Red,    // 1: A (Rossa)
-    sColor_Blue,   // 2: B (Blu)
-    sColor_Green,  // 3: C (Verde)
-    sColor_Gray    // 4: D (Grigio)
+static const u8 *const sGradeColors[6] = {
+    sColor_Gold,   // 0: S+ (Oro)
+    sColor_Purple, // 1: S (Viola)
+    sColor_Red,    // 2: A (Rossa)
+    sColor_Blue,   // 3: B (Blu)
+    sColor_Green,  // 4: C (Verde)
+    sColor_Gray    // 5: D (Grigio)
 };
 
 static u8 GetIvGrade(u8 iv)
 {
-    if (iv >= 31) return 0; // S (31)
-    if (iv >= 25) return 1; // A (25-30)
-    if (iv >= 18) return 2; // B (18-24)
-    if (iv >= 10) return 3; // C (10-17)
-    return 4;               // D (0-9)
+    if (iv >= 31) return 0; // S+ (31)
+    if (iv >= 30) return 1; // S (30)
+    if (iv >= 25) return 2; // A (25-29)
+    if (iv >= 18) return 3; // B (18-24)
+    if (iv >= 10) return 4; // C (10-17)
+    return 5;               // D (0-9)
 }
 
 static u8 GetTotalIvGrade(u16 tot)
 {
-    if (tot >= 165) return 0; // S
-    if (tot >= 140) return 1; // A
-    if (tot >= 110) return 2; // B
-    if (tot >= 75)  return 3; // C
-    return 4;                 // D
+    if (tot >= 186) return 0; // S+ (186 = 31*6)
+    if (tot >= 165) return 1; // S
+    if (tot >= 140) return 2; // A
+    if (tot >= 110) return 3; // B
+    if (tot >= 75)  return 4; // C
+    return 5;                 // D
 }
 
 static void CB2_GachaMain(void);
@@ -627,6 +658,7 @@ static void Task_GachaLoop(u8 taskId);
 static void UpdateHeaderWindow(void);
 static void UpdatePromptWindow(void);
 static void PrintResultWindow(void);
+static u8 RollGachaTier(void);
 static void StartRoll(void);
 static void StartMultiRoll(void);
 static void CleanSprites(void);
@@ -690,6 +722,8 @@ void OpenGachaSlotMachine(void)
     LoadSpritePalettes(sEggSpritePalettes);
 
     sGacha->monSpriteId = 0xFFFF;
+    memset(sGacha->eggSpriteIds, 0xFF, sizeof(sGacha->eggSpriteIds));
+    memset(sGacha->multiEggSpriteIds, 0xFF, sizeof(sGacha->multiEggSpriteIds));
     sGacha->bgScrollTimer = 0;
     sGacha->bgScrollX = 0;
     sGacha->bgScrollY = 0;
@@ -763,6 +797,37 @@ static void VBlankCB_Gacha(void)
     }
 }
 
+static u8 RollGachaTier(void)
+{
+    // Pity check: guaranteed Legendary if 100 pulls passed without one
+    if (gSaveBlock2Ptr->metaProgression.gachaPityLegendary >= 100)
+    {
+        gSaveBlock2Ptr->metaProgression.gachaPityLegendary = 0;
+        return RARITY_LEGENDARY;
+    }
+
+    u16 roll = Random() % 100;
+    u8 tier;
+
+    if (roll < 50)
+        tier = RARITY_COMMON;      // 50% (0-49)
+    else if (roll < 80)
+        tier = RARITY_UNCOMMON;    // 30% (50-79)
+    else if (roll < 94)
+        tier = RARITY_RARE;        // 14% (80-93)
+    else if (roll < 99)
+        tier = RARITY_EPIC;        // 5%  (94-98)
+    else
+        tier = RARITY_LEGENDARY;   // 1%  (99)
+
+    if (tier == RARITY_LEGENDARY)
+        gSaveBlock2Ptr->metaProgression.gachaPityLegendary = 0;
+    else
+        gSaveBlock2Ptr->metaProgression.gachaPityLegendary++;
+
+    return tier;
+}
+
 static void StartRoll(void)
 {
     if (gSaveBlock2Ptr->metaProgression.gachaTickets >= 1)
@@ -777,9 +842,7 @@ static void StartRoll(void)
     CopyBgTilemapBufferToVram(0);
 
     sGacha->isMultiPull = FALSE;
-    sGacha->rolledTier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, NULL);
-    if (sGacha->rolledTier == RARITY_NONE || sGacha->rolledTier > RARITY_EPIC)
-        sGacha->rolledTier = RARITY_COMMON;
+    sGacha->rolledTier = RollGachaTier();
 
     u16 species = SPECIES_NONE;
 
@@ -814,8 +877,11 @@ static void StartRoll(void)
         if (species == SPECIES_NONE)
             species = SPECIES_CHARMANDER;
 
-        while (GetSpeciesPreEvolution(species) != SPECIES_NONE)
-            species = GetSpeciesPreEvolution(species);
+        if (sGacha->rolledTier != RARITY_LEGENDARY)
+        {
+            while (GetSpeciesPreEvolution(species) != SPECIES_NONE)
+                species = GetSpeciesPreEvolution(species);
+        }
     }
 
     sGacha->hatchedSpecies = species;
@@ -837,8 +903,8 @@ static void StartRoll(void)
     SetMonData(&sGacha->hatchedMon, MON_DATA_PP4, &zeroPP);
     CalculateMonStats(&sGacha->hatchedMon);
 
-    // 1/64 chance to be shiny in Gacha (or naturally shiny)
-    if ((Random() % 64) == 0 || IsMonShiny(&sGacha->hatchedMon))
+    // 1% chance to be shiny in Gacha (or naturally shiny)
+    if ((Random() % 100) == 0 || IsMonShiny(&sGacha->hatchedMon))
     {
         bool32 trueVal = TRUE;
         SetMonData(&sGacha->hatchedMon, MON_DATA_IS_SHINY, &trueVal);
@@ -888,6 +954,7 @@ static void StartRoll(void)
         {
             bool32 trueVal = TRUE;
             SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+            SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
         }
 
         AddRarityPoints(sGacha->rolledTier, 10);
@@ -910,7 +977,7 @@ static void StartRoll(void)
         sGacha->reelYOffsets[r] = 0;
         for (int i = 0; i < EGGS_PER_REEL; i++)
         {
-            u8 tier = (Random() % 4) + 1;
+            u8 tier = (Random() % 5) + 1;
             sGacha->reelTiers[r][i] = tier;
             u8 spriteId = CreateSprite(&sSpriteTemplate_GachaEgg, sReelXCoords[r], REEL_Y_CENTER + (i - 1) * 32, 2);
             gSprites[spriteId].oam.paletteNum = IndexOfSpritePaletteTag(PALTAG_GACHA_COMMON + tier - 1);
@@ -947,9 +1014,7 @@ static void StartMultiRoll(void)
     {
         struct GachaPullResult *pull = &sGacha->pulls[k];
 
-        pull->tier = RollRarityTier(CATEGORY_POKEMON, LOOT_CONTEXT_STANDARD, NULL);
-        if (pull->tier == RARITY_NONE || pull->tier > RARITY_EPIC)
-            pull->tier = RARITY_COMMON;
+        pull->tier = RollGachaTier();
 
         u16 species = SPECIES_NONE;
         if (sSelectedGachaBanner >= 1 && sSelectedGachaBanner <= NUM_GENERATIONS)
@@ -977,8 +1042,11 @@ static void StartMultiRoll(void)
             species = GetRandomRaritySpeciesByTier(pull->tier, NULL);
             if (species == SPECIES_NONE)
                 species = SPECIES_CHARMANDER;
-            while (GetSpeciesPreEvolution(species) != SPECIES_NONE)
-                species = GetSpeciesPreEvolution(species);
+            if (pull->tier != RARITY_LEGENDARY)
+            {
+                while (GetSpeciesPreEvolution(species) != SPECIES_NONE)
+                    species = GetSpeciesPreEvolution(species);
+            }
         }
 
         pull->species = species;
@@ -1000,8 +1068,8 @@ static void StartMultiRoll(void)
         SetMonData(&pull->mon, MON_DATA_PP4, &zeroPP);
         CalculateMonStats(&pull->mon);
 
-        // Shiny roll (1/64)
-        if ((Random() % 64) == 0 || IsMonShiny(&pull->mon))
+        // Shiny roll (1%)
+        if ((Random() % 100) == 0 || IsMonShiny(&pull->mon))
         {
             bool32 trueVal = TRUE;
             SetMonData(&pull->mon, MON_DATA_IS_SHINY, &trueVal);
@@ -1051,6 +1119,7 @@ static void StartMultiRoll(void)
             {
                 bool32 trueVal = TRUE;
                 SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+                SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
             }
 
             AddRarityPoints(pull->tier, 10);
@@ -1097,22 +1166,22 @@ static void CleanSprites(void)
         for (int i = 0; i < EGGS_PER_REEL; i++)
         {
             u8 sId = sGacha->eggSpriteIds[r][i];
-            if (sId != 0 && gSprites[sId].inUse)
+            if (sId < MAX_SPRITES && gSprites[sId].inUse)
             {
                 DestroySprite(&gSprites[sId]);
-                sGacha->eggSpriteIds[r][i] = 0;
             }
+            sGacha->eggSpriteIds[r][i] = 0xFF;
         }
     }
 
     for (int k = 0; k < MULTI_PULL_COUNT; k++)
     {
         u8 sId = sGacha->multiEggSpriteIds[k];
-        if (sId != 0 && gSprites[sId].inUse)
+        if (sId < MAX_SPRITES && gSprites[sId].inUse)
         {
             DestroySprite(&gSprites[sId]);
-            sGacha->multiEggSpriteIds[k] = 0;
         }
+        sGacha->multiEggSpriteIds[k] = 0xFF;
     }
 }
 
@@ -1145,7 +1214,7 @@ static void UpdateHeaderWindow(void)
 static void Task_GachaLoop(u8 taskId)
 {
     sGacha->bgScrollTimer++;
-    if ((sGacha->bgScrollTimer % 3) == 0)
+    if ((sGacha->bgScrollTimer % 6) == 0)
     {
         sGacha->bgScrollX++;
         sGacha->bgScrollY++;
@@ -1185,9 +1254,12 @@ static void Task_GachaLoop(u8 taskId)
         for (int i = 0; i < EGGS_PER_REEL; i++)
         {
             u8 sId = sGacha->eggSpriteIds[0][i];
-            gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
-            if (i == 1)
-                gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+            if (sId < MAX_SPRITES && gSprites[sId].inUse)
+            {
+                gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
+                if (i == 1)
+                    gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+            }
         }
         PlaySE(SE_BALL_BOUNCE_1);
 
@@ -1205,7 +1277,8 @@ static void Task_GachaLoop(u8 taskId)
                 for (int i = 0; i < EGGS_PER_REEL; i++)
                 {
                     u8 sId = sGacha->eggSpriteIds[r][i];
-                    gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32 + sGacha->reelYOffsets[r];
+                    if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                        gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32 + sGacha->reelYOffsets[r];
                 }
             }
         }
@@ -1218,9 +1291,12 @@ static void Task_GachaLoop(u8 taskId)
             for (int i = 0; i < EGGS_PER_REEL; i++)
             {
                 u8 sId = sGacha->eggSpriteIds[1][i];
-                gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
-                if (i == 1)
-                    gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+                if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                {
+                    gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
+                    if (i == 1)
+                        gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+                }
             }
             PlaySE(SE_BALL_BOUNCE_2);
 
@@ -1238,7 +1314,8 @@ static void Task_GachaLoop(u8 taskId)
             for (int i = 0; i < EGGS_PER_REEL; i++)
             {
                 u8 sId = sGacha->eggSpriteIds[2][i];
-                gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32 + sGacha->reelYOffsets[2];
+                if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                    gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32 + sGacha->reelYOffsets[2];
             }
             if ((sGacha->timer % 6) == 0)
                 PlaySE(SE_ROULETTE_BALL2);
@@ -1248,19 +1325,29 @@ static void Task_GachaLoop(u8 taskId)
         if ((sGacha->rolledTier == RARITY_COMMON && sGacha->timer >= 25) ||
             (sGacha->rolledTier == RARITY_UNCOMMON && sGacha->timer >= 45) ||
             (sGacha->rolledTier == RARITY_RARE && sGacha->timer >= 75) ||
-            (sGacha->rolledTier == RARITY_EPIC && sGacha->timer >= 110))
+            (sGacha->rolledTier == RARITY_EPIC && sGacha->timer >= 110) ||
+            (sGacha->rolledTier >= RARITY_LEGENDARY && sGacha->timer >= 140))
         {
             sGacha->reelStopped[2] = TRUE;
             for (int i = 0; i < EGGS_PER_REEL; i++)
             {
                 u8 sId = sGacha->eggSpriteIds[2][i];
-                gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
-                if (i == 1)
-                    gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+                if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                {
+                    gSprites[sId].y = REEL_Y_CENTER + (i - 1) * 32;
+                    if (i == 1)
+                        gSprites[sId].oam.paletteNum = IndexOfSpritePaletteTag(GetEggPaletteTag(sGacha->rolledTier, IsMonShiny(&sGacha->hatchedMon)));
+                }
             }
 
             // Fanfara e flash
-            if (sGacha->rolledTier == RARITY_EPIC)
+            if (sGacha->rolledTier == RARITY_LEGENDARY)
+            {
+                PlayFanfare(MUS_SLOTS_JACKPOT);
+                BlendPalettes(PALETTES_ALL, 12, RGB(24, 6, 30));
+                BeginNormalPaletteFade(PALETTES_ALL, 0, 12, 0, RGB_BLACK);
+            }
+            else if (sGacha->rolledTier == RARITY_EPIC)
             {
                 PlayFanfare(MUS_SLOTS_JACKPOT);
                 BlendPalettes(PALETTES_ALL, 10, RGB(31, 0, 0));
@@ -1416,8 +1503,11 @@ static void Task_GachaLoop(u8 taskId)
             for (int k = 0; k < MULTI_PULL_COUNT; k++)
             {
                 u8 sId = sGacha->multiEggSpriteIds[k];
-                gSprites[sId].invisible = FALSE;
-                gSprites[sId].y = EGG_TARGET_Y;
+                if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                {
+                    gSprites[sId].invisible = FALSE;
+                    gSprites[sId].y = EGG_TARGET_Y;
+                }
                 sGacha->multiEggY[k] = EGG_TARGET_Y;
                 sGacha->multiEggLanded[k] = TRUE;
             }
@@ -1434,7 +1524,8 @@ static void Task_GachaLoop(u8 taskId)
             if (sGacha->timer >= k * 50)
             {
                 u8 sId = sGacha->multiEggSpriteIds[k];
-                gSprites[sId].invisible = FALSE;
+                if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                    gSprites[sId].invisible = FALSE;
 
                 if (!sGacha->multiEggLanded[k])
                 {
@@ -1447,7 +1538,9 @@ static void Task_GachaLoop(u8 taskId)
                         if (sGacha->multiEggSpeedY[k] > 4)
                         {
                             sGacha->multiEggSpeedY[k] = -3; // Bounce!
-                            if (sGacha->pulls[k].tier == RARITY_EPIC)
+                            if (sGacha->pulls[k].tier == RARITY_LEGENDARY)
+                                PlaySE(SE_EXP_MAX);
+                            else if (sGacha->pulls[k].tier == RARITY_EPIC)
                                 PlaySE(SE_PIN);
                             else if (sGacha->pulls[k].tier == RARITY_RARE)
                                 PlaySE(SE_DING_DONG);
@@ -1460,7 +1553,8 @@ static void Task_GachaLoop(u8 taskId)
                             sGacha->multiEggLanded[k] = TRUE;
                         }
                     }
-                    gSprites[sId].y = sGacha->multiEggY[k];
+                    if (sId < MAX_SPRITES && gSprites[sId].inUse)
+                        gSprites[sId].y = sGacha->multiEggY[k];
                 }
             }
         }
@@ -1483,7 +1577,19 @@ static void Task_GachaLoop(u8 taskId)
             BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
             sGacha->state = GACHA_STATE_EXIT;
         }
-        else if (JOY_NEW(A_BUTTON) || sGacha->timer >= 45)
+        else if (JOY_NEW(R_BUTTON))
+        {
+            if (gSaveBlock2Ptr->metaProgression.gachaTickets >= MULTI_PULL_COUNT)
+            {
+                PlaySE(SE_SELECT);
+                StartMultiRoll();
+            }
+            else
+            {
+                PlaySE(SE_BOO);
+            }
+        }
+        else if (JOY_NEW(A_BUTTON))
         {
             PlaySE(SE_SELECT);
             sGacha->multiIndex = 0;
@@ -1498,7 +1604,7 @@ static void Task_GachaLoop(u8 taskId)
         for (int k = 0; k < MULTI_PULL_COUNT; k++)
         {
             u8 sId = sGacha->multiEggSpriteIds[k];
-            if (sId != 0 && gSprites[sId].inUse)
+            if (sId < MAX_SPRITES && gSprites[sId].inUse)
                 gSprites[sId].invisible = TRUE;
         }
 
@@ -1543,6 +1649,20 @@ static void Task_GachaLoop(u8 taskId)
         sGacha->timer++;
         if (sGacha->timer >= 12)
         {
+            if (JOY_NEW(R_BUTTON))
+            {
+                if (gSaveBlock2Ptr->metaProgression.gachaTickets >= MULTI_PULL_COUNT)
+                {
+                    PlaySE(SE_SELECT);
+                    StartMultiRoll();
+                    break;
+                }
+                else
+                {
+                    PlaySE(SE_BOO);
+                }
+            }
+
             if (JOY_NEW(B_BUTTON))
             {
                 PlaySE(SE_SELECT);
@@ -1635,11 +1755,13 @@ static void PrintResultWindow(void)
     monInfoPal[1]  = RGB(31, 31, 31);    // White card background
     monInfoPal[2]  = RGB(4, 4, 5);       // Dark charcoal text
     monInfoPal[3]  = RGB(20, 20, 21);    // Dark text shadow
-    monInfoPal[4]  = theme.accent;       // Type accent (border & badge pill)
-    monInfoPal[5]  = RGB(2, 2, 2);       // Accent shadow
+    monInfoPal[4]  = RGB(31, 2, 2);      // True Red for Shiny Star ({COLOR RED})
+    monInfoPal[5]  = RGB(14, 2, 2);      // Dark red shadow
     monInfoPal[6]  = theme.tint;         // Type tint (stage background)
     monInfoPal[7]  = RGB(18, 18, 18);    // Highlight/border
-    if (sGacha->rolledTier == RARITY_EPIC) {
+    if (sGacha->rolledTier == RARITY_LEGENDARY) {
+        monInfoPal[8] = RGB(24, 6, 30);  monInfoPal[9] = RGB(14, 2, 18);
+    } else if (sGacha->rolledTier == RARITY_EPIC) {
         monInfoPal[8] = RGB(28, 4, 4);   monInfoPal[9] = RGB(16, 2, 2);
     } else if (sGacha->rolledTier == RARITY_RARE) {
         monInfoPal[8] = RGB(3, 10, 28);  monInfoPal[9] = RGB(1, 4, 16);
@@ -1652,8 +1774,8 @@ static void PrintResultWindow(void)
     monInfoPal[11] = RGB(3, 3, 3);       // Badge text shadow
     monInfoPal[12] = RGB(14, 14, 15);    // Gray FG
     monInfoPal[13] = RGB(22, 22, 23);    // Gray shadow
-    monInfoPal[14] = RGB(14, 14, 15);    // Gray FG
-    monInfoPal[15] = RGB(22, 22, 23);    // Gray shadow
+    monInfoPal[14] = theme.accent;       // Type accent (border & badge pill)
+    monInfoPal[15] = RGB(2, 2, 2);       // Accent shadow
 
     LoadPalette(monInfoPal, BG_PLTT_ID(14), sizeof(monInfoPal));
 
@@ -1665,10 +1787,10 @@ static void PrintResultWindow(void)
     // Palco colorato con la tinta del tipo elementale (x=5..82, y=5..54)
     FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(6), 5, 5, 78, 50);
     // Bordo del palco con il colore accent del tipo elementale
-    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(4), 4, 4, 80, 1);
-    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(4), 4, 55, 80, 1);
-    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(4), 4, 5, 1, 50);
-    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(4), 83, 5, 1, 50);
+    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(14), 4, 4, 80, 1);
+    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(14), 4, 55, 80, 1);
+    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(14), 4, 5, 1, 50);
+    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(14), 83, 5, 1, 50);
 
     // Pill badge del tipo elementale sotto il palco (y=60)
     u8 typeStr[32];
@@ -1676,7 +1798,7 @@ static void PrintResultWindow(void)
     s32 typeWidth = GetStringWidth(FONT_SMALL, typeStr, 0);
     s32 pillWidth = min(80, typeWidth + 8);
     s32 pillX = max(4, (88 - pillWidth) / 2);
-    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(4), pillX, 60, pillWidth, 10);
+    FillWindowPixelRect(WIN_MON_INFO, PIXEL_FILL(14), pillX, 60, pillWidth, 10);
     s32 textX = pillX + (pillWidth - typeWidth) / 2;
     AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, textX, 60, sColor_BadgeWhite, TEXT_SKIP_DRAW, typeStr);
 
@@ -1690,24 +1812,23 @@ static void PrintResultWindow(void)
     s32 nameX = max(2, (88 - nameWidth) / 2);
     AddTextPrinterParameterized3(WIN_MON_INFO, FONT_NORMAL, nameX, 73, sColor_Dark, TEXT_SKIP_DRAW, nameBuf);
 
-    // Rarity Tier and Lv. 5 (y=88)
+    // Rarity Tier (y=88) - If NEW: "[Rarity] NEW", if Duplicate: "[Rarity]"
+    const u8 *tierName = GetRarityTierName(sGacha->rolledTier);
+    s32 tierWidth = GetStringWidth(FONT_SMALL, tierName, 0);
+
     if (sGacha->isDuplicate)
     {
-        static const u8 sText_DuplicateBadge[] = _("{COLOR RED}(DUPLICATE)");
-        s32 dupW = GetStringWidth(FONT_SMALL, sText_DuplicateBadge, 0);
-        s32 dupX = max(2, (88 - dupW) / 2);
-        AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, dupX, 88, sColor_Red, TEXT_SKIP_DRAW, sText_DuplicateBadge);
+        s32 startX = max(2, (88 - tierWidth) / 2);
+        AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, startX, 88, sColor_TierOnPal14, TEXT_SKIP_DRAW, tierName);
     }
     else
     {
-        const u8 *tierName = GetRarityTierName(sGacha->rolledTier);
-        static const u8 sText_Lv5[] = _("Lv. 5");
-        s32 tierWidth = GetStringWidth(FONT_SMALL, tierName, 0);
-        s32 lvWidth = GetStringWidth(FONT_SMALL, sText_Lv5, 0);
-        s32 totalW = tierWidth + 6 + lvWidth;
+        static const u8 sText_New[] = _("NEW");
+        s32 newWidth = GetStringWidth(FONT_SMALL, sText_New, 0);
+        s32 totalW = tierWidth + 4 + newWidth;
         s32 startX = max(2, (88 - totalW) / 2);
         AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, startX, 88, sColor_TierOnPal14, TEXT_SKIP_DRAW, tierName);
-        AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, startX + tierWidth + 6, 88, sColor_Gray, TEXT_SKIP_DRAW, sText_Lv5);
+        AddTextPrinterParameterized3(WIN_MON_INFO, FONT_SMALL, startX + tierWidth + 4, 88, sColor_Dark, TEXT_SKIP_DRAW, sText_New);
     }
 
     CopyWindowToVram(WIN_MON_INFO, COPYWIN_FULL);
@@ -1719,13 +1840,15 @@ static void PrintResultWindow(void)
 
     static const u8 sText_Divider[] = _("------------------");
 
-    static const u8 sText_GradeS[] = _("S");
-    static const u8 sText_GradeA[] = _("A");
-    static const u8 sText_GradeB[] = _("B");
-    static const u8 sText_GradeC[] = _("C");
-    static const u8 sText_GradeD[] = _("D");
+    static const u8 sText_GradeSPlus[] = _("S+");
+    static const u8 sText_GradeS[]     = _("S");
+    static const u8 sText_GradeA[]     = _("A");
+    static const u8 sText_GradeB[]     = _("B");
+    static const u8 sText_GradeC[]     = _("C");
+    static const u8 sText_GradeD[]     = _("D");
 
-    static const u8 *const sGradeText[5] = {
+    static const u8 *const sGradeText[6] = {
+        sText_GradeSPlus,
         sText_GradeS,
         sText_GradeA,
         sText_GradeB,
@@ -1900,7 +2023,7 @@ static void UpdatePromptWindow(void)
     else if (sGacha->state == GACHA_STATE_MULTI_EGGS_READY)
     {
         AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 1, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("ALL 10 EGGS READY!"));
-        AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} Reveal Pokémon      {B_BUTTON} Skip & Exit"));
+        AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} Reveal  {R_BUTTON} 10x Roll Again  {B_BUTTON} Exit"));
     }
     else if (sGacha->state == GACHA_STATE_MULTI_WAIT_INPUT)
     {
@@ -1916,12 +2039,12 @@ static void UpdatePromptWindow(void)
 
         if (sGacha->multiIndex < MULTI_PULL_COUNT - 1)
         {
-            AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} Next Pokémon      {B_BUTTON} Skip All & Exit"));
+            AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} Next  {R_BUTTON} 10x Roll Again  {B_BUTTON} Exit"));
         }
         else
         {
             if (gSaveBlock2Ptr->metaProgression.gachaTickets >= MULTI_PULL_COUNT)
-                AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} 10x Roll Again      {B_BUTTON} Exit"));
+                AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON}/{R_BUTTON} 10x Roll Again      {B_BUTTON} Exit"));
             else if (gSaveBlock2Ptr->metaProgression.gachaTickets >= 1)
                 AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 12, sColor_Dark, TEXT_SKIP_DRAW, COMPOUND_STRING("{A_BUTTON} Single Roll      {B_BUTTON} Exit"));
             else

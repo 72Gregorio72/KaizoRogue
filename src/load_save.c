@@ -85,7 +85,7 @@ void SetSaveBlocksPointers(u16 offset)
 
     gSaveBlock2Ptr = (void *)(&gSaveblock2) + offset;
     *sav1_LocalVar = (void *)(&gSaveblock1) + offset;
-    gPokemonStoragePtr = (void *)(&gPokemonStorage) + offset;
+    gPokemonStoragePtr = &gPokemonStorage.block;
 
     SetBagItemsPointers();
     SetDecorationInventoriesPointers();
@@ -97,7 +97,6 @@ void MoveSaveBlocks_ResetHeap(void)
     u32 encryptionKey;
     struct SaveBlock2 *saveBlock2Copy;
     struct SaveBlock1 *saveBlock1Copy;
-    struct PokemonStorage *pokemonStorageCopy;
 
     // save interrupt functions and turn them off
     vblankCB = gMain.vblankCallback;
@@ -108,12 +107,10 @@ void MoveSaveBlocks_ResetHeap(void)
 
     saveBlock2Copy = (struct SaveBlock2 *)(gHeap);
     saveBlock1Copy = (struct SaveBlock1 *)(gHeap + sizeof(struct SaveBlock2));
-    pokemonStorageCopy = (struct PokemonStorage *)(gHeap + sizeof(struct SaveBlock2) + sizeof(struct SaveBlock1));
 
     // backup the saves.
     *saveBlock2Copy = *gSaveBlock2Ptr;
     *saveBlock1Copy = *gSaveBlock1Ptr;
-    *pokemonStorageCopy = *gPokemonStoragePtr;
 
     // change saveblocks' pointers
     // argument is a sum of the individual trainerId bytes
@@ -126,7 +123,6 @@ void MoveSaveBlocks_ResetHeap(void)
     // restore saveblock data since the pointers changed
     *gSaveBlock2Ptr = *saveBlock2Copy;
     *gSaveBlock1Ptr = *saveBlock1Copy;
-    *gPokemonStoragePtr = *pokemonStorageCopy;
 
     // heap was destroyed in the copying process, so reset it
     InitHeap(gHeap, HEAP_SIZE);

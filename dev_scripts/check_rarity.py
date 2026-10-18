@@ -27,7 +27,7 @@ def main():
             print("  Missing category in JSON!")
             continue
         total = 0
-        for tier in ("COMMON", "UNCOMMON", "RARE", "EPIC"):
+        for tier in ("COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"):
             items = data[cat].get(tier, [])
             count = len(items)
             total += count

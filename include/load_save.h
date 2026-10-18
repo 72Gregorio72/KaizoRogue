@@ -23,7 +23,6 @@ struct SaveBlock1ASLR {
 
 struct PokemonStorageASLR {
     struct PokemonStorage block;
-    u8 aslr[SAVEBLOCK_MOVE_RANGE];
 };
 
 extern struct SaveBlock1ASLR gSaveblock1;

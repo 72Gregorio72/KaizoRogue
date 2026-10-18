@@ -100,14 +100,10 @@
 #define PSS_DATA_WINDOW_EXP 4 // Exp, next level
 
 // Dynamic fields for the Pokémon IVs page
-#define PSS_DATA_WINDOW_IVS_HELD_ITEM 0
-#define PSS_DATA_WINDOW_IVS_RIBBON_COUNT 1
-#define PSS_DATA_WINDOW_IVS_RADAR_GRAPH 2
+#define PSS_DATA_WINDOW_IVS_RADAR_GRAPH 0
 
 // Dynamic fields for the Pokémon EVs page
-#define PSS_DATA_WINDOW_EVS_HELD_ITEM 0
-#define PSS_DATA_WINDOW_EVS_RIBBON_COUNT 1
-#define PSS_DATA_WINDOW_EVS_RADAR_GRAPH 2
+#define PSS_DATA_WINDOW_EVS_RADAR_GRAPH 0
 
 // Dynamic fields for the Battle Moves page
 #define PSS_DATA_WINDOW_MOVE_NAMES 0
@@ -747,62 +743,26 @@ static const struct WindowTemplate sPageSkillsTemplate[] =
 };
 static const struct WindowTemplate sPageIVsTemplate[] =
 {
-    [PSS_DATA_WINDOW_IVS_HELD_ITEM] = {
-        .bg = 0,
-        .tilemapLeft = 10,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 467,
-    },
-    [PSS_DATA_WINDOW_IVS_RIBBON_COUNT] = {
-        .bg = 0,
-        .tilemapLeft = 20,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 487,
-    },
     [PSS_DATA_WINDOW_IVS_RADAR_GRAPH] = {
         .bg = 0,
         .tilemapLeft = 10,
-        .tilemapTop = 6,
+        .tilemapTop = 2,
         .width = 20,
-        .height = 14,
+        .height = 18,
         .paletteNum = 9,
-        .baseBlock = 507,
+        .baseBlock = 467,
     },
 };
 static const struct WindowTemplate sPageEVsTemplate[] =
 {
-    [PSS_DATA_WINDOW_EVS_HELD_ITEM] = {
-        .bg = 0,
-        .tilemapLeft = 10,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 467,
-    },
-    [PSS_DATA_WINDOW_EVS_RIBBON_COUNT] = {
-        .bg = 0,
-        .tilemapLeft = 20,
-        .tilemapTop = 4,
-        .width = 10,
-        .height = 2,
-        .paletteNum = 6,
-        .baseBlock = 487,
-    },
     [PSS_DATA_WINDOW_EVS_RADAR_GRAPH] = {
         .bg = 0,
         .tilemapLeft = 10,
-        .tilemapTop = 6,
+        .tilemapTop = 2,
         .width = 20,
-        .height = 14,
+        .height = 18,
         .paletteNum = 9,
-        .baseBlock = 507,
+        .baseBlock = 467,
     },
 };
 static const struct WindowTemplate sPageMovesTemplate[] = // This is used for battle moves
@@ -3236,17 +3196,17 @@ static void LoadRadarGraphPalette(void)
     pal[8]  = RGB(6, 8, 12);          // 8: Sfondo Slate B (scacchiera)
     pal[9]  = RGB(9, 13, 18);         // 9: Griglia sottile pattern
     pal[10] = RGB(31, 18, 4);         // 10: Arancione brillante (Grafico EV)
-    pal[11] = RGB(0, 0, 0);
-    pal[12] = RGB(0, 0, 0);
-    pal[13] = RGB(0, 0, 0);
-    pal[14] = RGB(0, 0, 0);
+    pal[11] = RGB(31, 26, 4);         // 11: Oro brillante (Grado S+)
+    pal[12] = RGB(24, 8, 30);         // 12: Viola brillante (Grado S)
+    pal[13] = RGB(4, 20, 31);         // 13: Blu brillante (Grado B)
+    pal[14] = RGB(16, 18, 20);        // 14: Grigio medio (Grado D)
     pal[15] = RGB(0, 0, 0);
 
     LoadPalette(pal, BG_PLTT_ID(9), sizeof(pal));
 }
 
 #define GRAPH_CENTER_X   80
-#define GRAPH_CENTER_Y   54
+#define GRAPH_CENTER_Y   84
 #define GRAPH_MAX_RADIUS 34
 
 static void DrawRadarBackgroundPattern(u8 windowId)
@@ -3254,11 +3214,11 @@ static void DrawRadarBackgroundPattern(u8 windowId)
     u8 *tileData = (u8 *)GetWindowAttribute(windowId, WINDOW_TILE_DATA);
     u32 tx, ty, r;
 
-    // Window is 20 tiles wide x 14 tiles high (160x112 pixels)
+    // Window is 20 tiles wide x 18 tiles high (160x144 pixels)
     // Palette 9 colors:
     // 1: Slate A, 8: Slate B (alternating checkerboard tiles)
     // 9: Subtle grid line
-    for (ty = 0; ty < 14; ty++)
+    for (ty = 0; ty < 18; ty++)
     {
         for (tx = 0; tx < 20; tx++)
         {
@@ -3289,8 +3249,8 @@ static void DrawRadarBackgroundPattern(u8 windowId)
                     tile[r * 4 + 3] = (base) | (grid << 4);
             }
 
-            // Bordo inferiore per l'ultima riga di tile (ty = 13)
-            if (ty == 13)
+            // Bordo inferiore per l'ultima riga di tile (ty = 17)
+            if (ty == 17)
             {
                 tile[7 * 4 + 0] = (grid) | (grid << 4);
                 tile[7 * 4 + 1] = (grid) | (grid << 4);
@@ -3383,12 +3343,41 @@ static void DrawIVRadarGraph(u8 windowId, struct Pokemon *mon)
     }
 }
 
-static const u8 sText_Slash31Formatted[] = _("/31$");
+static const u8 sText_Slash31Formatted[] = _("/31");
+
+static const u8 *GetIvGradeRank(u8 iv)
+{
+    if (iv >= 31) return COMPOUND_STRING("S+");
+    if (iv >= 30) return COMPOUND_STRING("S");
+    if (iv >= 25) return COMPOUND_STRING("A");
+    if (iv >= 18) return COMPOUND_STRING("B");
+    if (iv >= 10) return COMPOUND_STRING("C");
+    return COMPOUND_STRING("D");
+}
+
+static const u8 sColorGradeSPlus[3] = {0, 11, 7}; // Oro
+static const u8 sColorGradeS[3]     = {0, 12, 7}; // Viola
+static const u8 sColorGradeA[3]     = {0, 5, 7};  // Rosso
+static const u8 sColorGradeB[3]     = {0, 13, 7}; // Blu
+static const u8 sColorGradeC[3]     = {0, 6, 7};  // Verde
+static const u8 sColorGradeD[3]     = {0, 14, 7}; // Grigio
+
+static const u8 *GetIvGradeColor(u8 iv)
+{
+    if (iv >= 31) return sColorGradeSPlus;
+    if (iv >= 30) return sColorGradeS;
+    if (iv >= 25) return sColorGradeA;
+    if (iv >= 18) return sColorGradeB;
+    if (iv >= 10) return sColorGradeC;
+    return sColorGradeD;
+}
 
 static void PrintStatLabelWithIVValue(u8 windowId, const u8 *statName, u8 iv, s8 natureMod, u8 x, u8 y)
 {
-    u8 strValue[16];
     u8 strIVNum[4];
+    u8 strNumPart[16];
+    const u8 *gradeStr = GetIvGradeRank(iv);
+    const u8 *gradeColor = GetIvGradeColor(iv);
 
     // Slot nella palette 9:
     // 2 = Bianco, 5 = Rosso, 6 = Verde, 7 = Ombra scura
@@ -3408,12 +3397,16 @@ static void PrintStatLabelWithIVValue(u8 windowId, const u8 *statName, u8 iv, s8
     // Stampa il nome della statistica
     AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y, 0, 0, textColor, 0, statName);
 
-    // Stampa "n/31" sempre in bianco
+    // Stampa "n/31 " sempre in bianco
     ConvertIntToDecimalStringN(strIVNum, iv, STR_CONV_MODE_LEFT_ALIGN, 2);
-    StringCopy(strValue, strIVNum);
-    StringAppend(strValue, sText_Slash31Formatted);
+    StringCopy(strNumPart, strIVNum);
+    StringAppend(strNumPart, sText_Slash31Formatted);
+    StringAppend(strNumPart, COMPOUND_STRING(" "));
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y + 10, 0, 0, sColorNormal, 0, strNumPart);
 
-    AddTextPrinterParameterized4(windowId, FONT_SMALL, x, y + 10, 0, 0, sColorNormal, 0, strValue);
+    // Stampa la lettera del grado nel suo colore dedicato (S+ Oro, S Viola, A Rosso, B Blu, C Verde, D Grigio)
+    s32 numWidth = GetStringWidth(FONT_SMALL, strNumPart, 0);
+    AddTextPrinterParameterized4(windowId, FONT_SMALL, x + numWidth, y + 10, 0, 0, gradeColor, 0, gradeStr);
 }
 
 static void DrawIVsPage(void)
@@ -3426,23 +3419,23 @@ static void DrawIVsPage(void)
     DrawRadarBackgroundPattern(windowId);
     DrawIVRadarGraph(windowId, mon);
 
-    // HP (In alto al centro)
-    PrintStatLabelWithIVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_IV), 0, 68, 2);
+    // HP (In alto al centro - sollevato a y=16 per non sovrapporsi al vertice del grafico a y=50)
+    PrintStatLabelWithIVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_IV), 0, 64, 16);
 
     // Attack (In alto a destra)
-    PrintStatLabelWithIVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_IV), GetNatureStatModifier(nature, 1), 118, 22);
+    PrintStatLabelWithIVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_IV), GetNatureStatModifier(nature, 1), 114, 50);
 
     // Defense (In basso a destra)
-    PrintStatLabelWithIVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_IV), GetNatureStatModifier(nature, 2), 118, 64);
+    PrintStatLabelWithIVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_IV), GetNatureStatModifier(nature, 2), 114, 92);
 
     // Speed (In basso al centro)
-    PrintStatLabelWithIVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_IV), GetNatureStatModifier(nature, 3), 66, 86);
+    PrintStatLabelWithIVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_IV), GetNatureStatModifier(nature, 3), 64, 118);
 
     // Sp. Def (In basso a sinistra)
-    PrintStatLabelWithIVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_IV), GetNatureStatModifier(nature, 4), 6, 64);
+    PrintStatLabelWithIVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_IV), GetNatureStatModifier(nature, 4), 6, 92);
 
     // Sp. Atk (In alto a sinistra)
-    PrintStatLabelWithIVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_IV), GetNatureStatModifier(nature, 5), 6, 22);
+    PrintStatLabelWithIVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_IV), GetNatureStatModifier(nature, 5), 6, 50);
 
     PutWindowTilemap(windowId);
     CopyWindowToVram(windowId, COPYWIN_FULL);
@@ -3451,8 +3444,6 @@ static void DrawIVsPage(void)
 
 static void PrintIVsPageText(void)
 {
-    PrintHeldItemName();
-    PrintRibbonCount();
     DrawIVsPage();
 }
 
@@ -3463,15 +3454,9 @@ static void Task_PrintIVsPage(u8 taskId)
     switch (data[0])
     {
     case 1:
-        PrintHeldItemName();
-        break;
-    case 2:
-        PrintRibbonCount();
-        break;
-    case 3:
         DrawIVsPage();
         break;
-    case 4:
+    case 2:
         DestroyTask(taskId);
         return;
     }
@@ -3600,23 +3585,23 @@ static void DrawEVsPage(void)
     DrawRadarBackgroundPattern(windowId);
     DrawEVRadarGraph(windowId, mon);
 
-    // HP (In alto al centro)
-    PrintStatLabelWithEVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_EV), 0, 68, 2);
+    // HP (In alto al centro - sollevato a y=16)
+    PrintStatLabelWithEVValue(windowId, gText_HP4, GetMonData(mon, MON_DATA_HP_EV), 0, 64, 16);
 
     // Attack (In alto a destra)
-    PrintStatLabelWithEVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_EV), GetNatureStatModifier(nature, 1), 118, 22);
+    PrintStatLabelWithEVValue(windowId, gText_Attack3, GetMonData(mon, MON_DATA_ATK_EV), GetNatureStatModifier(nature, 1), 114, 50);
 
     // Defense (In basso a destra)
-    PrintStatLabelWithEVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_EV), GetNatureStatModifier(nature, 2), 118, 64);
+    PrintStatLabelWithEVValue(windowId, gText_Defense3, GetMonData(mon, MON_DATA_DEF_EV), GetNatureStatModifier(nature, 2), 114, 92);
 
     // Speed (In basso al centro)
-    PrintStatLabelWithEVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_EV), GetNatureStatModifier(nature, 3), 66, 86);
+    PrintStatLabelWithEVValue(windowId, gText_Speed2, GetMonData(mon, MON_DATA_SPEED_EV), GetNatureStatModifier(nature, 3), 64, 118);
 
     // Sp. Def (In basso a sinistra)
-    PrintStatLabelWithEVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_EV), GetNatureStatModifier(nature, 4), 6, 64);
+    PrintStatLabelWithEVValue(windowId, gText_SpDef4, GetMonData(mon, MON_DATA_SPDEF_EV), GetNatureStatModifier(nature, 4), 6, 92);
 
     // Sp. Atk (In alto a sinistra)
-    PrintStatLabelWithEVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_EV), GetNatureStatModifier(nature, 5), 6, 22);
+    PrintStatLabelWithEVValue(windowId, gText_SpAtk4, GetMonData(mon, MON_DATA_SPATK_EV), GetNatureStatModifier(nature, 5), 6, 50);
 
     static const u8 sText_TotPrefix[] = _("TOT:");
     static const u8 sText_Slash510Formatted[] = _("/510$");
@@ -3631,7 +3616,7 @@ static void DrawEVsPage(void)
     ptr = StringCopy(strTot, sText_TotPrefix);
     ptr = ConvertIntToDecimalStringN(ptr, totalEv, STR_CONV_MODE_LEFT_ALIGN, 3);
     StringAppend(ptr, sText_Slash510Formatted);
-    AddTextPrinterParameterized4(windowId, FONT_SMALL_NARROW, 2, 2, 0, 0, sColorNormal, 0, strTot);
+    AddTextPrinterParameterized4(windowId, FONT_SMALL_NARROW, 4, 4, 0, 0, sColorNormal, 0, strTot);
 
     PutWindowTilemap(windowId);
     CopyWindowToVram(windowId, COPYWIN_FULL);
@@ -3640,8 +3625,6 @@ static void DrawEVsPage(void)
 
 static void PrintEVsPageText(void)
 {
-    PrintHeldItemName();
-    PrintRibbonCount();
     DrawEVsPage();
 }
 
@@ -3652,15 +3635,9 @@ static void Task_PrintEVsPage(u8 taskId)
     switch (data[0])
     {
     case 1:
-        PrintHeldItemName();
-        break;
-    case 2:
-        PrintRibbonCount();
-        break;
-    case 3:
         DrawEVsPage();
         break;
-    case 4:
+    case 2:
         DestroyTask(taskId);
         return;
     }
@@ -4286,21 +4263,11 @@ static void PrintHeldItemName(void)
     const struct WindowTemplate *template;
     u8 windowIndex;
 
-    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS)
-    {
-        template = sPageIVsTemplate;
-        windowIndex = PSS_DATA_WINDOW_IVS_HELD_ITEM;
-    }
-    else if (sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
-    {
-        template = sPageEVsTemplate;
-        windowIndex = PSS_DATA_WINDOW_EVS_HELD_ITEM;
-    }
-    else
-    {
-        template = sPageSkillsTemplate;
-        windowIndex = PSS_DATA_WINDOW_SKILLS_HELD_ITEM;
-    }
+    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS || sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
+        return;
+
+    template = sPageSkillsTemplate;
+    windowIndex = PSS_DATA_WINDOW_SKILLS_HELD_ITEM;
 
     if (sMonSummaryScreen->summary.item == ITEM_ENIGMA_BERRY_E_READER
         && IsMultiBattle() == TRUE
@@ -4330,21 +4297,11 @@ static void PrintRibbonCount(void)
     const struct WindowTemplate *template;
     u8 windowIndex;
 
-    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS)
-    {
-        template = sPageIVsTemplate;
-        windowIndex = PSS_DATA_WINDOW_IVS_RIBBON_COUNT;
-    }
-    else if (sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
-    {
-        template = sPageEVsTemplate;
-        windowIndex = PSS_DATA_WINDOW_EVS_RIBBON_COUNT;
-    }
-    else
-    {
-        template = sPageSkillsTemplate;
-        windowIndex = PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT;
-    }
+    if (sMonSummaryScreen->currPageIndex == PSS_PAGE_IVS || sMonSummaryScreen->currPageIndex == PSS_PAGE_EVS)
+        return;
+
+    template = sPageSkillsTemplate;
+    windowIndex = PSS_DATA_WINDOW_SKILLS_RIBBON_COUNT;
 
     if (sMonSummaryScreen->summary.ribbonCount == 0)
     {

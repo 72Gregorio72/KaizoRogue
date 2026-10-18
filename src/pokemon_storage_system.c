@@ -250,6 +250,7 @@ enum {
     PALTAG_ITEM_ICON_1, // Used implicitly in CreateItemIconSprites
     PALTAG_ITEM_ICON_2, // Used implicitly in CreateItemIconSprites
     PALTAG_MARKING_MENU,
+    PALTAG_SHINY_STAR,
 };
 
 enum {
@@ -271,6 +272,7 @@ enum {
     GFXTAG_15, // Unused
     GFXTAG_MARKING_COMBO,
     GFXTAG_17, // Unused
+    GFXTAG_SHINY_STAR,
     GFXTAG_MON_ICON,
 };
 
@@ -442,11 +444,17 @@ struct PokemonStorageSystemData
     struct Sprite *boxMonsSprites[IN_BOX_COUNT];
     struct Sprite **shiftMonSpritePtr;
     struct Sprite **releaseMonSpritePtr;
+    struct Sprite *movingMonShinySprite;
+    struct Sprite *partyShinySprites[PARTY_SIZE];
+    struct Sprite *boxShinySprites[IN_BOX_COUNT];
+    struct Sprite **shiftMonShinySpritePtr;
+    struct Sprite **releaseMonShinySpritePtr;
     u16 numIconsPerSpecies[MAX_MON_ICONS];
     enum Species iconSpeciesList[MAX_MON_ICONS];
     enum Species boxSpecies[IN_BOX_COUNT];
     u32 boxPersonalities[IN_BOX_COUNT];
     bool8 boxIsEgg[IN_BOX_COUNT];
+    bool8 boxIsShiny[IN_BOX_COUNT];
     u8 incomingBoxId;
     u8 shiftTimer;
     u8 numPartyToCompact;
@@ -487,6 +495,7 @@ struct PokemonStorageSystemData
     u8 displayMonMarkings;
     u8 displayMonLevel;
     bool8 displayMonIsEgg;
+    bool8 displayMonIsShiny;
     u8 displayMonName[POKEMON_NAME_LENGTH + 1];
     u8 displayMonNameText[36];
     u8 displayMonSpeciesName[36];
@@ -1042,6 +1051,65 @@ static const struct SpriteTemplate sSpriteTemplate_DisplayMon =
     .tileTag = GFXTAG_DISPLAY_MON,
     .paletteTag = PALTAG_DISPLAY_MON,
     .oam = &sOamData_DisplayMon,
+};
+
+static const u32 sShinyStar_Gfx[] =
+{
+    0x00001000,
+    0x00012100,
+    0x01222221,
+    0x00122210,
+    0x00012100,
+    0x00121210,
+    0x01200021,
+    0x00000000,
+};
+
+static const u16 sShinyStar_Pal[] =
+{
+    RGB_BLACK,
+    RGB(14, 2, 2),
+    RGB(31, 4, 4),
+    RGB(31, 16, 16),
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static const struct SpritePalette sShinyStarSpritePalette =
+{
+    sShinyStar_Pal, PALTAG_SHINY_STAR
+};
+
+static const struct SpriteSheet sSpriteSheet_ShinyStar =
+{
+    sShinyStar_Gfx, sizeof(sShinyStar_Gfx), GFXTAG_SHINY_STAR
+};
+
+static const struct OamData sOamData_ShinyStar =
+{
+    .y = 0,
+    .affineMode = ST_OAM_AFFINE_OFF,
+    .objMode = ST_OAM_OBJ_NORMAL,
+    .mosaic = FALSE,
+    .bpp = ST_OAM_4BPP,
+    .shape = SPRITE_SHAPE(8x8),
+    .x = 0,
+    .matrixNum = 0,
+    .size = SPRITE_SIZE(8x8),
+    .tileNum = 0,
+    .priority = 2,
+    .paletteNum = 0,
+    .affineParam = 0
+};
+
+static const struct SpriteTemplate sSpriteTemplate_ShinyStar =
+{
+    .tileTag = GFXTAG_SHINY_STAR,
+    .paletteTag = PALTAG_SHINY_STAR,
+    .oam = &sOamData_ShinyStar,
+    .anims = gDummySpriteAnimTable,
+    .images = NULL,
+    .affineAnims = gDummySpriteAffineAnimTable,
+    .callback = SpriteCallbackDummy,
 };
 
 static const u8 gText_PkmnIsSelected[] = _("{DYNAMIC 0} is selected.");
@@ -3870,6 +3938,7 @@ static bool8 InitPokeStorageWindows(void)
 static void LoadWaveformSpritePalette(void)
 {
     LoadSpritePalette(&sWaveformSpritePalette);
+    LoadSpritePalette(&sShinyStarSpritePalette);
 }
 
 static void InitPalettesAndSprites(void)
@@ -3886,6 +3955,8 @@ static void InitPalettesAndSprites(void)
     CreateDisplayMonSprite();
     CreateMarkingComboSprite();
     CreateWaveformSprites();
+    LoadSpritePalette(&sShinyStarSpritePalette);
+    LoadSpriteSheet(&sSpriteSheet_ShinyStar);
     RefreshDisplayMonData();
 }
 
@@ -4424,6 +4495,26 @@ static void InitCursorItemIcon(void)
 //------------------------------------------------------------------------------
 
 
+static struct Sprite *CreateShinyStarSprite(s16 x, s16 y, u8 priority, u8 subpriority)
+{
+    u8 spriteId = CreateSprite(&sSpriteTemplate_ShinyStar, x, y, subpriority);
+    if (spriteId != MAX_SPRITES)
+    {
+        gSprites[spriteId].oam.priority = priority;
+        return &gSprites[spriteId];
+    }
+    return NULL;
+}
+
+static void SpriteCB_HeldMonShiny(struct Sprite *sprite)
+{
+    if (sStorage->movingMonSprite != NULL)
+    {
+        sprite->x = sStorage->movingMonSprite->x + 8;
+        sprite->y = sStorage->movingMonSprite->y - 8;
+    }
+}
+
 static void InitMonIconFields(void)
 {
     u16 i;
@@ -4434,11 +4525,18 @@ static void InitMonIconFields(void)
     for (i = 0; i < MAX_MON_ICONS; i++)
         sStorage->iconSpeciesList[i] = SPECIES_NONE;
     for (i = 0; i < PARTY_SIZE; i++)
+    {
         sStorage->partySprites[i] = NULL;
+        sStorage->partyShinySprites[i] = NULL;
+    }
     for (i = 0; i < IN_BOX_COUNT; i++)
+    {
         sStorage->boxMonsSprites[i] = NULL;
+        sStorage->boxShinySprites[i] = NULL;
+    }
 
     sStorage->movingMonSprite = NULL;
+    sStorage->movingMonShinySprite = NULL;
 }
 
 static u8 GetMonIconPriorityByCursorPos(void)
@@ -4455,6 +4553,17 @@ static void CreateMovingMonIcon(void)
 
     sStorage->movingMonSprite = CreateMonIconSprite(species, personality, 0, 0, priority, 7, isEgg);
     sStorage->movingMonSprite->callback = SpriteCB_HeldMon;
+
+    if (!isEgg && GetMonData(&sStorage->movingMon, MON_DATA_SHINY_UNLOCKED))
+    {
+        sStorage->movingMonShinySprite = CreateShinyStarSprite(8, -8, priority, 6);
+        if (sStorage->movingMonShinySprite != NULL)
+            sStorage->movingMonShinySprite->callback = SpriteCB_HeldMonShiny;
+    }
+    else
+    {
+        sStorage->movingMonShinySprite = NULL;
+    }
 }
 
 static bool32 ShouldBoxmonSpriteBeTransparent(u32 boxId, u32 boxPosition)
@@ -4492,10 +4601,16 @@ static void InitBoxMonSprites(u8 boxId)
 
                 if (ShouldBoxmonSpriteBeTransparent(boxId, boxPosition))
                     sStorage->boxMonsSprites[boxPosition]->oam.objMode = ST_OAM_OBJ_BLEND;
+
+                if (!isEgg && GetBoxMonDataAt(boxId, boxPosition, MON_DATA_SHINY_UNLOCKED))
+                    sStorage->boxShinySprites[count] = CreateShinyStarSprite(8 * (3 * j) + 100 + 8, 8 * (3 * i) + 44 - 8, 2, 18 - j);
+                else
+                    sStorage->boxShinySprites[count] = NULL;
             }
             else
             {
                 sStorage->boxMonsSprites[count] = NULL;
+                sStorage->boxShinySprites[count] = NULL;
             }
             boxPosition++;
             count++;
@@ -4517,6 +4632,11 @@ static void CreateBoxMonIconAtPos(u8 boxPosition)
         sStorage->boxMonsSprites[boxPosition] = CreateMonIconSprite(species, personality, x, y, 2, 19 - (boxPosition % IN_BOX_COLUMNS), isEgg);
         if (ShouldBoxmonSpriteBeTransparent(StorageGetCurrentBox(), boxPosition))
             sStorage->boxMonsSprites[boxPosition]->oam.objMode = ST_OAM_OBJ_BLEND;
+
+        if (!isEgg && GetCurrentBoxMonData(boxPosition, MON_DATA_SHINY_UNLOCKED))
+            sStorage->boxShinySprites[boxPosition] = CreateShinyStarSprite(x + 8, y - 8, 2, 18 - (boxPosition % IN_BOX_COLUMNS));
+        else
+            sStorage->boxShinySprites[boxPosition] = NULL;
     }
 }
 
@@ -4538,6 +4658,12 @@ static void StartBoxMonIconsScrollOut(s16 speed)
             sStorage->boxMonsSprites[i]->sDelay = 1;
             sStorage->boxMonsSprites[i]->callback = SpriteCB_BoxMonIconScrollOut;
         }
+        if (sStorage->boxShinySprites[i] != NULL)
+        {
+            sStorage->boxShinySprites[i]->sSpeed = speed;
+            sStorage->boxShinySprites[i]->sDelay = 1;
+            sStorage->boxShinySprites[i]->callback = SpriteCB_BoxMonIconScrollOut;
+        }
     }
 }
 
@@ -4553,6 +4679,20 @@ static void SpriteCB_BoxMonIconScrollIn(struct Sprite *sprite)
     {
         // Icon arrived
         sStorage->iconScrollNumIncoming--;
+        sprite->x = sprite->sScrollInDestX;
+        sprite->callback = SpriteCallbackDummy;
+    }
+}
+
+static void SpriteCB_BoxMonIconScrollIn_Shiny(struct Sprite *sprite)
+{
+    if (sprite->sDistance != 0)
+    {
+        sprite->sDistance--;
+        sprite->x += sprite->sSpeed;
+    }
+    else
+    {
         sprite->x = sprite->sScrollInDestX;
         sprite->callback = SpriteCallbackDummy;
     }
@@ -4590,6 +4730,11 @@ static void DestroyBoxMonIconsInColumn(u8 column)
             DestroyBoxMonIcon(sStorage->boxMonsSprites[boxPosition]);
             sStorage->boxMonsSprites[boxPosition] = NULL;
         }
+        if (sStorage->boxShinySprites[boxPosition] != NULL)
+        {
+            DestroySprite(sStorage->boxShinySprites[boxPosition]);
+            sStorage->boxShinySprites[boxPosition] = NULL;
+        }
         boxPosition += IN_BOX_COLUMNS;
     }
 }
@@ -4622,6 +4767,22 @@ static u8 CreateBoxMonIconsInColumn(u8 column, u16 distance, s16 speed)
                 if (ShouldBoxmonSpriteBeTransparent(sStorage->incomingBoxId, boxPosition))
                     sStorage->boxMonsSprites[boxPosition]->oam.objMode = ST_OAM_OBJ_BLEND;
                 iconsCreated++;
+            }
+
+            if (!sStorage->boxIsEgg[boxPosition] && sStorage->boxIsShiny[boxPosition])
+            {
+                sStorage->boxShinySprites[boxPosition] = CreateShinyStarSprite(x + 8, y - 8, 2, subpriority - 1);
+                if (sStorage->boxShinySprites[boxPosition] != NULL)
+                {
+                    sStorage->boxShinySprites[boxPosition]->sDistance = distance;
+                    sStorage->boxShinySprites[boxPosition]->sSpeed = speed;
+                    sStorage->boxShinySprites[boxPosition]->sScrollInDestX = xDest + 8;
+                    sStorage->boxShinySprites[boxPosition]->callback = SpriteCB_BoxMonIconScrollIn_Shiny;
+                }
+            }
+            else
+            {
+                sStorage->boxShinySprites[boxPosition] = NULL;
             }
         }
         boxPosition += IN_BOX_COLUMNS;
@@ -4715,6 +4876,7 @@ static void GetIncomingBoxMonData(u8 boxId)
         {
             sStorage->boxSpecies[boxPosition] = GetBoxMonDataAt(boxId, boxPosition, MON_DATA_SPECIES);
             sStorage->boxIsEgg[boxPosition] = GetBoxMonDataAt(boxId, boxPosition, MON_DATA_IS_EGG);
+            sStorage->boxIsShiny[boxPosition] = GetBoxMonDataAt(boxId, boxPosition, MON_DATA_SHINY_UNLOCKED);
             if (sStorage->boxSpecies[boxPosition] != SPECIES_NONE)
                 sStorage->boxPersonalities[boxPosition] = GetBoxMonDataAt(boxId, boxPosition, MON_DATA_PERSONALITY);
             boxPosition++;
@@ -4730,6 +4892,11 @@ static void DestroyBoxMonIconAtPosition(u8 boxPosition)
     {
         DestroyBoxMonIcon(sStorage->boxMonsSprites[boxPosition]);
         sStorage->boxMonsSprites[boxPosition] = NULL;
+    }
+    if (sStorage->boxShinySprites[boxPosition] != NULL)
+    {
+        DestroySprite(sStorage->boxShinySprites[boxPosition]);
+        sStorage->boxShinySprites[boxPosition] = NULL;
     }
 }
 
@@ -4754,10 +4921,20 @@ static void  CreatePartyMonSprite(u8 partyPosition, bool8 visible)
 
     struct Sprite *partySprite = sStorage->partySprites[partyPosition];
 
+    if (!isEgg && GetMonData(partyPokemon, MON_DATA_SHINY_UNLOCKED))
+        sStorage->partyShinySprites[partyPosition] = CreateShinyStarSprite(partySprite->x + 8, partySprite->y - 8, 1, 11);
+    else
+        sStorage->partyShinySprites[partyPosition] = NULL;
+
     if (!visible)
     {
         partySprite->y -= DISPLAY_HEIGHT;
         partySprite->invisible = TRUE;
+        if (sStorage->partyShinySprites[partyPosition] != NULL)
+        {
+            sStorage->partyShinySprites[partyPosition]->y -= DISPLAY_HEIGHT;
+            sStorage->partyShinySprites[partyPosition]->invisible = TRUE;
+        }
     }
 
     if (sStorage->boxOption == OPTION_MOVE_ITEMS)
@@ -4781,6 +4958,11 @@ static void CreatePartyMonsSprites(bool8 visible)
     u32 personality = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_PERSONALITY);
 
     sStorage->partySprites[0] = CreateMonIconSprite(species, personality, 104, 64, 1, 12, isEgg);
+    if (!isEgg && GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_SHINY_UNLOCKED))
+        sStorage->partyShinySprites[0] = CreateShinyStarSprite(104 + 8, 64 - 8, 1, 11);
+    else
+        sStorage->partyShinySprites[0] = NULL;
+
     count = 1;
     for (i = 1; i < PARTY_SIZE; i++)
     {
@@ -4790,20 +4972,33 @@ static void CreatePartyMonsSprites(bool8 visible)
         {
             personality = GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_PERSONALITY);
             sStorage->partySprites[i] = CreateMonIconSprite(species, personality, 152,  8 * (3 * (i - 1)) + 16, 1, 12, isEgg);
+            if (!isEgg && GetMonData(&gParties[B_TRAINER_PLAYER][i], MON_DATA_SHINY_UNLOCKED))
+                sStorage->partyShinySprites[i] = CreateShinyStarSprite(152 + 8, 8 * (3 * (i - 1)) + 16 - 8, 1, 11);
+            else
+                sStorage->partyShinySprites[i] = NULL;
             count++;
         }
         else
         {
             sStorage->partySprites[i] = NULL;
+            sStorage->partyShinySprites[i] = NULL;
         }
     }
 
     if (!visible)
     {
-        for (i = 0; i < count; i++)
+        for (i = 0; i < PARTY_SIZE; i++)
         {
-            sStorage->partySprites[i]->y -= DISPLAY_HEIGHT;
-            sStorage->partySprites[i]->invisible = TRUE;
+            if (sStorage->partySprites[i] != NULL)
+            {
+                sStorage->partySprites[i]->y -= DISPLAY_HEIGHT;
+                sStorage->partySprites[i]->invisible = TRUE;
+            }
+            if (sStorage->partyShinySprites[i] != NULL)
+            {
+                sStorage->partyShinySprites[i]->y -= DISPLAY_HEIGHT;
+                sStorage->partyShinySprites[i]->invisible = TRUE;
+            }
         }
     }
 
@@ -4826,37 +5021,15 @@ static void CreatePartyMonsSprites(bool8 visible)
     }
 }
 
-static void CompactPartySprites(void)
-{
-    u16 i, targetSlot;
-
-    sStorage->numPartyToCompact = 0;
-    for (i = 0, targetSlot = 0; i < PARTY_SIZE; i++)
-    {
-        if (sStorage->partySprites[i] != NULL)
-        {
-            if (i != targetSlot)
-            {
-                MovePartySpriteToNextSlot(sStorage->partySprites[i], targetSlot);
-                sStorage->partySprites[i] = NULL;
-                sStorage->numPartyToCompact++;
-            }
-            targetSlot++;
-        }
-    }
-}
-
-static u8 GetNumPartySpritesCompacting(void)
-{
-    return sStorage->numPartyToCompact;
-}
-
 #define sPartyId   data[1]
 #define sMonX      data[2]
 #define sMonY      data[3]
 #define sSpeedX    data[4]
 #define sSpeedY    data[5]
 #define sMoveSteps data[6]
+
+static void SpriteCB_MovePartyShinyMonToNextSlot(struct Sprite *sprite);
+static void SpriteCB_MovePartyMonToNextSlot(struct Sprite *sprite);
 
 static void MovePartySpriteToNextSlot(struct Sprite *sprite, u16 partyId)
 {
@@ -4904,6 +5077,81 @@ static void SpriteCB_MovePartyMonToNextSlot(struct Sprite *sprite)
     }
 }
 
+static void MovePartyShinySpriteToNextSlot(struct Sprite *sprite, u16 partyId)
+{
+    s16 x, y;
+
+    sprite->sPartyId = partyId;
+    if (partyId == 0)
+        x = 104 + 8, y = 64 - 8;
+    else
+        x = 152 + 8, y = 8 * (3 * (partyId - 1)) + 16 - 8;
+
+    sprite->sMonX = (u16)(sprite->x) * 8;
+    sprite->sMonY = (u16)(sprite->y) * 8;
+    sprite->sSpeedX = ((x * 8) - sprite->sMonX) / 8;
+    sprite->sSpeedY = ((y * 8) - sprite->sMonY) / 8;
+    sprite->sMoveSteps = 8;
+    sprite->callback = SpriteCB_MovePartyShinyMonToNextSlot;
+}
+
+static void SpriteCB_MovePartyShinyMonToNextSlot(struct Sprite *sprite)
+{
+    if (sprite->sMoveSteps != 0)
+    {
+        s16 x = sprite->sMonX += sprite->sSpeedX;
+        s16 y = sprite->sMonY += sprite->sSpeedY;
+        sprite->x = x / 8u;
+        sprite->y = y / 8u;
+        sprite->sMoveSteps--;
+    }
+    else
+    {
+        if (sprite->sPartyId == 0)
+        {
+            sprite->x = 104 + 8;
+            sprite->y = 64 - 8;
+        }
+        else
+        {
+            sprite->x = 152 + 8;
+            sprite->y = 8 * (3 * (sprite->sPartyId - 1)) + 16 - 8;
+        }
+        sprite->callback = SpriteCallbackDummy;
+        sStorage->partyShinySprites[sprite->sPartyId] = sprite;
+    }
+}
+
+static void CompactPartySprites(void)
+{
+    u16 i, targetSlot;
+
+    sStorage->numPartyToCompact = 0;
+    for (i = 0, targetSlot = 0; i < PARTY_SIZE; i++)
+    {
+        if (sStorage->partySprites[i] != NULL)
+        {
+            if (i != targetSlot)
+            {
+                MovePartySpriteToNextSlot(sStorage->partySprites[i], targetSlot);
+                sStorage->partySprites[i] = NULL;
+                if (sStorage->partyShinySprites[i] != NULL)
+                {
+                    MovePartyShinySpriteToNextSlot(sStorage->partyShinySprites[i], targetSlot);
+                    sStorage->partyShinySprites[i] = NULL;
+                }
+                sStorage->numPartyToCompact++;
+            }
+            targetSlot++;
+        }
+    }
+}
+
+static u8 GetNumPartySpritesCompacting(void)
+{
+    return sStorage->numPartyToCompact;
+}
+
 #undef sPartyId
 #undef sMonX
 #undef sMonY
@@ -4917,6 +5165,11 @@ static void DestroyMovingMonIcon(void)
     {
         DestroyBoxMonIcon(sStorage->movingMonSprite);
         sStorage->movingMonSprite = NULL;
+    }
+    if (sStorage->movingMonShinySprite != NULL)
+    {
+        DestroySprite(sStorage->movingMonShinySprite);
+        sStorage->movingMonShinySprite = NULL;
     }
 }
 
@@ -4936,6 +5189,16 @@ static void MovePartySprites(s16 yDelta)
             else
                 sStorage->partySprites[i]->invisible = FALSE;
         }
+        if (sStorage->partyShinySprites[i] != NULL)
+        {
+            sStorage->partyShinySprites[i]->y += yDelta;
+            posY = sStorage->partyShinySprites[i]->y + sStorage->partyShinySprites[i]->y2 + sStorage->partyShinySprites[i]->centerToCornerVecY;
+            posY += 16;
+            if (posY > 192 || (sStorage->partySprites[i] != NULL && sStorage->partySprites[i]->invisible))
+                sStorage->partyShinySprites[i]->invisible = TRUE;
+            else
+                sStorage->partyShinySprites[i]->invisible = FALSE;
+        }
     }
 }
 
@@ -4945,6 +5208,11 @@ static void DestroyPartyMonIcon(u8 partyId)
     {
         DestroyBoxMonIcon(sStorage->partySprites[partyId]);
         sStorage->partySprites[partyId] = NULL;
+    }
+    if (sStorage->partyShinySprites[partyId] != NULL)
+    {
+        DestroySprite(sStorage->partyShinySprites[partyId]);
+        sStorage->partyShinySprites[partyId] = NULL;
     }
 }
 
@@ -4958,6 +5226,11 @@ static void DestroyAllPartyMonIcons(void)
         {
             DestroyBoxMonIcon(sStorage->partySprites[i]);
             sStorage->partySprites[i] = NULL;
+        }
+        if (sStorage->partyShinySprites[i] != NULL)
+        {
+            DestroySprite(sStorage->partyShinySprites[i]);
+            sStorage->partyShinySprites[i] = NULL;
         }
     }
 }
@@ -4976,11 +5249,15 @@ static void SetMovingMonSprite(u8 mode, u8 id)
     {
         sStorage->movingMonSprite = sStorage->partySprites[id];
         sStorage->partySprites[id] = NULL;
+        sStorage->movingMonShinySprite = sStorage->partyShinySprites[id];
+        sStorage->partyShinySprites[id] = NULL;
     }
     else if (mode == MODE_BOX)
     {
         sStorage->movingMonSprite = sStorage->boxMonsSprites[id];
         sStorage->boxMonsSprites[id] = NULL;
+        sStorage->movingMonShinySprite = sStorage->boxShinySprites[id];
+        sStorage->boxShinySprites[id] = NULL;
     }
     else
     {
@@ -4990,6 +5267,12 @@ static void SetMovingMonSprite(u8 mode, u8 id)
     sStorage->movingMonSprite->callback = SpriteCB_HeldMon;
     sStorage->movingMonSprite->oam.priority = GetMonIconPriorityByCursorPos();
     sStorage->movingMonSprite->subpriority = 7;
+    if (sStorage->movingMonShinySprite != NULL)
+    {
+        sStorage->movingMonShinySprite->callback = SpriteCB_HeldMonShiny;
+        sStorage->movingMonShinySprite->oam.priority = GetMonIconPriorityByCursorPos();
+        sStorage->movingMonShinySprite->subpriority = 6;
+    }
 }
 
 static void SetPlacedMonSprite(u8 boxId, u8 position)
@@ -4999,25 +5282,50 @@ static void SetPlacedMonSprite(u8 boxId, u8 position)
         sStorage->partySprites[position] = sStorage->movingMonSprite;
         sStorage->partySprites[position]->oam.priority = 1;
         sStorage->partySprites[position]->subpriority = 12;
+
+        sStorage->partyShinySprites[position] = sStorage->movingMonShinySprite;
+        if (sStorage->partyShinySprites[position] != NULL)
+        {
+            sStorage->partyShinySprites[position]->oam.priority = 1;
+            sStorage->partyShinySprites[position]->subpriority = 11;
+            sStorage->partyShinySprites[position]->callback = SpriteCallbackDummy;
+        }
     }
     else
     {
         sStorage->boxMonsSprites[position] = sStorage->movingMonSprite;
         sStorage->boxMonsSprites[position]->oam.priority = 2;
         sStorage->boxMonsSprites[position]->subpriority = 19 - (position % IN_BOX_COLUMNS);
+
+        sStorage->boxShinySprites[position] = sStorage->movingMonShinySprite;
+        if (sStorage->boxShinySprites[position] != NULL)
+        {
+            sStorage->boxShinySprites[position]->oam.priority = 2;
+            sStorage->boxShinySprites[position]->subpriority = 18 - (position % IN_BOX_COLUMNS);
+            sStorage->boxShinySprites[position]->callback = SpriteCallbackDummy;
+        }
     }
     sStorage->movingMonSprite->callback = SpriteCallbackDummy;
     sStorage->movingMonSprite = NULL;
+    sStorage->movingMonShinySprite = NULL;
 }
 
 static void SaveMonSpriteAtPos(u8 boxId, u8 position)
 {
     if (boxId == TOTAL_BOXES_COUNT) // party mon
+    {
         sStorage->shiftMonSpritePtr = &sStorage->partySprites[position];
+        sStorage->shiftMonShinySpritePtr = &sStorage->partyShinySprites[position];
+    }
     else
+    {
         sStorage->shiftMonSpritePtr = &sStorage->boxMonsSprites[position];
+        sStorage->shiftMonShinySpritePtr = &sStorage->boxShinySprites[position];
+    }
 
     sStorage->movingMonSprite->callback = SpriteCallbackDummy;
+    if (sStorage->movingMonShinySprite != NULL)
+        sStorage->movingMonShinySprite->callback = SpriteCallbackDummy;
     sStorage->shiftTimer = 0;
 }
 
@@ -5035,12 +5343,34 @@ static bool8 MoveShiftingMons(void)
 
     (*sStorage->shiftMonSpritePtr)->x2 = gSineTable[sStorage->shiftTimer * 8] / 16;
     sStorage->movingMonSprite->x2 = -(gSineTable[sStorage->shiftTimer * 8] / 16);
+
+    if (sStorage->shiftMonShinySpritePtr != NULL && *sStorage->shiftMonShinySpritePtr != NULL)
+    {
+        (*sStorage->shiftMonShinySpritePtr)->x = (*sStorage->shiftMonSpritePtr)->x + 8;
+        (*sStorage->shiftMonShinySpritePtr)->y = (*sStorage->shiftMonSpritePtr)->y - 8;
+        (*sStorage->shiftMonShinySpritePtr)->x2 = (*sStorage->shiftMonSpritePtr)->x2;
+    }
+    if (sStorage->movingMonShinySprite != NULL)
+    {
+        sStorage->movingMonShinySprite->x = sStorage->movingMonSprite->x + 8;
+        sStorage->movingMonShinySprite->y = sStorage->movingMonSprite->y - 8;
+        sStorage->movingMonShinySprite->x2 = sStorage->movingMonSprite->x2;
+    }
+
     if (sStorage->shiftTimer == 8)
     {
         sStorage->movingMonSprite->oam.priority = (*sStorage->shiftMonSpritePtr)->oam.priority;
         sStorage->movingMonSprite->subpriority = (*sStorage->shiftMonSpritePtr)->subpriority;
         (*sStorage->shiftMonSpritePtr)->oam.priority = GetMonIconPriorityByCursorPos();
         (*sStorage->shiftMonSpritePtr)->subpriority = 7;
+
+        if (sStorage->movingMonShinySprite != NULL && sStorage->shiftMonShinySpritePtr != NULL && *sStorage->shiftMonShinySpritePtr != NULL)
+        {
+            sStorage->movingMonShinySprite->oam.priority = (*sStorage->shiftMonShinySpritePtr)->oam.priority;
+            sStorage->movingMonShinySprite->subpriority = (*sStorage->shiftMonShinySpritePtr)->subpriority;
+            (*sStorage->shiftMonShinySpritePtr)->oam.priority = GetMonIconPriorityByCursorPos();
+            (*sStorage->shiftMonShinySpritePtr)->subpriority = 6;
+        }
     }
 
     if (sStorage->shiftTimer == 16)
@@ -5051,6 +5381,18 @@ static bool8 MoveShiftingMons(void)
 
         sStorage->movingMonSprite->callback = SpriteCB_HeldMon;
         (*sStorage->shiftMonSpritePtr)->callback = SpriteCallbackDummy;
+
+        if (sStorage->shiftMonShinySpritePtr != NULL)
+        {
+            struct Sprite *shinySprite = sStorage->movingMonShinySprite;
+            sStorage->movingMonShinySprite = (*sStorage->shiftMonShinySpritePtr);
+            *sStorage->shiftMonShinySpritePtr = shinySprite;
+
+            if (sStorage->movingMonShinySprite != NULL)
+                sStorage->movingMonShinySprite->callback = SpriteCB_HeldMonShiny;
+            if (*sStorage->shiftMonShinySpritePtr != NULL)
+                (*sStorage->shiftMonShinySpritePtr)->callback = SpriteCallbackDummy;
+        }
     }
 
     return TRUE;
@@ -5062,16 +5404,22 @@ static void SetReleaseMon(u8 mode, u8 position)
     {
     case MODE_PARTY:
         sStorage->releaseMonSpritePtr = &sStorage->partySprites[position];
+        sStorage->releaseMonShinySpritePtr = &sStorage->partyShinySprites[position];
         break;
     case MODE_BOX:
         sStorage->releaseMonSpritePtr = &sStorage->boxMonsSprites[position];
+        sStorage->releaseMonShinySpritePtr = &sStorage->boxShinySprites[position];
         break;
     case MODE_MOVE:
         sStorage->releaseMonSpritePtr = &sStorage->movingMonSprite;
+        sStorage->releaseMonShinySpritePtr = &sStorage->movingMonShinySprite;
         break;
     default:
         return;
     }
+
+    if (sStorage->releaseMonShinySpritePtr != NULL && *sStorage->releaseMonShinySpritePtr != NULL)
+        (*sStorage->releaseMonShinySpritePtr)->invisible = TRUE;
 
     if (*sStorage->releaseMonSpritePtr != NULL)
     {
@@ -5102,6 +5450,11 @@ static void DestroyReleaseMonIcon(void)
         DestroyBoxMonIcon(*sStorage->releaseMonSpritePtr);
         *sStorage->releaseMonSpritePtr = NULL;
     }
+    if (sStorage->releaseMonShinySpritePtr != NULL && *sStorage->releaseMonShinySpritePtr != NULL)
+    {
+        DestroySprite(*sStorage->releaseMonShinySpritePtr);
+        *sStorage->releaseMonShinySpritePtr = NULL;
+    }
 }
 
 static void ReshowReleaseMon(void)
@@ -5110,6 +5463,10 @@ static void ReshowReleaseMon(void)
     {
         (*sStorage->releaseMonSpritePtr)->invisible = FALSE;
         StartSpriteAffineAnim(*sStorage->releaseMonSpritePtr, RELEASE_ANIM_CAME_BACK);
+    }
+    if (sStorage->releaseMonShinySpritePtr != NULL && *sStorage->releaseMonShinySpritePtr != NULL)
+    {
+        (*sStorage->releaseMonShinySpritePtr)->invisible = FALSE;
     }
 }
 
@@ -6988,6 +7345,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
     bool8 sanityIsBadEgg;
 
     sStorage->displayMonItemId = ITEM_NONE;
+    sStorage->displayMonIsShiny = FALSE;
     gender = MON_MALE;
     sanityIsBadEgg = FALSE;
     if (mode == MODE_PARTY)
@@ -7009,6 +7367,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
             sStorage->displayMonMarkings = GetMonData(mon, MON_DATA_MARKINGS);
             sStorage->displayMonPersonality = GetMonData(mon, MON_DATA_PERSONALITY);
             sStorage->displayMonPalette = GetMonFrontSpritePal(mon);
+            sStorage->displayMonIsShiny = GetMonData(mon, MON_DATA_SHINY_UNLOCKED);
             gender = GetMonGender(mon);
             sStorage->displayMonItemId = GetMonData(mon, MON_DATA_HELD_ITEM);
         }
@@ -7021,6 +7380,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
         if (sStorage->displayMonSpecies != SPECIES_NONE)
         {
             bool32 isShiny = GetBoxMonData(boxMon, MON_DATA_IS_SHINY);
+            sStorage->displayMonIsShiny = GetBoxMonData(boxMon, MON_DATA_SHINY_UNLOCKED);
             sanityIsBadEgg = GetBoxMonData(boxMon, MON_DATA_SANITY_IS_BAD_EGG);
             if (sanityIsBadEgg)
                 sStorage->displayMonIsEgg = TRUE;
@@ -7069,6 +7429,8 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
             gender = MON_GENDERLESS;
 
         StringCopyPadded(sStorage->displayMonNameText, sStorage->displayMonName, CHAR_SPACE, 5);
+        if (sStorage->displayMonIsShiny)
+            StringAppend(sStorage->displayMonNameText, COMPOUND_STRING(" {COLOR RED}{STAR}"));
 
         txtPtr = sStorage->displayMonSpeciesName;
         *(txtPtr++) = CHAR_SLASH;

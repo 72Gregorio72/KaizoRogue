@@ -10,7 +10,8 @@ enum RarityTier
     RARITY_UNCOMMON = 2,
     RARITY_RARE     = 3,
     RARITY_EPIC     = 4,
-    RARITY_TIERS_COUNT = 4
+    RARITY_LEGENDARY = 5,
+    RARITY_TIERS_COUNT = 5
 };
 
 enum GamePhase

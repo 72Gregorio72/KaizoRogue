@@ -72,7 +72,14 @@ struct
     SAVEBLOCK_CHUNK(struct PokemonStorage, 5),
     SAVEBLOCK_CHUNK(struct PokemonStorage, 6),
     SAVEBLOCK_CHUNK(struct PokemonStorage, 7),
-    SAVEBLOCK_CHUNK(struct PokemonStorage, 8), // SECTOR_ID_PKMN_STORAGE_END
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 8),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 9),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 10),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 11),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 12),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 13),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 14),
+    SAVEBLOCK_CHUNK(struct PokemonStorage, 15), // SECTOR_ID_PKMN_STORAGE_END
 };
 
 // These will produce an error if a save struct is larger than the space
@@ -100,12 +107,9 @@ void ClearSaveData(void)
 {
     u16 i;
 
-    // Clear the full save two sectors at a time
-    for (i = 0; i < SECTORS_COUNT / 2; i++)
-    {
+    // Clear the full save
+    for (i = 0; i < SECTORS_COUNT; i++)
         EraseFlashSector(i);
-        EraseFlashSector(i + SECTORS_COUNT / 2);
-    }
 }
 
 void Save_ResetSaveCounters(void)
@@ -522,11 +526,15 @@ static u8 GetSaveValidStatus(const struct SaveSectorLocation *locations)
     u16 i;
     u16 checksum;
     u32 saveSlot1Counter = 0;
+#if NUM_SAVE_SLOTS > 1
     u32 saveSlot2Counter = 0;
+#endif
     u32 validSectorFlags = 0;
     bool8 signatureValid = FALSE;
     u8 saveSlot1Status;
+#if NUM_SAVE_SLOTS > 1
     u8 saveSlot2Status;
+#endif
 
     // Check save slot 1
     for (i = 0; i < NUM_SECTORS_PER_SLOT; i++)
@@ -557,6 +565,18 @@ static u8 GetSaveValidStatus(const struct SaveSectorLocation *locations)
         saveSlot1Status = SAVE_STATUS_EMPTY;
     }
 
+#if NUM_SAVE_SLOTS == 1
+    if (saveSlot1Status == SAVE_STATUS_OK)
+    {
+        gSaveCounter = saveSlot1Counter;
+        return SAVE_STATUS_OK;
+    }
+    gSaveCounter = 0;
+    gLastWrittenSector = 0;
+    if (saveSlot1Status == SAVE_STATUS_EMPTY)
+        return SAVE_STATUS_EMPTY;
+    return SAVE_STATUS_CORRUPT;
+#else
     validSectorFlags = 0;
     signatureValid = FALSE;
 
@@ -640,6 +660,7 @@ static u8 GetSaveValidStatus(const struct SaveSectorLocation *locations)
     gSaveCounter = 0;
     gLastWrittenSector = 0;
     return SAVE_STATUS_CORRUPT;
+#endif
 }
 
 static u8 TryLoadSaveSector(u8 sectorId, u8 *data, u16 size)

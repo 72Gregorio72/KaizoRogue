@@ -47,11 +47,12 @@ static const u8 sCompetitiveNatureDescs[][24] = {
     _(" (Neutral)")
 };
 
-static const u16 sTierStarterMoves[5][4] = {
-    [RARITY_COMMON]   = { MOVE_QUICK_ATTACK, MOVE_WATER_GUN, MOVE_EMBER, MOVE_BITE },
-    [RARITY_UNCOMMON] = { MOVE_AERIAL_ACE, MOVE_SWIFT, MOVE_WATER_PULSE, MOVE_MAGICAL_LEAF },
-    [RARITY_RARE]     = { MOVE_FLAMETHROWER, MOVE_THUNDERBOLT, MOVE_ICE_BEAM, MOVE_PSYCHIC },
-    [RARITY_EPIC]     = { MOVE_DRAGON_PULSE, MOVE_SHADOW_BALL, MOVE_MOONBLAST, MOVE_EARTH_POWER }
+static const u16 sTierStarterMoves[6][4] = {
+    [RARITY_COMMON]    = { MOVE_QUICK_ATTACK, MOVE_WATER_GUN, MOVE_EMBER, MOVE_BITE },
+    [RARITY_UNCOMMON]  = { MOVE_AERIAL_ACE, MOVE_SWIFT, MOVE_WATER_PULSE, MOVE_MAGICAL_LEAF },
+    [RARITY_RARE]      = { MOVE_FLAMETHROWER, MOVE_THUNDERBOLT, MOVE_ICE_BEAM, MOVE_PSYCHIC },
+    [RARITY_EPIC]      = { MOVE_DRAGON_PULSE, MOVE_SHADOW_BALL, MOVE_MOONBLAST, MOVE_EARTH_POWER },
+    [RARITY_LEGENDARY] = { MOVE_JUDGMENT, MOVE_SPACIAL_REND, MOVE_ROAR_OF_TIME, MOVE_PSYSTRIKE }
 };
 
 static const u8 sText_BuildOpt_StarterSet[]    = _("Set as Run Starter");
@@ -67,16 +68,18 @@ void Script_BuildMon_ShowPointsSummary(void)
 {
     InitKaizoMetaProgression();
     u8 *ptr1 = gStringVar1;
-    ptr1 = StringCopy(ptr1, COMPOUND_STRING("Common: "));
+    ptr1 = StringCopy(ptr1, COMPOUND_STRING("Com: "));
     ptr1 = ConvertIntToDecimalStringN(ptr1, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_COMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
-    ptr1 = StringAppend(ptr1, COMPOUND_STRING("  -  Uncommon: "));
+    ptr1 = StringAppend(ptr1, COMPOUND_STRING(" Unc: "));
     ConvertIntToDecimalStringN(ptr1, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_UNCOMMON], STR_CONV_MODE_LEFT_ALIGN, 4);
 
     u8 *ptr2 = gStringVar2;
-    ptr2 = StringCopy(ptr2, COMPOUND_STRING("Rare: "));
+    ptr2 = StringCopy(ptr2, COMPOUND_STRING("Rar: "));
     ptr2 = ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_RARE], STR_CONV_MODE_LEFT_ALIGN, 4);
-    ptr2 = StringAppend(ptr2, COMPOUND_STRING("  -  Epic: "));
-    ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_EPIC], STR_CONV_MODE_LEFT_ALIGN, 4);
+    ptr2 = StringAppend(ptr2, COMPOUND_STRING(" Ep: "));
+    ptr2 = ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_EPIC], STR_CONV_MODE_LEFT_ALIGN, 4);
+    ptr2 = StringAppend(ptr2, COMPOUND_STRING(" Leg: "));
+    ConvertIntToDecimalStringN(ptr2, gSaveBlock2Ptr->metaProgression.rarityPoints[RARITY_LEGENDARY], STR_CONV_MODE_LEFT_ALIGN, 4);
 }
 
 void Script_BuildMon_RefreshInfo(void)
@@ -86,7 +89,7 @@ void Script_BuildMon_RefreshInfo(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     u16 points = gSaveBlock2Ptr->metaProgression.rarityPoints[tier];
@@ -267,7 +270,7 @@ void Script_BuildMon_PushNatures(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 5)
@@ -307,7 +310,7 @@ void Script_BuildMon_ApplyNature(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 5)
@@ -342,7 +345,7 @@ void Script_BuildMon_PushAbilities(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
@@ -406,7 +409,7 @@ void Script_BuildMon_ApplyAbility(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
@@ -444,7 +447,7 @@ void Script_BuildMon_PushMoves(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
@@ -483,7 +486,7 @@ void Script_BuildMon_ApplyMove(void)
 
     u16 species = GetBoxMonData(sChosenBuildMon, MON_DATA_SPECIES);
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.rarityPoints[tier] < 10)
@@ -520,7 +523,7 @@ void Script_BuildMon_FuseSelectedMon(void)
     }
 
     u8 tier = GetSpeciesRarityTier(species);
-    if (tier == RARITY_NONE || tier > RARITY_EPIC)
+    if (tier == RARITY_NONE || tier > RARITY_LEGENDARY)
         tier = RARITY_COMMON;
 
     if (gSaveBlock2Ptr->metaProgression.chosenGachaSpecies == species)

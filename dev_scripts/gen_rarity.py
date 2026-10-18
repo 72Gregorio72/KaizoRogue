@@ -13,7 +13,7 @@ import glob
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 JSON_PATH = os.path.join(REPO_ROOT, 'data', 'roguelike_rarity.json')
 
-TIERS = ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+TIERS = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"]
 
 BABY_POKEMON = {
     'SPECIES_PICHU', 'SPECIES_CLEFFA', 'SPECIES_IGGLYBUFF', 'SPECIES_TOGEPI',
@@ -137,40 +137,27 @@ def classify_pokemon(name, blk, defines):
     is_paradox = bool(re.search(r'\.isParadox\s*=\s*TRUE', blk))
     no_eggs = ('EGG_GROUP_NO_EGGS_DISCOVERED' in blk) and (name not in BABY_POKEMON)
 
-    # Automatic Epic for Legendaries / Mythicals / UBs / Paradox
+    # Automatic Legendary for Legendaries / Mythicals / UBs / Paradox (excluding baby pokemon)
     if is_mythical or is_ub or is_paradox or no_eggs:
-        return 'EPIC'
+        if name not in BABY_POKEMON:
+            return 'LEGENDARY'
 
-    effective_bst = raw_bst
-
-    # Extreme passive abilities
-    if 'ABILITY_TRUANT' in blk or 'ABILITY_SLOW_START' in blk:
-        effective_bst -= 180
-    elif 'ABILITY_HUGE_POWER' in blk or 'ABILITY_PURE_POWER' in blk:
-        effective_bst += 120
-
-    # Min-max distribution bonus (+30 if max(Atk, SpA) >= 125 and Spe >= 90)
-    if max(atk, spa) >= 125 and spe >= 90:
-        effective_bst += 30
-
-    # Evolution stage filter
-    has_evo = bool(re.search(r'\.evolutions\s*=\s*EVOLUTION\(', blk))
-    if has_evo and name not in COMPETITIVE_NFE and name not in PSEUDO_LEGENDARY_BABIES:
-        if effective_bst >= 490:
-            effective_bst = 489
-
-    # User example specific: Butterfree & early fully-evolved bugs in Uncommon
-    if name in ('SPECIES_BUTTERFREE', 'SPECIES_BEEDRILL', 'SPECIES_BEAUTIFLY', 'SPECIES_DUSTOX', 'SPECIES_VIVILLON'):
-        effective_bst = max(effective_bst, 420)
-
-    if effective_bst < 420:
+    # User BST thresholds:
+    # comune fino a 350bst
+    # 350-400 uncommon
+    # 400-480 rare
+    # 480-560 epic
+    # 560+ legendary
+    if raw_bst < 350:
         return 'COMMON'
-    elif effective_bst < 490:
+    elif raw_bst < 400:
         return 'UNCOMMON'
-    elif effective_bst < 560:
+    elif raw_bst < 480:
         return 'RARE'
-    else:
+    elif raw_bst < 560:
         return 'EPIC'
+    else:
+        return 'LEGENDARY'
 
 # -------------------------------------------------------------
 # 2. MOVES CLASSIFICATION (Balanced for Kaizo Ironmon)
@@ -554,7 +541,7 @@ def main():
 
     # Helper to insert into result
     def add_entry(cat, name, computed_tier):
-        if existing_data is not None and (cat not in ("moves", "items") or not force_moves_items):
+        if existing_data is not None and cat in ("moves", "items") and not force_moves_items:
             # If entry already existed in JSON, keep its tier!
             if name in existing_tiers[cat]:
                 actual_tier = existing_tiers[cat][name]

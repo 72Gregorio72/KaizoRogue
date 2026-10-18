@@ -45,7 +45,7 @@ def main():
         ("Items", "items", "sRarityItems", "ITEMS_COUNT")
     ]
 
-    tier_names = ["COMMON", "UNCOMMON", "RARE", "EPIC"]
+    tier_names = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"]
 
     for title, cat_key, var_prefix, max_const in categories:
         cat_dict = data.get(cat_key, {})
