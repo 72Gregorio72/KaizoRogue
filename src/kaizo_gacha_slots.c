@@ -2027,12 +2027,16 @@ static void UpdatePromptWindow(void)
     }
     else if (sGacha->state == GACHA_STATE_MULTI_WAIT_INPUT)
     {
-        u8 topBuf[48];
+        u8 topBuf[64];
         u8 *p = StringCopy(topBuf, COMPOUND_STRING("POKÉMON ("));
         p = ConvertIntToDecimalStringN(p, sGacha->multiIndex + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
         p = StringAppend(p, COMPOUND_STRING("/10)  "));
         if (sGacha->isDuplicate)
-            StringAppend(p, COMPOUND_STRING("DUPLICATE (+10 Pts)"));
+        {
+            p = StringAppend(p, COMPOUND_STRING("DUP (+10 "));
+            p = StringAppend(p, GetRarityTierName(sGacha->rolledTier));
+            p = StringAppend(p, COMPOUND_STRING(" Pts)"));
+        }
         else
             StringAppend(p, COMPOUND_STRING("NEW POKÉMON"));
         AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 1, sColor_Dark, TEXT_SKIP_DRAW, topBuf);
@@ -2053,9 +2057,13 @@ static void UpdatePromptWindow(void)
     }
     else if (sGacha->state == GACHA_STATE_WAIT_NEXT)
     {
-        u8 topBuf[48];
+        u8 topBuf[64];
         if (sGacha->isDuplicate)
-            StringCopy(topBuf, COMPOUND_STRING("DUPLICATE MERGED! (+10 Pts)"));
+        {
+            u8 *p = StringCopy(topBuf, COMPOUND_STRING("DUPLICATE MERGED! (+10 "));
+            p = StringAppend(p, GetRarityTierName(sGacha->rolledTier));
+            p = StringAppend(p, COMPOUND_STRING(" Pts)"));
+        }
         else
             StringCopy(topBuf, COMPOUND_STRING("NEW POKÉMON ADDED TO ROSTER!"));
         AddTextPrinterParameterized3(WIN_PROMPT, FONT_SMALL, 4, 1, sColor_Dark, TEXT_SKIP_DRAW, topBuf);

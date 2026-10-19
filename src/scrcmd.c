@@ -1859,6 +1859,8 @@ bool8 ScrCmd_dynmultichoice(struct ScriptContext *ctx)
     else
     {
         argc = MultichoiceDynamic_StackSize();
+        if (argc == 0)
+            return FALSE;
         items = AllocZeroed(sizeof(struct ListMenuItem) * argc);
         for (i = 0; i < argc; ++i)
         {

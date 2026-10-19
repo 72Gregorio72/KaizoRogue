@@ -599,19 +599,22 @@ void MultichoiceDynamic_ReallocStack(u32 newCapacity)
 
 bool32 MultichoiceDynamic_StackFull(void)
 {
-    AGB_ASSERT(sDynamicMultiChoiceStack != NULL);
+    if (sDynamicMultiChoiceStack == NULL)
+        return FALSE;
     return sDynamicMultiChoiceStack->top == sDynamicMultiChoiceStack->capacity - 1;
 }
 
 bool32 MultichoiceDynamic_StackEmpty(void)
 {
-    AGB_ASSERT(sDynamicMultiChoiceStack != NULL);
+    if (sDynamicMultiChoiceStack == NULL)
+        return TRUE;
     return sDynamicMultiChoiceStack->top == -1;
 }
 
 u32 MultichoiceDynamic_StackSize(void)
 {
-    AGB_ASSERT(sDynamicMultiChoiceStack != NULL);
+    if (sDynamicMultiChoiceStack == NULL)
+        return 0;
     return sDynamicMultiChoiceStack->top + 1;
 }
 
@@ -653,8 +656,11 @@ struct ListMenuItem *MultichoiceDynamic_PeekElementAt(u32 index)
 
 void MultichoiceDynamic_DestroyStack(void)
 {
-    TRY_FREE_AND_SET_NULL(sDynamicMultiChoiceStack->elements);
-    TRY_FREE_AND_SET_NULL(sDynamicMultiChoiceStack);
+    if (sDynamicMultiChoiceStack != NULL)
+    {
+        TRY_FREE_AND_SET_NULL(sDynamicMultiChoiceStack->elements);
+        TRY_FREE_AND_SET_NULL(sDynamicMultiChoiceStack);
+    }
 }
 
 static void MultichoiceDynamic_MoveCursor(s32 itemIndex, bool8 onInit, struct ListMenu *list)

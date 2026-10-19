@@ -4954,15 +4954,12 @@ void ItemUseCB_Medicine(u8 taskId, TaskFunc task)
 void Task_AbilityCapsule(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
+    u16 newAbility = (u16)tAbilityNum;
 
     switch (tState)
     {
     case 0:
-        // Can't use.
-        if (GetSpeciesAbility(tSpecies, 0) == GetSpeciesAbility(tSpecies, 1)
-            || GetSpeciesAbility(tSpecies, 1) == 0
-            || tAbilityNum > 1
-            || !tSpecies)
+        if (tSpecies == SPECIES_NONE || GetMonData(&gParties[B_TRAINER_PLAYER][tMonId], MON_DATA_IS_EGG))
         {
             gPartyMenuUseExitCallback = FALSE;
             PlaySE(SE_SELECT);
@@ -4973,7 +4970,7 @@ void Task_AbilityCapsule(u8 taskId)
         }
         gPartyMenuUseExitCallback = TRUE;
         GetMonNickname(&gParties[B_TRAINER_PLAYER][tMonId], gStringVar1);
-        StringCopy(gStringVar2, gAbilitiesInfo[GetAbilityBySpecies(tSpecies, tAbilityNum)].name);
+        StringCopy(gStringVar2, gAbilitiesInfo[newAbility].name);
         StringExpandPlaceholders(gStringVar4, sText_askText);
         PlaySE(SE_SELECT);
         DisplayPartyMenuMessage(gStringVar4, 1);
@@ -4998,7 +4995,6 @@ void Task_AbilityCapsule(u8 taskId)
             gPartyMenuUseExitCallback = FALSE;
             PlaySE(SE_SELECT);
             ScheduleBgCopyTilemapToVram(2);
-            // Don't exit party selections screen, return to choosing a mon.
             ClearStdWindowAndFrameToTransparent(6, 0);
             ClearWindowTilemap(6);
             DisplayPartyMenuStdMessage(5);
@@ -5018,7 +5014,7 @@ void Task_AbilityCapsule(u8 taskId)
             tState++;
         break;
     case 5:
-        SetMonData(&gParties[B_TRAINER_PLAYER][tMonId], MON_DATA_ABILITY_NUM, &tAbilityNum);
+        SetMonData(&gParties[B_TRAINER_PLAYER][tMonId], MON_DATA_CUSTOM_ABILITY, &newAbility);
         RemoveBagItem(gSpecialVar_ItemId, 1);
         gTasks[taskId].func = Task_ClosePartyMenu;
         break;
@@ -5032,7 +5028,14 @@ void ItemUseCB_AbilityCapsule(u8 taskId, TaskFunc task)
     tState = 0;
     tMonId = gPartyMenu.slotId;
     tSpecies = GetMonData(&gParties[B_TRAINER_PLAYER][tMonId], MON_DATA_SPECIES);
-    tAbilityNum = GetMonData(&gParties[B_TRAINER_PLAYER][tMonId], MON_DATA_ABILITY_NUM) ^ 1;
+
+    u16 currentAbility = GetMonAbility(&gParties[B_TRAINER_PLAYER][tMonId]);
+    u16 newAbility;
+    do {
+        newAbility = (Random() % (ABILITIES_COUNT - 1)) + 1;
+    } while (newAbility == currentAbility || gAbilitiesInfo[newAbility].name[0] == '\0' || gAbilitiesInfo[newAbility].name[0] == '-');
+
+    tAbilityNum = newAbility;
     SetWordTaskArg(taskId, tOldFunc, (uintptr_t)(gTasks[taskId].func));
     gTasks[taskId].func = Task_AbilityCapsule;
 }

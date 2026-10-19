@@ -302,7 +302,11 @@ void AwardTrainerDefeatRogueShards(u16 opponent)
     else if (opponent == TRAINER_LEADER_MISTY)
         shards = 120;
     else if (opponent == TRAINER_LEADER_LT_SURGE)
+    {
+        extern void Script_RecordSurgeDefeatSpecies(void);
         shards = 140;
+        Script_RecordSurgeDefeatSpecies();
+    }
     else if (opponent == TRAINER_LEADER_ERIKA)
         shards = 160;
     else if (opponent == TRAINER_LEADER_KOGA)
@@ -1482,7 +1486,7 @@ static bool8 IsMartOptionUnlocked(u8 option)
     {
     case 0: return TRUE; // Stat Points always available
     case 1: return TRUE; // Move Draft always available
-    case 2: return gSaveBlock2Ptr->metaProgression.martUnlockIV;
+    case 2: return FALSE; // IV Booster permanently removed
     case 3: return gSaveBlock2Ptr->metaProgression.martUnlockEV;
     case 4: return gSaveBlock2Ptr->metaProgression.martUnlockNature;
     case 5: return gSaveBlock2Ptr->metaProgression.martUnlockAbility;
@@ -2210,20 +2214,7 @@ void Script_Meta_PushMartChoices(void)
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 2: Licenza IV Booster (80 Shards)
-    {
-        u8 *buf = Alloc(64);
-        if (gSaveBlock2Ptr->metaProgression.martUnlockIV)
-            StringCopy(buf, sText_LicenzaIV_Done);
-        else
-            StringCopy(buf, sText_LicenzaIV_Buy);
-        struct ListMenuItem item;
-        item.name = buf;
-        item.id = 2;
-        MultichoiceDynamic_PushElement(item);
-    }
-
-    // 3: Licenza EV Trainer (100 Shards)
+    // 2: Licenza EV Trainer (100 Shards)
     {
         u8 *buf = Alloc(64);
         if (gSaveBlock2Ptr->metaProgression.martUnlockEV)
@@ -2232,11 +2223,11 @@ void Script_Meta_PushMartChoices(void)
             StringCopy(buf, sText_LicenzaEV_Buy);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = 3;
+        item.id = 2;
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 4: Licenza Cambio Natura (120 Shards)
+    // 3: Licenza Cambio Natura (120 Shards)
     {
         u8 *buf = Alloc(64);
         if (gSaveBlock2Ptr->metaProgression.martUnlockNature)
@@ -2245,11 +2236,11 @@ void Script_Meta_PushMartChoices(void)
             StringCopy(buf, sText_LicenzaNature_Buy);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = 4;
+        item.id = 3;
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 5: Licenza Cambio Abilita' (180 Shards)
+    // 4: Licenza Cambio Abilita' (180 Shards)
     {
         u8 *buf = Alloc(64);
         if (gSaveBlock2Ptr->metaProgression.martUnlockAbility)
@@ -2258,17 +2249,17 @@ void Script_Meta_PushMartChoices(void)
             StringCopy(buf, sText_LicenzaAbility_Buy);
         struct ListMenuItem item;
         item.name = buf;
-        item.id = 5;
+        item.id = 4;
         MultichoiceDynamic_PushElement(item);
     }
 
-    // 6: Esci
+    // 5: Esci
     {
         u8 *bufExit = Alloc(32);
         StringCopy(bufExit, sText_Indietro);
         struct ListMenuItem exitItem;
         exitItem.name = bufExit;
-        exitItem.id = 6;
+        exitItem.id = 5;
         MultichoiceDynamic_PushElement(exitItem);
     }
 }
@@ -2300,15 +2291,7 @@ void Script_Meta_BuyMartUpgrade(void)
         gSpecialVar_Result = 1;
         break;
     }
-    case 2: // IV
-    {
-        if (gSaveBlock2Ptr->metaProgression.martUnlockIV) { gSpecialVar_Result = 3; return; }
-        if (!RemoveRogueShards(80)) { gSpecialVar_Result = 2; return; }
-        gSaveBlock2Ptr->metaProgression.martUnlockIV = TRUE;
-        gSpecialVar_Result = 1;
-        break;
-    }
-    case 3: // EV
+    case 2: // EV
     {
         if (gSaveBlock2Ptr->metaProgression.martUnlockEV) { gSpecialVar_Result = 3; return; }
         if (!RemoveRogueShards(100)) { gSpecialVar_Result = 2; return; }
@@ -2316,7 +2299,7 @@ void Script_Meta_BuyMartUpgrade(void)
         gSpecialVar_Result = 1;
         break;
     }
-    case 4: // Nature
+    case 3: // Nature
     {
         if (gSaveBlock2Ptr->metaProgression.martUnlockNature) { gSpecialVar_Result = 3; return; }
         if (!RemoveRogueShards(120)) { gSpecialVar_Result = 2; return; }
@@ -2324,7 +2307,7 @@ void Script_Meta_BuyMartUpgrade(void)
         gSpecialVar_Result = 1;
         break;
     }
-    case 5: // Ability
+    case 4: // Ability
     {
         if (gSaveBlock2Ptr->metaProgression.martUnlockAbility) { gSpecialVar_Result = 3; return; }
         if (!RemoveRogueShards(180)) { gSpecialVar_Result = 2; return; }
@@ -2713,6 +2696,27 @@ void Script_Kaizo_PrepareNewRun(void)
             AddBagItem(ITEM_LIFT_KEY, 1);
             AddBagItem(ITEM_SILPH_SCOPE, 1);
 
+            extern u8 GetSpeciesMegaStones(u16 species, u16 *outStone1, u16 *outStone2);
+            u16 mega1 = ITEM_NONE, mega2 = ITEM_NONE;
+            u8 megaCount = GetSpeciesMegaStones(starterSpecies, &mega1, &mega2);
+            bool8 hasUnlockedMega = FALSE;
+
+            if (megaCount >= 1 && mega1 != ITEM_NONE && GetBoxMonData(bMon, MON_DATA_MEGA_STONE_1_UNLOCKED))
+            {
+                AddBagItem(mega1, 1);
+                hasUnlockedMega = TRUE;
+            }
+            if (megaCount >= 2 && mega2 != ITEM_NONE && GetBoxMonData(bMon, MON_DATA_MEGA_STONE_2_UNLOCKED))
+            {
+                AddBagItem(mega2, 1);
+                hasUnlockedMega = TRUE;
+            }
+            if (hasUnlockedMega)
+            {
+                if (!CheckBagHasItem(ITEM_MEGA_RING, 1))
+                    AddBagItem(ITEM_MEGA_RING, 1);
+            }
+
             VarSet(VAR_MAP_SCENE_PALLET_TOWN_OAK, 1);
             VarSet(VAR_MAP_SCENE_PALLET_TOWN_PROFESSOR_OAKS_LAB, 6);
             VarSet(VAR_MAP_SCENE_VIRIDIAN_CITY_OLD_MAN, 2);
@@ -2987,7 +2991,7 @@ bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
 
 void AddRarityPoints(u8 tier, u16 amount)
 {
-    if (tier >= 1 && tier <= RARITY_EPIC)
+    if (tier >= RARITY_COMMON && tier <= RARITY_LEGENDARY)
     {
         InitKaizoMetaProgression();
         gSaveBlock2Ptr->metaProgression.rarityPoints[tier] += amount;

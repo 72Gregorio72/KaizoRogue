@@ -1004,7 +1004,8 @@ void CreateBoxMon(struct BoxPokemon *boxMon, enum Species species, u8 level, u32
     SetBoxMonData(boxMon, MON_DATA_OT_NAME, gSaveBlock2Ptr->playerName);
     SetBoxMonData(boxMon, MON_DATA_SPECIES, &species);
     SetBoxMonData(boxMon, MON_DATA_EXP, &gExperienceTables[gSpeciesInfo[species].growthRate][level]);
-    SetBoxMonData(boxMon, MON_DATA_FRIENDSHIP, &gSpeciesInfo[species].friendship);
+    u8 maxFriendship = 255;
+    SetBoxMonData(boxMon, MON_DATA_FRIENDSHIP, &maxFriendship);
     value = GetCurrentRegionMapSectionId();
     SetBoxMonData(boxMon, MON_DATA_MET_LOCATION, &value);
     SetBoxMonData(boxMon, MON_DATA_MET_LEVEL, &level);
@@ -2172,7 +2173,7 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
             retVal = GetSubstruct0(boxMon)->ppBonuses;
             break;
         case MON_DATA_FRIENDSHIP:
-            retVal = GetSubstruct0(boxMon)->friendship;
+            retVal = 255;
             break;
         case MON_DATA_MOVE1:
             retVal = GetSubstruct1(boxMon)->move1;
@@ -2449,6 +2450,15 @@ u32 GetBoxMonData3(struct BoxPokemon *boxMon, s32 field, u8 *data)
                 }.combinedValue;
             }
             break;
+        case MON_DATA_BEAT_SURGE:
+            retVal = GetSubstruct0(boxMon)->beatSurge;
+            break;
+        case MON_DATA_MEGA_STONE_1_UNLOCKED:
+            retVal = GetSubstruct0(boxMon)->megaStone1Unlocked;
+            break;
+        case MON_DATA_MEGA_STONE_2_UNLOCKED:
+            retVal = GetSubstruct0(boxMon)->megaStone2Unlocked;
+            break;
         default:
             break;
         }
@@ -2667,7 +2677,7 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
             SET8(GetSubstruct0(boxMon)->ppBonuses);
             break;
         case MON_DATA_FRIENDSHIP:
-            SET8(GetSubstruct0(boxMon)->friendship);
+            GetSubstruct0(boxMon)->friendship = 255;
             break;
         case MON_DATA_MOVE1:
             SET16(GetSubstruct1(boxMon)->move1);
@@ -2873,6 +2883,15 @@ void SetBoxMonData(struct BoxPokemon *boxMon, s32 field, const void *dataArg)
             substruct1->evolutionTracker2 = evoTracker.tracker2;
             break;
         }
+        case MON_DATA_BEAT_SURGE:
+            GetSubstruct0(boxMon)->beatSurge = *(const u8 *)data;
+            break;
+        case MON_DATA_MEGA_STONE_1_UNLOCKED:
+            GetSubstruct0(boxMon)->megaStone1Unlocked = *(const u8 *)data;
+            break;
+        case MON_DATA_MEGA_STONE_2_UNLOCKED:
+            GetSubstruct0(boxMon)->megaStone2Unlocked = *(const u8 *)data;
+            break;
         default:
             break;
         }
@@ -4831,60 +4850,6 @@ u16 ModifyStatByNature(u8 nature, u16 stat, enum Stat statIndex)
 
 void AdjustFriendship(struct Pokemon *mon, u8 event)
 {
-    enum Species species;
-    enum Item heldItem;
-    enum HoldEffect holdEffect;
-    s8 mod;
-
-    if (ShouldSkipFriendshipChange())
-        return;
-
-    species = GetMonData(mon, MON_DATA_SPECIES_OR_EGG, 0);
-    heldItem = GetMonData(mon, MON_DATA_HELD_ITEM, 0);
-    holdEffect = GetItemHoldEffect(heldItem);
-
-    if (species && species != SPECIES_EGG)
-    {
-        u8 friendshipLevel = 0;
-        s32 friendship = GetMonData(mon, MON_DATA_FRIENDSHIP, 0);
-
-        if (friendship > 99)
-            friendshipLevel++;
-        if (friendship > 199)
-            friendshipLevel++;
-
-        if (event == FRIENDSHIP_EVENT_WALKING)
-        {
-            // 50% chance every 128 steps
-            if (Random() & 1)
-                return;
-        }
-        if (event == FRIENDSHIP_EVENT_LEAGUE_BATTLE)
-        {
-            // Only if it's a trainer battle with league progression significance
-            if (!(gBattleTypeFlags & BATTLE_TYPE_TRAINER))
-                return;
-
-            if (IsSpecialTrainer(TRAINER_BATTLE_PARAM.opponentA))
-                return;
-
-            enum TrainerClassID opponentTrainerClass = GetTrainerClassFromId(TRAINER_BATTLE_PARAM.opponentA);
-            if (!(opponentTrainerClass == TRAINER_CLASS_LEADER
-                || opponentTrainerClass == TRAINER_CLASS_ELITE_FOUR
-                || opponentTrainerClass == TRAINER_CLASS_CHAMPION))
-                return;
-        }
-
-        mod = sFriendshipEventModifiers[event][friendshipLevel];
-        friendship += CalculateFriendshipBonuses(mon,mod,holdEffect);
-
-        if (friendship < 0)
-            friendship = 0;
-        if (friendship > MAX_FRIENDSHIP)
-            friendship = MAX_FRIENDSHIP;
-
-        SetMonData(mon, MON_DATA_FRIENDSHIP, &friendship);
-    }
 }
 
 s32 CalculateFriendshipBonuses(struct Pokemon *mon, s32 modifier, enum HoldEffect itemHoldEffect)

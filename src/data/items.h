@@ -1530,18 +1530,12 @@ const struct ItemInfo gItemsInfo[] =
     [ITEM_ABILITY_CAPSULE] =
     {
         .name = ITEM_NAME("Ability Capsule"),
-    #if I_PRICE >= GEN_9
-        .price = 100000,
-    #elif I_PRICE >= GEN_7
-        .price = 10000,
-    #else
-        .price = 1000,
-    #endif
+        .price = 5000,
         .holdEffectParam = 0,
         .description = COMPOUND_STRING(
             "A capsule that\n"
-            "allows a Pokémon to\n"
-            "switch Abilities."),
+            "rerolls a Pokémon's\n"
+            "Ability to a random one."),
         .pocket = POCKET_ITEMS,
         .sortType = ITEM_TYPE_FIELD_USE,
         .type = ITEM_USE_PARTY_MENU,

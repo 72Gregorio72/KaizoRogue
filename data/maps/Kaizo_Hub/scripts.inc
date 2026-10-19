@@ -182,7 +182,7 @@ Kaizo_Hub_Text_CheatMaxAllDone:
 	.string "al livello MASSIMO!\p"
 	.string "- Draft Mosse: 5 scelte\n"
 	.string "- Punti Stat: +20 BST\n"
-	.string "- Licenze IV, EV, Natura, Abilita'\n"
+	.string "- Licenze EV, Natura, Abilita'\n"
 	.string "- Reroll Starter: 2\n"
 	.string "- Mosse Starter: Rarita' Rara\n"
 	.string "- Tasca Iniziale: Baccacedro\n"
@@ -660,9 +660,9 @@ Kaizo_Hub_EventScript_MartUpgradesNPC::
 	msgbox Kaizo_Hub_Text_MartUpgrades_Intro, MSGBOX_DEFAULT
 Kaizo_Hub_EventScript_MartUpgrades_Menu::
 	special Script_Meta_PushMartChoices
-	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_MartUpgrades_Exit
-	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_MartUpgrades_Exit
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_MartUpgrades_Exit
 	copyvar VAR_0x8005, VAR_RESULT
 	special Script_Meta_BuyMartUpgrade
 	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_MartUpgrades_Success
@@ -1230,16 +1230,18 @@ Kaizo_Hub_EventScript_BuildNPC_MonMenu::
 	special Script_BuildMon_RefreshInfo
 	msgbox Kaizo_Hub_Text_BuildNPC_MonStatus, MSGBOX_DEFAULT
 	special Script_BuildMon_PushMainMenu
-	dynmultistack 0, 0, FALSE, 7, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_Exit
-	goto_if_eq VAR_RESULT, 7, Kaizo_Hub_EventScript_BuildNPC_Exit
+	goto_if_eq VAR_RESULT, 9, Kaizo_Hub_EventScript_BuildNPC_Exit
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_StarterToggle
-	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_NatureMenu
+	goto_if_eq VAR_RESULT, 1, Kaizo_Hub_EventScript_BuildNPC_NatureReroll
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_AbilityMenu
-	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildNPC_MoveMenu
-	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildNPC_ShinyToggle
-	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildNPC_FuseMon
-	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_BuildNPC_SelectMon
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildNPC_Move1Menu
+	goto_if_eq VAR_RESULT, 4, Kaizo_Hub_EventScript_BuildNPC_Move2Menu
+	goto_if_eq VAR_RESULT, 5, Kaizo_Hub_EventScript_BuildNPC_MegaStoneMenu
+	goto_if_eq VAR_RESULT, 6, Kaizo_Hub_EventScript_BuildNPC_TeraMenu
+	goto_if_eq VAR_RESULT, 7, Kaizo_Hub_EventScript_BuildNPC_ShinyToggle
+	goto_if_eq VAR_RESULT, 8, Kaizo_Hub_EventScript_BuildNPC_SelectMon
 	goto Kaizo_Hub_EventScript_BuildNPC_Exit
 
 Kaizo_Hub_EventScript_BuildNPC_ShinyToggle::
@@ -1267,14 +1269,8 @@ Kaizo_Hub_EventScript_BuildNPC_StarterSet::
 	waitfanfare
 	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
-Kaizo_Hub_EventScript_BuildNPC_NatureMenu::
-	special Script_BuildMon_PushNatures
-	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
-	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
-	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
-	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
-	copyvar VAR_0x8005, VAR_RESULT
-	special Script_BuildMon_ApplyNature
+Kaizo_Hub_EventScript_BuildNPC_NatureReroll::
+	special Script_BuildMon_RerollNature
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
 	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
 	playfanfare MUS_LEVEL_UP
@@ -1297,10 +1293,18 @@ Kaizo_Hub_EventScript_BuildNPC_AbilityMenu::
 	waitfanfare
 	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
-Kaizo_Hub_EventScript_BuildNPC_MoveMenu::
+Kaizo_Hub_EventScript_BuildNPC_Move1Menu::
+	setvar VAR_0x8006, 0
+	goto Kaizo_Hub_EventScript_BuildNPC_MoveCommon
+
+Kaizo_Hub_EventScript_BuildNPC_Move2Menu::
+	setvar VAR_0x8006, 1
+	goto Kaizo_Hub_EventScript_BuildNPC_MoveCommon
+
+Kaizo_Hub_EventScript_BuildNPC_MoveCommon::
 	special Script_BuildMon_PushMoves
 	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints10
-	dynmultistack 0, 0, FALSE, 5, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
 	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
 	goto_if_eq VAR_RESULT, 0xFFFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
 	copyvar VAR_0x8005, VAR_RESULT
@@ -1312,14 +1316,55 @@ Kaizo_Hub_EventScript_BuildNPC_MoveMenu::
 	waitfanfare
 	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
-Kaizo_Hub_EventScript_BuildNPC_FuseMon::
-	msgbox Kaizo_Hub_Text_BuildNPC_ConfirmFuse, MSGBOX_YESNO
-	goto_if_ne VAR_RESULT, YES, Kaizo_Hub_EventScript_BuildNPC_MonMenu
-	special Script_BuildMon_FuseSelectedMon
-	playfanfare MUS_OBTAIN_ITEM
-	msgbox Kaizo_Hub_Text_BuildNPC_FuseSuccess, MSGBOX_DEFAULT
+Kaizo_Hub_EventScript_BuildNPC_MegaStoneMenu::
+	special Script_BuildMon_CheckMegaStone
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_MegaNotBeatenSurge
+	goto_if_eq VAR_RESULT, 3, Kaizo_Hub_EventScript_BuildNPC_MegaAlreadyAllUnlocked
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+Kaizo_Hub_EventScript_BuildNPC_MegaChoicesLoop::
+	special Script_BuildMon_PushMegaChoices
+	dynmultistack 0, 0, FALSE, 4, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFFFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFFFE, Kaizo_Hub_EventScript_BuildNPC_MegaAlreadyUnlocked
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_BuildMon_BuyMegaStone
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints15
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_MegaSuccess, MSGBOX_DEFAULT
 	waitfanfare
-	goto Kaizo_Hub_EventScript_BuildNPC_StartMenu
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_MegaNotBeatenSurge::
+	playse SE_BOO
+	msgbox Kaizo_Hub_Text_BuildNPC_MegaNotBeatenSurge, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_MegaAlreadyUnlocked::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_BuildNPC_MegaAlreadyUnlocked, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MegaChoicesLoop
+
+Kaizo_Hub_EventScript_BuildNPC_MegaAlreadyAllUnlocked::
+	playse SE_NOT_EFFECTIVE
+	msgbox Kaizo_Hub_Text_BuildNPC_MegaAlreadyAllUnlocked, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_TeraMenu::
+	special Script_BuildMon_PushTera
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
+	dynmultistack 0, 0, FALSE, 6, FALSE, 0, DYN_MULTICHOICE_CB_NONE
+	goto_if_eq VAR_RESULT, MULTI_B_PRESSED, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	goto_if_eq VAR_RESULT, 0xFF, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	copyvar VAR_0x8005, VAR_RESULT
+	special Script_BuildMon_ApplyTera
+	goto_if_eq VAR_RESULT, 2, Kaizo_Hub_EventScript_BuildNPC_NoPoints5
+	goto_if_eq VAR_RESULT, 0, Kaizo_Hub_EventScript_BuildNPC_MonMenu
+	playfanfare MUS_LEVEL_UP
+	msgbox Kaizo_Hub_Text_BuildNPC_TeraSuccess, MSGBOX_DEFAULT
+	waitfanfare
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
 Kaizo_Hub_EventScript_BuildNPC_NoPoints5::
 	playse SE_BOO
@@ -1329,6 +1374,11 @@ Kaizo_Hub_EventScript_BuildNPC_NoPoints5::
 Kaizo_Hub_EventScript_BuildNPC_NoPoints10::
 	playse SE_BOO
 	msgbox Kaizo_Hub_Text_BuildNPC_NotEnough10, MSGBOX_DEFAULT
+	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
+
+Kaizo_Hub_EventScript_BuildNPC_NoPoints15::
+	playse SE_BOO
+	msgbox Kaizo_Hub_Text_BuildNPC_NotEnough15, MSGBOX_DEFAULT
 	goto Kaizo_Hub_EventScript_BuildNPC_MonMenu
 
 Kaizo_Hub_EventScript_BuildNPC_IsEgg::
@@ -1393,23 +1443,59 @@ Kaizo_Hub_Text_BuildNPC_MoveSuccess:
 	.string "la mossa {STR_VAR_2} come mossa iniziale!\p"
 	.string "Punti rimasti: {STR_VAR_3}.$"
 
-Kaizo_Hub_Text_BuildNPC_ConfirmFuse:
-	.string "Vuoi fondere {STR_VAR_1}?\n"
-	.string "Riceverai +10 Punti Rarità {STR_VAR_2},\l"
-	.string "ma il Pokémon verrà rimosso per sempre!$"
+Kaizo_Hub_Text_BuildNPC_IVSuccess:
+	.string "Fantastico! L'IV in {STR_VAR_2} di {STR_VAR_1}\n"
+	.string "e' stato massimizzato a 31 (S+)!\p"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
 
-Kaizo_Hub_Text_BuildNPC_FuseSuccess:
-	.string "{STR_VAR_1} e' stato fuso con successo!\n"
-	.string "Hai guadagnato +10 Punti {STR_VAR_2}!\l"
-	.string "Punti {STR_VAR_2} totali: {STR_VAR_3}.$"
+Kaizo_Hub_Text_BuildNPC_IVAlreadyMax:
+	.string "L'IV in {STR_VAR_2} di {STR_VAR_1} e' gia'\n"
+	.string "al massimo (31 - S+)!$"
+
+Kaizo_Hub_Text_BuildNPC_ItemSuccess:
+	.string "{STR_VAR_1} ora iniziera' ogni Run con\n"
+	.string "lo strumento {STR_VAR_2} assegnato!\p"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_ItemRemoved:
+	.string "Hai rimosso lo strumento di partenza\n"
+	.string "da {STR_VAR_1}.$"
+
+Kaizo_Hub_Text_BuildNPC_TeraSuccess:
+	.string "Il Teratipo di {STR_VAR_1} e' stato\n"
+	.string "impostato a tipo {STR_VAR_2}!\p"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_MegaSuccess:
+	.string "Congratulazioni! Hai sbloccato la\n"
+	.string "{STR_VAR_2} per {STR_VAR_1}!\p"
+	.string "All'inizio della run riceverai la pietra\n"
+	.string "e il Mega Cerchio nello zaino!\p"
+	.string "Punti rimanenti: {STR_VAR_3}.$"
+
+Kaizo_Hub_Text_BuildNPC_MegaNotBeatenSurge:
+	.string "Non puoi sbloccare la Mega Pietra!\n"
+	.string "Devi prima sconfiggere Lt. Surge con\l"
+	.string "{STR_VAR_1} (o la sua linea evolutiva)!$"
+
+Kaizo_Hub_Text_BuildNPC_MegaAlreadyUnlocked:
+	.string "Hai già sbloccato questa Mega Pietra!$"
+
+Kaizo_Hub_Text_BuildNPC_MegaAlreadyAllUnlocked:
+	.string "Tutte le Mega Pietre per {STR_VAR_1}\n"
+	.string "sono già state sbloccate!$"
 
 Kaizo_Hub_Text_BuildNPC_NotEnough5:
 	.string "Non hai abbastanza Punti Rarità!\n"
-	.string "Servono 5 Punti per cambiare Natura.$"
+	.string "Servono 5 Punti per questo potenziamento.$"
 
 Kaizo_Hub_Text_BuildNPC_NotEnough10:
 	.string "Non hai abbastanza Punti Rarità!\n"
 	.string "Servono 10 Punti per questa modifica.$"
+
+Kaizo_Hub_Text_BuildNPC_NotEnough15:
+	.string "Non hai abbastanza Punti Rarità!\n"
+	.string "Servono 15 Punti per la Mega Pietra.$"
 
 Kaizo_Hub_Text_BuildNPC_IsEgg:
 	.string "Quello e' un Uovo! Non puoi potenziare\n"
@@ -1429,3 +1515,40 @@ Kaizo_Hub_Text_ShinySkinOn:
 Kaizo_Hub_Text_ShinySkinOff:
 	.string "Shiny Skin deactivated for\n"
 	.string "{STR_VAR_1}.$"
+
+Kaizo_Hub_EventScript_ShopClerk::
+	lock
+	faceplayer
+	message gText_HowMayIServeYou
+	waitmessage
+	pokemart Kaizo_Hub_ShopItems
+	msgbox gText_PleaseComeAgain
+	release
+	end
+
+	.align 2
+Kaizo_Hub_ShopItems::
+	.2byte ITEM_ABILITY_CAPSULE
+	.2byte ITEM_QUICK_CLAW
+	.2byte ITEM_LEFTOVERS
+	.2byte ITEM_FOCUS_SASH
+	.2byte ITEM_LIFE_ORB
+	.2byte ITEM_CHOICE_BAND
+	.2byte ITEM_CHOICE_SPECS
+	.2byte ITEM_CHOICE_SCARF
+	.2byte ITEM_ASSAULT_VEST
+	.2byte ITEM_EVIOLITE
+	.2byte ITEM_ROCKY_HELMET
+	.2byte ITEM_LOADED_DICE
+	.2byte ITEM_WHITE_HERB
+	.2byte ITEM_POWER_HERB
+	.2byte ITEM_EXPERT_BELT
+	.2byte ITEM_MUSCLE_BAND
+	.2byte ITEM_WISE_GLASSES
+	.2byte ITEM_SCOPE_LENS
+	.2byte ITEM_WIDE_LENS
+	.2byte ITEM_ZOOM_LENS
+	.2byte ITEM_SHELL_BELL
+	.2byte ITEM_SITRUS_BERRY
+	.2byte ITEM_LUM_BERRY
+	.2byte ITEM_NONE

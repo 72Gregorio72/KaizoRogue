@@ -210,6 +210,7 @@ VermilionCity_Gym_EventScript_LtSurge::
 	end
 
 VermilionCity_Gym_EventScript_DefeatedLtSurge::
+	special Script_RecordSurgeDefeatSpecies
 	famechecker FAMECHECKER_LTSURGE, 1
 	call_if_unset FLAG_GOT_HM05, VermilionCity_Gym_EventScript_ShowOaksAide
 	clearflag FLAG_HIDE_FAME_CHECKER_LT_SURGE_JOURNAL

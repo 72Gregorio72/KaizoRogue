@@ -730,14 +730,18 @@ gSpecials::
 	def_special Script_BuildMon_RefreshInfo
 	def_special Script_BuildMon_PushMainMenu
 	def_special Script_BuildMon_ToggleStarter
-	def_special Script_BuildMon_PushNatures
-	def_special Script_BuildMon_ApplyNature
+	def_special Script_BuildMon_RerollNature
 	def_special Script_BuildMon_PushAbilities
 	def_special Script_BuildMon_ApplyAbility
 	def_special Script_BuildMon_PushMoves
 	def_special Script_BuildMon_ApplyMove
-	def_special Script_BuildMon_FuseSelectedMon
+	def_special Script_BuildMon_CheckMegaStone
+	def_special Script_BuildMon_BuyMegaStone
+	def_special Script_BuildMon_PushMegaChoices
+	def_special Script_BuildMon_PushTera
+	def_special Script_BuildMon_ApplyTera
 	def_special Script_BuildMon_ToggleShiny
+	def_special Script_RecordSurgeDefeatSpecies
 	def_special Script_Gacha_ToggleShiny
 	def_special Script_Gacha_SetBanner
 	def_special Script_Meta_CheatCleanEggs

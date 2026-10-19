@@ -127,6 +127,9 @@ enum MonData {
     MON_DATA_GIGANTAMAX_FACTOR,
     MON_DATA_TERA_TYPE,
     MON_DATA_EVOLUTION_TRACKER,
+    MON_DATA_BEAT_SURGE,
+    MON_DATA_MEGA_STONE_1_UNLOCKED,
+    MON_DATA_MEGA_STONE_2_UNLOCKED,
 };
 
 #define BLOCK_AI_DYNAMAX 15 // Used as dynamax level value by the AI to indicate this mon shouldn't dynamax
@@ -136,7 +139,10 @@ struct PokemonSubstruct0
     enum Species species:11; // 2047 species.
     enum Type teraType:5; // 30 types.
     enum Item heldItem:10; // 1023 items.
-    u16 unused_02:6;
+    u16 beatSurge:1;
+    u16 megaStone1Unlocked:1;
+    u16 megaStone2Unlocked:1;
+    u16 unused_02:3;
     u32 experience:21;
     u32 nickname11:8; // 11th character of nickname.
     u32 unused_04:3;
