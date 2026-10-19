@@ -10218,6 +10218,54 @@
       "border_filepath": "data/layouts/OneIsland_Frlg/border.bin",
       "blockdata_filepath": "data/layouts/OneIsland_Frlg/map.bin",
       "layout_version": "frlg"
+    },
+    {
+      "id": "LAYOUT_CITY_HUB",
+      "name": "City_Hub_Layout",
+      "width": 40,
+      "height": 34,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_General_Frlg",
+      "secondary_tileset": "gTileset_CeladonCity",
+      "border_filepath": "data/layouts/City_Hub/border.bin",
+      "blockdata_filepath": "data/layouts/City_Hub/map.bin"
+    },
+    {
+      "id": "LAYOUT_HUB_PARK",
+      "name": "Hub_Park_Layout",
+      "width": 35,
+      "height": 34,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_General_Frlg",
+      "secondary_tileset": "gTileset_SeviiIslands67",
+      "border_filepath": "data/layouts/Hub_Park/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_Park/map.bin"
+    },
+    {
+      "id": "LAYOUT_HUB_DOJO",
+      "name": "Hub_Dojo_Layout",
+      "width": 20,
+      "height": 22,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_General_Frlg",
+      "secondary_tileset": "gTileset_School",
+      "border_filepath": "data/layouts/Hub_Dojo/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_Dojo/map.bin"
+    },
+    {
+      "id": "LAYOUT_HUB_BEACH",
+      "name": "Hub_Beach_Layout",
+      "width": 89,
+      "height": 42,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_General_Frlg",
+      "secondary_tileset": "gTileset_SeviiIslands45",
+      "border_filepath": "data/layouts/Hub_Beach/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_Beach/map.bin"
     }
   ]
 }

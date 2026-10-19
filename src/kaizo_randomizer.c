@@ -2741,8 +2741,9 @@ void Script_Kaizo_PrepareNewRun(void)
 
 void Script_CheckIsKaizoHub(void)
 {
-    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_KAIZO_HUB)
-     && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB))
+    if ((gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_CITY_HUB))
+     || (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_KAIZO_HUB)
+      && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB)))
     {
         gSpecialVar_Result = TRUE;
     }

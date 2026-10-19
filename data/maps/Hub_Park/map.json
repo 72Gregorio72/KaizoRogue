@@ -1,0 +1,32 @@
+{
+  "id": "MAP_HUB_PARK",
+  "name": "Hub_Park",
+  "layout": "LAYOUT_HUB_PARK",
+  "music": "MUS_DUMMY",
+  "region_map_section": "MAPSEC_ABANDONED_SHIP",
+  "requires_flash": false,
+  "weather": "WEATHER_NONE",
+  "map_type": "MAP_TYPE_NONE",
+  "allow_cycling": false,
+  "allow_escaping": false,
+  "allow_running": false,
+  "show_map_name": true,
+  "floor_number": 0,
+  "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
+  "connections": [
+    {
+      "map": "MAP_CITY_HUB",
+      "offset": 0,
+      "direction": "right"
+    },
+    {
+      "map": "MAP_HUB_BEACH",
+      "offset": 0,
+      "direction": "down"
+    }
+  ],
+  "object_events": [],
+  "warp_events": [],
+  "coord_events": [],
+  "bg_events": []
+}

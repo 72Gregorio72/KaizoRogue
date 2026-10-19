@@ -49,8 +49,8 @@
       "x": 7,
       "y": 9,
       "elevation": 3,
-      "dest_map": "MAP_KAIZO_HUB",
-      "dest_warp_id": "2"
+      "dest_map": "MAP_CITY_HUB",
+      "dest_warp_id": "0"
     }
   ],
   "coord_events": [],

@@ -4323,7 +4323,7 @@ static void ResetKaizoRogueRun(void)
 
     // --- 5. WARP ALLA TUA HUB ---
     SetContinueGameWarpStatusToDynamicWarp();
-    SetWarpDestination(MAP_GROUP(MAP_KAIZO_HUB),
-                       MAP_NUM(MAP_KAIZO_HUB),
-                       WARP_ID_NONE, 14, 13);
+    SetWarpDestination(MAP_GROUP(MAP_CITY_HUB),
+                       MAP_NUM(MAP_CITY_HUB),
+                       WARP_ID_NONE, 12, 15);
 }
