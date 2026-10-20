@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon KaizoRogue — Web Hub & Local Runner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=10">
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Top Navigation Bar -->
+        <header class="top-nav">
+            <div class="brand">
+                <span class="brand-badge">WEB HUB</span>
+                <h1 class="brand-title">POKÉMON <span class="highlight">KAIZOROGUE</span></h1>
+                <span class="brand-sub">Meta Edition</span>
+            </div>
+
+            <!-- Header Quick Wallet -->
+            <div class="header-wallet">
+                <div class="wallet-item" title="Frammenti Rogue">
+                    <span class="wallet-icon">💎</span>
+                    <span class="wallet-val" id="wallet-shards">0</span>
+                </div>
+                <div class="wallet-item" title="Biglietti Gacha">
+                    <span class="wallet-icon">🎟️</span>
+                    <span class="wallet-val" id="wallet-tickets">0</span>
+                </div>
+                <div class="wallet-item" title="Soldi Run">
+                    <span class="wallet-icon">💰</span>
+                    <span class="wallet-val" id="wallet-money">3,000</span>
+                </div>
+                <button id="btn-toggle-dev-header" class="btn-dev-header" title="Attiva/Disattiva Dev Mode Rapido">
+                    🛠️ <span id="header-dev-badge">DEV: OFF</span>
+                </button>
+            </div>
+
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="hub">🏛️ Hub & Account</button>
+                <button class="nav-btn" data-tab="roster">📦 Roster (<span id="nav-roster-count">0</span>)</button>
+                <button class="nav-btn" data-tab="gacha">🎰 Gacha</button>
+                <button class="nav-btn" data-tab="market">🛒 Market</button>
+                <button class="nav-btn highlight-btn" data-tab="play">🚀 Avvia Run</button>
+                <button class="nav-btn" data-tab="saves">💾 Backup</button>
+            </nav>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- ===============================================================
+                 TAB 1: 🏛️ HUB & ACCOUNT
+                 =============================================================== -->
+            <section id="tab-hub" class="tab-panel active">
+                <div class="grid-2col">
+                    <!-- Profile Card -->
+                    <div class="card profile-card">
+                        <div class="profile-header">
+                            <div class="profile-avatar">🧢</div>
+                            <div class="profile-info">
+                                <div class="profile-title-row">
+                                    <h2 id="profile-name">Allenatore Kaizo</h2>
+                                    <button id="btn-edit-name" class="btn-xs" title="Modifica Nome">✏️</button>
+                                </div>
+                                <span class="trainer-rank">Rogue Challenger</span>
+                            </div>
+                        </div>
+
+                        <div class="stats-counter-grid">
+                            <div class="stat-box">
+                                <span class="stat-num" id="stat-runs">0</span>
+                                <span class="stat-lbl">Run Giocate</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-num" id="stat-wins">0</span>
+                                <span class="stat-lbl">Vittorie Run</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-num" id="stat-surge">0</span>
+                                <span class="stat-lbl">Surge Sconfitto</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-num" id="stat-roster">0</span>
+                                <span class="stat-lbl">Pokémon Roster</span>
+                            </div>
+                        </div>
+
+                        <div class="account-actions-row">
+                            <button id="btn-export-account" class="btn btn-secondary btn-sm">
+                                📥 Esporta Profilo (.json)
+                            </button>
+                            <input type="file" id="account-import-input" accept=".json" style="display:none;" />
+                            <button id="btn-import-account" class="btn btn-secondary btn-sm">
+                                📤 Importa Profilo (.json)
+                            </button>
+                            <button id="btn-reset-account" class="btn btn-ghost btn-sm btn-danger-text">
+                                🗑️ Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rarity Points Vault -->
+                    <div class="card points-card">
+                        <div class="card-header">
+                            <h3>⭐ Caveau Punti Rarità</h3>
+                            <p class="subtitle">Guadagna punti trovando doppioni nel Gacha o completando run. Usali per rerollare nature e sbloccare Megapietre!</p>
+                        </div>
+                        <div class="rarity-points-grid">
+                            <div class="pts-box tier-common">
+                                <span class="pts-tag">COMUNE</span>
+                                <span class="pts-val" id="pts-common">0</span>
+                                <small>Pti Comuni</small>
+                            </div>
+                            <div class="pts-box tier-uncommon">
+                                <span class="pts-tag">NON COMUNE</span>
+                                <span class="pts-val" id="pts-uncommon">0</span>
+                                <small>Pti Non Comuni</small>
+                            </div>
+                            <div class="pts-box tier-rare">
+                                <span class="pts-tag">RARO</span>
+                                <span class="pts-val" id="pts-rare">0</span>
+                                <small>Pti Rari</small>
+                            </div>
+                            <div class="pts-box tier-epic">
+                                <span class="pts-tag">EPICO</span>
+                                <span class="pts-val" id="pts-epic">0</span>
+                                <small>Pti Epici</small>
+                            </div>
+                            <div class="pts-box tier-legendary">
+                                <span class="pts-tag">LEGGENDARIO</span>
+                                <span class="pts-val" id="pts-legendary">0</span>
+                                <small>Pti Leggendari</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dev Mode & Debug Console -->
+                <div class="card dev-mode-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>🛠️ Dev Mode & Console Trucchi</h3>
+                            <p class="subtitle">Attiva soldi e biglietti infiniti (le risorse non calano mai) o usa i comandi rapidi di test.</p>
+                        </div>
+                        <label class="dev-switch-label">
+                            <input type="checkbox" id="dev-mode-toggle" />
+                            <span id="dev-switch-text" class="dev-status-tag">DEV MODE: OFF</span>
+                        </label>
+                    </div>
+                    <div class="dev-actions-grid">
+                        <button id="dev-btn-infinite-money" class="btn btn-secondary btn-xs">💰 +999.999 Soldi</button>
+                        <button id="dev-btn-infinite-tickets" class="btn btn-secondary btn-xs">🎟️ +999 Biglietti</button>
+                        <button id="dev-btn-infinite-shards" class="btn btn-secondary btn-xs">💎 +99.999 Frammenti</button>
+                        <button id="dev-btn-infinite-points" class="btn btn-secondary btn-xs">⭐ +9.999 Punti Rarità</button>
+                        <button id="dev-btn-unlock-all-mons" class="btn btn-secondary btn-xs">🔓 Sblocca Tutto Roster</button>
+                        <button id="dev-btn-unlock-all-megas" class="btn btn-secondary btn-xs">⚡ Surge Beaten su Tutti</button>
+                        <button id="dev-btn-all-shiny" class="btn btn-secondary btn-xs">✨ Rendi Tutti Shiny</button>
+                    </div>
+                </div>
+
+                <!-- Active Starter Banner -->
+                <div class="card active-starter-banner">
+                    <div class="starter-banner-flex">
+                        <div class="starter-preview-avatar">
+                            <img id="hub-starter-img" src="/assets/sprites/front/1.png" alt="Starter" />
+                            <span class="shiny-star-indicator hidden" id="hub-starter-star">★</span>
+                        </div>
+                        <div class="starter-banner-info">
+                            <span class="tag-starter-active">STARTER ATTIVO PER LA PROSSIMA RUN</span>
+                            <h2 id="hub-starter-name">Bulbasaur</h2>
+                            <p id="hub-starter-details">Natura: <strong>Hardy</strong> | Abilità: <strong>Overgrow</strong> | Felicità: <strong>255 MAX</strong></p>
+                        </div>
+                        <div class="starter-banner-actions">
+                            <button class="btn btn-secondary nav-trigger" data-tab="roster">Modifica nel Roster</button>
+                            <button class="btn btn-primary nav-trigger" data-tab="play">Vai alla Run 🚀</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 TAB 2: 📦 ROSTER POKÉMON (STILE PC ROSSO FUOCO)
+                 =============================================================== -->
+            <section id="tab-roster" class="tab-panel">
+                <div class="card pc-main-container">
+                    <!-- PC Top Banner & Region Tabs -->
+                    <div class="pc-top-bar">
+                        <div class="pc-nav-controls">
+                            <button id="btn-pc-prev-box" class="btn-pc-arrow" title="Regione Precedente">◀</button>
+                            <div class="pc-box-title-wrap">
+                                <span class="pc-screen-led"></span>
+                                <h2 id="pc-box-title">BOX 1: KANTO</h2>
+                                <span class="pc-count-badge" id="pc-box-counter">Sbloccati: 0 / 151</span>
+                            </div>
+                            <button id="btn-pc-next-box" class="btn-pc-arrow" title="Regione Successiva">▶</button>
+                        </div>
+
+                        <!-- Quick Region Pill Switcher -->
+                        <div class="pc-region-pills">
+                            <button class="pc-pill active" data-gen="1">🔴 Kanto</button>
+                            <button class="pc-pill" data-gen="2">⚪ Johto</button>
+                            <button class="pc-pill" data-gen="3">🟢 Hoenn</button>
+                            <button class="pc-pill" data-gen="4">🔵 Sinnoh</button>
+                            <button class="pc-pill" data-gen="5">⚫ Unova</button>
+                            <button class="pc-pill" data-gen="6">🌸 Kalos</button>
+                            <button class="pc-pill" data-gen="7">🌺 Alola</button>
+                            <button class="pc-pill" data-gen="8">⚔️ Galar</button>
+                            <button class="pc-pill" data-gen="9">🍇 Paldea</button>
+                        </div>
+                    </div>
+
+                    <!-- PC Split Layout: Left Box Grid, Right Summary Screen -->
+                    <div class="pc-split-layout">
+                        <!-- Left: PC Grid of Slots in Pokédex Order -->
+                        <div class="pc-grid-viewport">
+                            <div class="pc-grid-header-tools">
+                                <span class="pc-legend"><span class="legend-dot unlocked"></span> Sbloccati</span>
+                                <span class="pc-legend"><span class="legend-dot locked"></span> Non ancora catturati (Oscurati)</span>
+                                <div class="pc-filter-inline">
+                                    <input type="text" id="pc-search" placeholder="🔍 Cerca per nome o #" class="form-input form-input-sm" />
+                                </div>
+                            </div>
+                            <div id="pc-slots-grid" class="pc-slots-grid">
+                                <!-- Predefined Pokédex slots populated via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Right: FireRed Style Pokémon Summary & Upgrades -->
+                        <div class="pc-summary-panel" id="pc-summary-panel">
+                            <div class="pc-summary-header">
+                                <span class="pc-summary-tag">SCHEDA POKÉMON</span>
+                                <span class="pc-starter-badge hidden" id="pc-starter-badge">★ STARTER ATTIVO</span>
+                            </div>
+
+                            <div class="pc-summary-body" id="pc-summary-content">
+                                <div class="pc-avatar-stage">
+                                    <img id="pc-mon-sprite" src="/assets/sprites/front/1.png" alt="Pokémon" />
+                                    <span class="shiny-star-indicator hidden" id="pc-mon-star">★</span>
+                                </div>
+
+                                <div class="pc-mon-headline">
+                                    <h3 id="pc-mon-name">Bulbasaur</h3>
+                                    <span class="badge-mini" id="pc-mon-tier">COMUNE</span>
+                                </div>
+
+                                <!-- Shiny Skin Toggle -->
+                                <div class="pc-shiny-row" id="pc-shiny-toggle-wrap">
+                                    <span>Skin Shiny:</span>
+                                    <label class="toggle-label">
+                                        <input type="checkbox" id="pc-shiny-checkbox" />
+                                        <span id="pc-shiny-status-label">Normale (Stella Visibile)</span>
+                                    </label>
+                                </div>
+
+                                <!-- Happiness & IV Breakdown with Radar Graph -->
+                                <div class="pc-stats-breakdown">
+                                    <div class="stat-line-header flex-between">
+                                        <span>Felicità: <strong class="color-green">255 MAX ❤️</strong></span>
+                                        <span class="iv-total-badge" id="pc-mon-iv-tot-badge">RANK: S (165)</span>
+                                    </div>
+
+                                    <!-- IV Radar Graph (Esagono IV GBA Style) -->
+                                    <div class="iv-radar-container" id="iv-radar-container"></div>
+
+                                    <div class="iv-bars-container">
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">HP</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-hp-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-hp-rank">S+</span>
+                                            <span class="iv-num" id="iv-hp-val">15</span>
+                                        </div>
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">ATK</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-atk-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-atk-rank">S</span>
+                                            <span class="iv-num" id="iv-atk-val">15</span>
+                                        </div>
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">DEF</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-def-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-def-rank">A</span>
+                                            <span class="iv-num" id="iv-def-val">15</span>
+                                        </div>
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">SPA</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-spa-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-spa-rank">B</span>
+                                            <span class="iv-num" id="iv-spa-val">15</span>
+                                        </div>
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">SPD</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-spd-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-spd-rank">C</span>
+                                            <span class="iv-num" id="iv-spd-val">15</span>
+                                        </div>
+                                        <div class="iv-bar-item">
+                                            <span class="iv-lbl">SPE</span>
+                                            <div class="iv-track"><div class="iv-fill" id="iv-spe-fill" style="width: 50%;"></div></div>
+                                            <span class="iv-rank-badge" id="iv-spe-rank">D</span>
+                                            <span class="iv-num" id="iv-spe-val">15</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Upgrades: Nature Reroll & Ability -->
+                                <div class="pc-upgrades-group">
+                                    <div class="pc-upgrade-line">
+                                        <span>Natura: <strong id="pc-mon-nature">Hardy</strong></span>
+                                        <button class="btn-xs" id="btn-pc-reroll-nature">🎲 Rerolla (5 Pti)</button>
+                                    </div>
+                                    <div class="pc-upgrade-line">
+                                        <span>Abilità: <strong id="pc-mon-ability">Slot 1</strong></span>
+                                        <button class="btn-xs" id="btn-pc-cycle-ability">🔄 Cambia</button>
+                                    </div>
+                                    <div class="pc-mega-section" id="pc-mega-section">
+                                        <!-- Mega stones injected via JS -->
+                                    </div>
+                                </div>
+
+                                <button class="btn btn-primary btn-large pc-btn-set-starter" id="btn-pc-set-starter">
+                                    ⭐ Seleziona come Starter Run
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 TAB 3: 🎰 GACHA MACHINE (CON ANIMAZIONE UOVA AUTENTICA)
+                 =============================================================== -->
+            <section id="tab-gacha" class="tab-panel">
+                <!-- Regional Banner Switcher Tabs -->
+                <div class="card gacha-banners-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h2>🎰 Macchina Gacha Regionale</h2>
+                            <p class="subtitle">Scegli la regione da cui estrarre i tuoi Pokémon. I doppioni donano Punti Rarità e migliorano gli IV!</p>
+                        </div>
+                        <div class="gacha-ticket-status">
+                            <span>Biglietti: <strong id="gacha-tickets-count">0</strong> 🎟️</span>
+                            <button id="btn-buy-ticket-shards" class="btn btn-secondary btn-xs">💎 +1 con 100 Frammenti</button>
+                        </div>
+                    </div>
+
+                    <!-- Region Selector Strip -->
+                    <div class="gacha-region-strip" id="gacha-region-strip">
+                        <button class="banner-pill active" data-banner="0">🌎 Tutte le Regioni</button>
+                        <button class="banner-pill" data-banner="1">🔴 Gen 1: Kanto</button>
+                        <button class="banner-pill" data-banner="2">⚪ Gen 2: Johto</button>
+                        <button class="banner-pill" data-banner="3">🟢 Gen 3: Hoenn</button>
+                        <button class="banner-pill" data-banner="4">🔵 Gen 4: Sinnoh</button>
+                        <button class="banner-pill" data-banner="5">⚫ Gen 5: Unova</button>
+                        <button class="banner-pill" data-banner="6">🌸 Gen 6: Kalos</button>
+                        <button class="banner-pill" data-banner="7">🌺 Gen 7: Alola</button>
+                        <button class="banner-pill" data-banner="8">⚔️ Gen 8: Galar</button>
+                        <button class="banner-pill" data-banner="9">🍇 Gen 9: Paldea</button>
+                    </div>
+                </div>
+
+                <!-- Gacha Machine Visual Stage & Side Summary Panel Layout -->
+                <div class="gacha-main-layout">
+                    <!-- Left: Large Gacha Machine Stage -->
+                    <div class="card gacha-stage-card">
+                        <div class="current-banner-header flex-between">
+                            <div>
+                                <span class="badge-mini" id="active-banner-badge">BANNER ATTIVO</span>
+                                <h3 id="active-banner-title">ALL GENERATIONS</h3>
+                            </div>
+                            <p id="active-banner-desc">Include tutti i Pokémon da Kanto a Paldea.</p>
+                        </div>
+
+                        <!-- Authentic Gacha Egg Animation Stage (Large Viewport) -->
+                        <div class="gacha-egg-stage" id="gacha-egg-stage">
+                            <!-- Chute & dropping zone -->
+                            <div class="chute-top"></div>
+                            <div class="egg-landing-area" id="egg-landing-area">
+                                <div class="idle-gacha-pod">
+                                    <div class="idle-egg"><img src="/assets/egg_common.png" alt="Egg" class="gacha-egg-img" /></div>
+                                    <span>Pronto all'estrazione</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="gacha-action-controls">
+                            <button id="btn-gacha-pull-1" class="btn btn-primary btn-large">
+                                🥚 Tira 1x <small>(1 Biglietto)</small>
+                            </button>
+                            <button id="btn-gacha-pull-10" class="btn btn-secondary btn-large">
+                                🥚🥚 Tira 10x <small>(10 Biglietti)</small>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Side Summary & Rates Panel -->
+                    <div class="card gacha-side-panel" id="gacha-side-panel">
+                        <div class="card-header flex-between">
+                            <h3 id="gacha-side-title">🎁 Ultima Estrazione</h3>
+                            <button id="btn-toggle-gacha-rates" class="btn-xs">📊 Info Tassi</button>
+                        </div>
+
+                        <!-- Side Results List -->
+                        <div id="gacha-side-results" class="gacha-side-results-list">
+                            <div class="gacha-empty-results">
+                                <p style="font-family:var(--font-pixel); font-size:9px; color:var(--text-gold); margin-bottom:6px;">Nessuna estrazione recente</p>
+                                <small style="color:var(--text-muted); font-size:11px; line-height:1.4; display:block;">
+                                    Tira 1x o 10x per vedere qui di lato l'elenco riassuntivo dei Pokémon estratti con i rispettivi IV, rarità e bonus doppioni!
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Collapsible Rates & Egg Color Guide -->
+                        <div id="gacha-side-rates" class="gacha-side-rates hidden">
+                            <ul class="rates-list">
+                                <li><span class="rate-badge tier-common">Comune</span> <strong>60%</strong> — Doppione: <strong>+5 Pti</strong> & unisce IV</li>
+                                <li><span class="rate-badge tier-uncommon">Non Comune</span> <strong>25%</strong> — Doppione: <strong>+10 Pti</strong> & unisce IV</li>
+                                <li><span class="rate-badge tier-rare">Raro</span> <strong>10%</strong> — Doppione: <strong>+15 Pti</strong> & unisce IV</li>
+                                <li><span class="rate-badge tier-epic">Epico</span> <strong>4%</strong> — Doppione: <strong>+25 Pti</strong> & unisce IV</li>
+                                <li><span class="rate-badge tier-legendary">Leggendario</span> <strong>1%</strong> — Doppione: <strong>+50 Pti</strong> & unisce IV</li>
+                            </ul>
+
+                            <div class="egg-legend-box">
+                                <span class="legend-header">🎨 Colori Uova Gacha (Stile ROM):</span>
+                                <div class="egg-legend-grid">
+                                    <div class="egg-legend-item"><img src="/assets/egg_common.png" /> <span>Grigio (Comune)</span></div>
+                                    <div class="egg-legend-item"><img src="/assets/egg_uncommon.png" /> <span>Verde (Non Com.)</span></div>
+                                    <div class="egg-legend-item"><img src="/assets/egg_rare.png" /> <span>Blu (Raro)</span></div>
+                                    <div class="egg-legend-item"><img src="/assets/egg_epic.png" /> <span>Rosso (Epico)</span></div>
+                                    <div class="egg-legend-item"><img src="/assets/egg_legendary.png" /> <span>Viola (Leggendario)</span></div>
+                                    <div class="egg-legend-item"><img src="/assets/egg_shiny_legendary.png" /> <span>Giallo Oro (Shiny ★)</span></div>
+                                </div>
+                            </div>
+
+                            <div class="shiny-rate-info" style="margin-top:8px;">
+                                <span class="shiny-star-indicator">★</span>
+                                <p><strong>Shiny Rate: 1 / 128!</strong> L'uovo Shiny ha il corpo giallo dorato e sblocca la stella rossa per sempre!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 TAB 4: 🛒 MARKET & SHOP HUB
+                 =============================================================== -->
+            <section id="tab-market" class="tab-panel">
+                <div class="grid-2col">
+                    <!-- Shop Items -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>🛒 Negozio di Setup Pre-Run</h2>
+                            <p class="subtitle">Acquista strumenti competitivi e setup con i soldi guadagnati nelle tue run. Puoi equipaggiarli nella borsa di partenza!</p>
+                        </div>
+                        <div class="market-items-grid" id="market-items-grid">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Bag Loadout for next run -->
+                    <div class="card bag-loadout-card">
+                        <div class="card-header">
+                            <h3>🎒 Borsa di Partenza per la Run</h3>
+                            <p class="subtitle">Gli strumenti selezionati qui verranno inseriti automaticamente nella borsa del gioco quando avvii la run.</p>
+                        </div>
+                        <div id="bag-equipped-list" class="bag-equipped-list">
+                            <!-- Populated via JS -->
+                        </div>
+                        <p class="hint-text">Massimo 4 strumenti equipaggiabili contemporaneamente alla partenza.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 TAB 5: 🎮 GIOCA RUN & EMULATORE
+                 =============================================================== -->
+            <section id="tab-play" class="tab-panel">
+                <!-- Step 1: Base ROM Dropzone & Status (If ROM not ready) -->
+                <div id="setup-panel" class="card setup-card">
+                    <div class="card-header">
+                        <h2>Verifica ROM Base di Rosso Fuoco</h2>
+                        <p class="subtitle">Trascina una sola volta la tua ROM originale pulita di <strong>Pokémon Rosso Fuoco / FireRed</strong>. Verrà memorizzata e usata dal motore WebAssembly in locale.</p>
+                    </div>
+
+                    <div id="dropzone" class="dropzone">
+                        <input type="file" id="rom-file-input" accept=".gba,.bin" />
+                        <div class="dropzone-content">
+                            <div class="dropzone-icon">📥</div>
+                            <h3 class="dropzone-title">Trascina qui il file <code>.gba</code></h3>
+                            <p class="dropzone-hint">oppure fai click per selezionarlo</p>
+                            <span class="file-spec">Supportato: Pokémon FireRed (USA 1.0) / Rosso Fuoco (16 MB)</span>
+                        </div>
+                    </div>
+
+                    <div id="rom-info-box" class="rom-info-box hidden">
+                        <div class="rom-info-header">
+                            <span class="rom-info-badge" id="rom-badge">VERIFICA IN CORSO</span>
+                            <span class="rom-file-name" id="rom-name">nome_file.gba</span>
+                        </div>
+                        <div class="rom-details-grid">
+                            <div class="rom-detail"><span class="label">Titolo</span><span class="value" id="detail-title">—</span></div>
+                            <div class="rom-detail"><span class="label">Code</span><span class="value" id="detail-code">—</span></div>
+                            <div class="rom-detail"><span class="label">Dimensione</span><span class="value" id="detail-size">—</span></div>
+                            <div class="rom-detail"><span class="label">CRC32</span><span class="value font-mono" id="detail-crc">—</span></div>
+                        </div>
+                        <p class="rom-status-message" id="rom-status-msg"></p>
+                    </div>
+
+                    <div id="patch-action-box" class="patch-action-box hidden">
+                        <div class="progress-bar-container" id="patch-progress-container">
+                            <div class="progress-label">
+                                <span id="progress-text">Preparazione KaizoRogue...</span>
+                                <span id="progress-percent">0%</span>
+                            </div>
+                            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Prerun Loadout Confirmation & Start Run -->
+                <div id="prerun-ready-panel" class="card prerun-card hidden">
+                    <div class="prerun-header">
+                        <h2>Configurazione Run Pronta</h2>
+                        <p class="subtitle">L'emulatore eseguirà direttamente la run a Pallet Town con il tuo Pokémon e i tuoi oggetti già pronti!</p>
+                    </div>
+
+                    <div class="prerun-summary-grid">
+                        <div class="summary-box starter-summary">
+                            <h4>Pokémon Starter</h4>
+                            <div class="summary-starter-flex">
+                                <img id="prerun-starter-sprite" src="" alt="Starter" />
+                                <div>
+                                    <strong id="prerun-starter-name">Nome Pokémon</strong>
+                                    <span id="prerun-starter-shiny" class="shiny-star-indicator hidden">★ SHINY</span>
+                                    <p id="prerun-starter-stats">Natura: — | Abilità: —</p>
+                                    <span class="badge-mini" id="prerun-starter-mega"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="summary-box bag-summary">
+                            <h4>Strumenti di Partenza</h4>
+                            <ul id="prerun-bag-list" class="prerun-items-list">
+                                <li>Nessuno strumento equipaggiato</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="prerun-launch-row">
+                        <button id="btn-launch-game" class="btn btn-primary btn-large glow-pulse">
+                            <span class="btn-icon">🚀</span>
+                            <span class="btn-text">
+                                <strong>AVVIA RUN NEL GIOCO</strong>
+                                <small>Partenza diretta a 60 FPS con starter e upgrade impostati</small>
+                            </span>
+                        </button>
+                        <button id="btn-download-rom" class="btn btn-secondary">
+                            💾 Scarica ROM Patchata
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Running Emulator Canvas -->
+                <div id="emulator-panel" class="emulator-panel hidden">
+                    <div class="emulator-topbar">
+                        <div class="emulator-title-wrap">
+                            <span class="live-indicator">RUN LIVE</span>
+                            <h3 class="emulator-title">Pokémon KaizoRogue — Run in Corso</h3>
+                        </div>
+                        <div class="emulator-quick-tools">
+                            <button id="btn-sync-postrun" class="btn-chip" title="Sincronizza risultati della run con l'account web">📊 Sincronizza Post-Run</button>
+                            <button id="btn-quick-save" class="btn-chip" title="Esporta file di salvataggio .sav">💾 Backup Save</button>
+                            <button id="btn-fullscreen" class="btn-chip" title="Schermo intero">⛶ Fullscreen</button>
+                            <button id="btn-stop-game" class="btn-chip btn-chip-danger" title="Torna all'Hub">⏹️ Termina Run</button>
+                        </div>
+                    </div>
+
+                    <div class="emulator-container">
+                        <div id="game-frame" class="game-frame">
+                            <div id="game"></div>
+                        </div>
+                    </div>
+
+                    <div class="emulator-bottombar">
+                        <div class="controls-hint">
+                            <span>🎮 <strong>A:</strong> X</span>
+                            <span><strong>B:</strong> Z</span>
+                            <span><strong>L:</strong> A</span>
+                            <span><strong>R:</strong> S</span>
+                            <span><strong>Start:</strong> Invio</span>
+                            <span><strong>Select:</strong> Shift</span>
+                            <span><strong>D-Pad:</strong> Frecce</span>
+                        </div>
+                        <div class="sync-status">
+                            <span class="save-status-indicator" id="save-status">💾 Salvataggi persistenti attivi (IndexedDB)</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===============================================================
+                 TAB 6: 💾 SALVATAGGI & BACKUP
+                 =============================================================== -->
+            <section id="tab-saves" class="tab-panel">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Gestione Salvataggi & Dati Account</h2>
+                        <p class="subtitle">Esegui il backup completo del tuo profilo web e della memoria di gioco (.sav).</p>
+                    </div>
+                    <div class="saves-grid">
+                        <div class="saves-card">
+                            <h3>Esporta Salvataggio GBA (.sav)</h3>
+                            <p>Scarica il file <code>.sav</code> del gioco sul tuo PC per usarlo su emulatori desktop come mGBA.</p>
+                            <button id="btn-export-sav" class="btn btn-secondary">📥 Scarica Salvataggio (.sav)</button>
+                        </div>
+                        <div class="saves-card">
+                            <h3>Importa Salvataggio GBA (.sav)</h3>
+                            <p>Carica un file <code>.sav</code> per ripristinare una partita precedente nel browser.</p>
+                            <input type="file" id="sav-file-input" accept=".sav" style="display:none" />
+                            <button id="btn-import-sav" class="btn btn-secondary">📤 Carica File (.sav)</button>
+                        </div>
+                        <div class="saves-card">
+                            <h3>Backup Profilo Web Account (.json)</h3>
+                            <p>Scarica l'intero profilo: Pokémon sbloccati, Punti Rarità, Frammenti e vittorie su Lt. Surge.</p>
+                            <button id="btn-export-account-tab" class="btn btn-secondary">📥 Esporta Account (.json)</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Pokémon KaizoRogue &copy; 2026 — Web Meta-Hub & mGBA WebAssembly. 100% Client-Side nel browser.</p>
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js?v=10"></script>
+</body>
+</html>

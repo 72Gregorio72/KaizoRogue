@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "gameTitle": "Pok\u00e9mon KaizoRogue",
+  "buildTime": "2026-10-20 11:53:47",
+  "targetSize": 33554432,
+  "targetCrc32": "04d2b9a7",
+  "targetSha1": "299004ac93cf1bbf5afe575f8aeb19516dd04efb",
+  "targetMd5": "f4a159020ceea548ad518b4ddc448fc3",
+  "prerunOffset": 7626328,
+  "expectedBase": {
+    "title": "POKEMON FIRE",
+    "code": "BPRE",
+    "maker": "01",
+    "size": 16777216,
+    "cleanCrc32": "dd88761c",
+    "cleanSha1": "e26ee0d44e809351e8ce2d73a7200222aa408d43"
+  }
+}

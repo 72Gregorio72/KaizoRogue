@@ -17,6 +17,7 @@
 #include "dewford_trend.h"
 #include "berry.h"
 #include "rtc.h"
+#include "kaizo_prerun.h"
 #include "easy_chat.h"
 #include "event_data.h"
 #include "money.h"
@@ -143,7 +144,14 @@ static void ClearFrontierRecord(void)
 
 static void WarpToTruck(void)
 {
-    SetWarpDestination(MAP_GROUP(MAP_CITY_HUB), MAP_NUM(MAP_CITY_HUB), WARP_ID_NONE, 12, 15);
+    if (HasActiveWebPrerunConfig())
+    {
+        SetWarpDestination(MAP_GROUP(MAP_PALLET_TOWN_PLAYERS_HOUSE_2F), MAP_NUM(MAP_PALLET_TOWN_PLAYERS_HOUSE_2F), WARP_ID_NONE, 3, 6);
+    }
+    else
+    {
+        SetWarpDestination(MAP_GROUP(MAP_CITY_HUB), MAP_NUM(MAP_CITY_HUB), WARP_ID_NONE, 12, 15);
+    }
     WarpIntoMap();
 }
 
@@ -243,6 +251,9 @@ void NewGameInitData(void)
         RunScriptImmediately(EventScript_ResetAllMapFlagsFrlg);
     else
         RunScriptImmediately(EventScript_ResetAllMapFlags);
+
+    if (HasActiveWebPrerunConfig())
+        ApplyWebPrerunConfig();
 #if IS_FRLG
         StringCopy(gSaveBlock1Ptr->rivalName, rivalName);
 #endif
