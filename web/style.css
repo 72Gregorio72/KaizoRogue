@@ -1210,12 +1210,65 @@ img, .pc-slot-img, #pc-mon-sprite, #hub-starter-img, .animated-egg-img, .gacha-e
     color: var(--text-muted);
 }
 
-/* Authentic GBA Egg Animation Stage (Large Viewport) */
+/* ==========================================================================
+   GACHA MACHINE (UNIFIED FULL-STAGE SCREEN, LARGE EGGS & POKÉMON PARADE)
+   ========================================================================== */
+#tab-gacha.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: calc(100vh - 140px);
+    width: 100%;
+}
+
+.gacha-unified-card {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 720px;
+}
+
+.gacha-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gacha-rates-modal {
+    background: #111722;
+    border: 2px solid var(--gba-border-inner);
+    box-shadow: var(--retro-bevel);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    animation: fadeIn 0.2s ease;
+}
+
+.gacha-rates-modal-header {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #222e3f;
+    padding-bottom: 6px;
+}
+
+.gacha-rates-modal-header h4 {
+    font-family: var(--font-pixel);
+    font-size: 11px;
+    color: var(--text-gold);
+    margin: 0;
+}
+
+/* Authentic GBA Egg Animation Stage (Pure Pixel Art - pokeemerald Sprites & Checkerboard BG) */
 .gacha-egg-stage {
-    background: #0b0f16;
-    border: 3px solid #06080c;
-    box-shadow: var(--retro-sunken);
-    min-height: 460px;
+    background-color: #f0d8dc;
+    background-image: url('/assets/gacha_checker_bg.png');
+    background-repeat: repeat;
+    background-size: 64px 64px;
+    image-rendering: pixelated;
+    border: 4px solid #101418;
+    box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #505050, 4px 4px 0 #000000;
+    flex: 1;
+    min-height: 640px;
+    width: 100%;
     margin-bottom: 16px;
     display: flex;
     flex-direction: column;
@@ -1223,62 +1276,95 @@ img, .pc-slot-img, #pc-mon-sprite, #hub-starter-img, .animated-egg-img, .gacha-e
     justify-content: center;
     position: relative;
     overflow: hidden;
+    padding: 24px 20px;
 }
 
 .chute-top {
     position: absolute;
     top: 0;
-    width: 140px;
+    width: 200px;
     height: 24px;
-    background: #243040;
-    border-bottom: 4px solid #101620;
-    box-shadow: var(--retro-bevel);
+    background: #303844;
+    border-bottom: 4px solid #101418;
+    border-left: 3px solid #101418;
+    border-right: 3px solid #101418;
+    box-shadow: inset 1px 1px 0 #607080, 2px 2px 0 #000000;
+    z-index: 5;
 }
 
 .egg-landing-area {
     width: 100%;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    min-height: 560px;
+    z-index: 2;
 }
 
 .idle-gacha-pod {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.92);
+    border: 3px solid #101418;
+    box-shadow: 4px 4px 0 #000000;
+    padding: 24px 32px;
+}
+
+.idle-gacha-title {
     font-family: var(--font-pixel);
-    font-size: 10px;
-    color: var(--text-muted);
+    font-size: 14px;
+    color: #101010;
+    margin: 0;
+}
+
+.idle-gacha-sub {
+    font-size: 12px;
+    color: #4a5568;
+    max-width: 440px;
+    line-height: 1.5;
+}
+
+.idle-egg {
+    animation: eggIdleHover 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes eggIdleHover {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-10px); }
 }
 
 .idle-egg-img, .gacha-egg-img {
-    width: 80px;
-    height: 80px;
+    width: 128px;
+    height: 128px;
+    image-rendering: pixelated;
 }
 
 /* Dropping & Wobbling Egg Animation */
 .animated-egg {
     position: relative;
     display: inline-flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
 .animated-egg-img {
-    width: 96px;
-    height: 96px;
+    width: 140px;
+    height: 140px;
+    image-rendering: pixelated;
 }
 
 .egg-dropping-single {
-    animation: gbaEggDrop 0.9s cubic-bezier(0.2, 0.8, 0.4, 1) forwards,
-               gbaEggWobble 0.35s ease-in-out 0.9s 5 alternate,
-               gbaEggCrack 0.2s ease-in-out 2.6s 2;
+    animation: gbaEggDrop 0.85s cubic-bezier(0.2, 0.8, 0.4, 1) forwards,
+               gbaEggWobble 0.28s ease-in-out 0.85s 4 alternate;
 }
 
 @keyframes gbaEggDrop {
-    0% { transform: translateY(-320px); opacity: 0; }
+    0% { transform: translateY(-380px); opacity: 0; }
     50% { opacity: 1; }
     75% { transform: translateY(0); }
     88% { transform: translateY(-24px); }
@@ -1290,64 +1376,518 @@ img, .pc-slot-img, #pc-mon-sprite, #hub-starter-img, .animated-egg-img, .gacha-e
     100% { transform: rotate(12deg); }
 }
 
-@keyframes gbaEggCrack {
-    0% { transform: scale(1) rotate(0deg); filter: brightness(1); }
-    50% { transform: scale(1.18) rotate(4deg); filter: brightness(2); }
-    100% { transform: scale(1) rotate(0deg); filter: brightness(1); }
-}
-
-.egg-shiny-sparkle {
+.egg-shiny-star {
     position: absolute;
     top: -6px;
     right: -6px;
-    color: var(--text-gold);
-    font-size: 20px;
+    color: #f8c838;
+    font-size: 24px;
     font-weight: bold;
-    animation: starTwinkle 0.4s infinite alternate;
+    text-shadow: 2px 2px 0 #000;
+    z-index: 3;
 }
 
-@keyframes starTwinkle {
-    from { transform: scale(0.8); }
-    to { transform: scale(1.3); }
-}
-
-/* 10x Eggs Rack */
+/* 10x Dropping Eggs Rack - Spacious & Large */
 .multi-eggs-rack {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 14px;
-    max-width: 480px;
+    gap: 20px 24px;
+    width: 100%;
+    max-width: 920px;
+    padding: 16px;
+    justify-items: center;
 }
 
 .multi-eggs-rack .animated-egg-img {
-    width: 64px;
-    height: 64px;
+    width: 108px;
+    height: 108px;
+    image-rendering: pixelated;
 }
 
-/* Hatch Reveal Burst */
-.hatch-flash-burst {
+/* ==========================================================================
+   PHASE 2: 10 OPENED EGGS RACK DISPLAY (POKEEMERALD HATCH SPRITES)
+   ========================================================================== */
+.opened-eggs-stage {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    animation: hatchPop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    gap: 18px;
+    width: 100%;
+    max-width: 960px;
+    flex: 1;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
 }
 
-@keyframes hatchPop {
-    0% { transform: scale(0.3); opacity: 0; }
+.opened-eggs-header {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.94);
+    border: 3px solid #101418;
+    box-shadow: 3px 3px 0 #000000;
+    padding: 8px 24px;
+}
+
+.opened-eggs-title {
+    font-family: var(--font-pixel);
+    font-size: 15px;
+    color: #101010;
+    margin-bottom: 2px;
+}
+
+.opened-eggs-sub {
+    font-size: 11px;
+    color: #4a5568;
+}
+
+.opened-eggs-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px 20px;
+    width: 100%;
+    max-width: 940px;
+    background: #e8e0d8;
+    border: 4px solid #101418;
+    box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #908880, 4px 4px 0 #000000;
+    padding: 20px;
+}
+
+.opened-egg-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    padding: 10px 6px;
+    background: #ffffff;
+    border: 3px solid #101418;
+    box-shadow: 2px 2px 0 #000000;
+    transition: transform 0.1s ease;
+}
+
+.opened-egg-slot:hover {
+    transform: translateY(-2px);
+    border-color: #b8860b;
+}
+
+.opened-egg-visual {
+    position: relative;
+    width: 96px;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4ece4;
+    border: 2px solid #202020;
+    box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #908880;
+}
+
+.opened-egg-shell-img {
+    width: 88px;
+    height: 88px;
+    image-rendering: pixelated;
+    z-index: 2;
+}
+
+.opened-egg-badge {
+    font-family: var(--font-pixel);
+    font-size: 8px;
+    padding: 3px 8px;
+    color: #fff;
+    white-space: nowrap;
+    text-align: center;
+    z-index: 2;
+    border: 2px solid #000000;
+    box-shadow: 1px 1px 0 #000000;
+}
+
+.opened-egg-badge.tier-common { background: var(--tier-common); }
+.opened-egg-badge.tier-uncommon { background: var(--tier-uncommon); }
+.opened-egg-badge.tier-rare { background: var(--tier-rare); }
+.opened-egg-badge.tier-epic { background: var(--tier-epic); }
+.opened-egg-badge.tier-legendary { background: var(--tier-legendary); }
+.opened-egg-badge.shiny { background: #eab308; color: #101010; border-color: #000; }
+
+.opened-eggs-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 6px;
+}
+
+/* ==========================================================================
+   PHASE 3: POKÉMON PARADE (GBA TEXT WINDOW & RESULT SCREEN STYLE)
+   ========================================================================== */
+.parade-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    flex: 1;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
+}
+
+.parade-progress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 860px;
+    padding: 8px 16px;
+    background: #ffffff;
+    border: 3px solid #101418;
+    box-shadow: 3px 3px 0 #000000;
+}
+
+.parade-counter-tag {
+    font-family: var(--font-pixel);
+    font-size: 11px;
+    color: #101010;
+}
+
+.parade-pips {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.parade-pip {
+    width: 10px;
+    height: 10px;
+    background: #e2e8f0;
+    border: 2px solid #101418;
+}
+
+.parade-pip.seen {
+    background: #3b82f6;
+}
+
+.parade-pip.active {
+    background: #f8c838;
+    transform: scale(1.3);
+}
+
+/* Central Pokémon Showcase Card (GBA Dialog Card Frame) */
+.parade-mon-card {
+    background: #ffffff;
+    border: 4px solid #101418;
+    box-shadow: 4px 4px 0 #000000;
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 32px;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+
+.parade-mon-card.tier-common { border-top: 6px solid var(--tier-common); }
+.parade-mon-card.tier-uncommon { border-top: 6px solid var(--tier-uncommon); }
+.parade-mon-card.tier-rare { border-top: 6px solid var(--tier-rare); }
+.parade-mon-card.tier-epic { border-top: 6px solid var(--tier-epic); }
+.parade-mon-card.tier-legendary { border-top: 6px solid var(--tier-legendary); }
+
+.parade-sprite-stage {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    background: #eef2f6;
+    border: 3px solid #101418;
+    box-shadow: inset 2px 2px 0 #ffffff, inset -2px -2px 0 #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.parade-sprite-img {
+    width: 160px;
+    height: 160px;
+    image-rendering: pixelated;
+    animation: paradeSpritePop 0.25s ease-out;
+}
+
+@keyframes paradeSpritePop {
+    0% { transform: scale(0.6); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
 
-.hatch-revealed-sprite {
-    width: 120px;
-    height: 120px;
+.parade-shiny-tag {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f8c838;
+    color: #101010;
+    font-family: var(--font-pixel);
+    font-size: 9px;
+    padding: 3px 8px;
+    border: 2px solid #000000;
+    box-shadow: 2px 2px 0 #000000;
 }
 
-.hatch-flash-text {
+.parade-mon-headline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.parade-mon-name {
     font-family: var(--font-pixel);
+    font-size: 18px;
+    color: #101010;
+}
+
+.parade-status-tag {
+    font-family: var(--font-pixel);
+    font-size: 10px;
+    padding: 4px 12px;
+    border: 2px solid #000000;
+    box-shadow: 2px 2px 0 #000000;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.parade-status-tag.new {
+    background: #22c55e;
+    color: #ffffff;
+}
+
+.parade-status-tag.dup {
+    background: #f59e0b;
+    color: #101010;
+}
+
+.parade-upgrades-note {
+    font-size: 12px;
+    font-weight: bold;
+    color: #15803d;
+    background: #ecfdf5;
+    border: 2px solid #166534;
+    padding: 4px 14px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+/* IV Rank Letter Badges Row (Solid Pixel Badges) */
+.parade-ivs-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    margin-top: 6px;
+}
+
+.parade-iv-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-pixel);
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 2px solid #000000;
+    box-shadow: 2px 2px 0 #000000;
+    background: #ffffff;
+}
+
+.parade-iv-chip.total {
+    border-width: 2px;
+    font-weight: bold;
+    background: #faf5ff;
+}
+
+/* Parade Controls */
+.parade-controls-bar {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 860px;
+    align-items: center;
+    justify-content: center;
+}
+
+.parade-controls-bar .btn {
+    min-width: 180px;
+}
+
+.parade-kbd-hint {
     font-size: 11px;
-    color: var(--text-gold);
-    text-shadow: 1px 1px 0 #000;
+    color: #4a5568;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 2px 8px;
+    border: 1px solid #101418;
+}
+
+/* ==========================================================================
+   PHASE 4: FINAL RECAP GRID (ALL HATCHED POKÉMON SUMMARY - PURE PIXEL ART)
+   ========================================================================== */
+.gacha-summary-recap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 960px;
+    flex: 1;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
+}
+
+.recap-header {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.94);
+    border: 3px solid #101418;
+    box-shadow: 3px 3px 0 #000000;
+    padding: 8px 24px;
+}
+
+.recap-header h3 {
+    font-family: var(--font-pixel);
+    font-size: 15px;
+    color: #101010;
+    margin-bottom: 2px;
+}
+
+.recap-header p {
+    font-size: 11px;
+    color: #4a5568;
+}
+
+.recap-grid-10 {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    width: 100%;
+    max-width: 940px;
+}
+
+@media (max-width: 768px) {
+    .recap-grid-10 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.recap-card {
+    background: #ffffff;
+    border: 3px solid #101418;
+    box-shadow: 3px 3px 0 #000000;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    border-top: 5px solid #334155;
+    transition: transform 0.1s ease;
+}
+
+.recap-card:hover {
+    transform: translateY(-2px);
+    border-color: #b8860b;
+}
+
+.recap-card.tier-common { border-top-color: var(--tier-common); }
+.recap-card.tier-uncommon { border-top-color: var(--tier-uncommon); }
+.recap-card.tier-rare { border-top-color: var(--tier-rare); }
+.recap-card.tier-epic { border-top-color: var(--tier-epic); }
+.recap-card.tier-legendary { border-top-color: var(--tier-legendary); }
+
+.recap-sprite-wrap {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    background: #f4ece4;
+    border: 2px solid #202020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.recap-sprite-img {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+}
+
+.recap-name {
+    font-family: var(--font-pixel);
+    font-size: 9px;
+    color: #101010;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.recap-badges-line {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.recap-ivs-line {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.recap-iv-pip {
+    font-family: var(--font-pixel);
+    font-size: 7px;
+    padding: 2px 4px;
+    border: 1px solid #101418;
+    background: #ffffff;
+}
+
+.recap-actions-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.recap-badges-line {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    align-items: center;
+    justify-content: center;
+}
+
+.recap-ivs-line {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.recap-iv-pip {
+    font-family: var(--font-pixel);
+    font-size: 7px;
+    padding: 2px 4px;
+    border: 1px solid;
+    border-radius: 2px;
+}
+
+.recap-actions-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .gacha-action-controls {
@@ -2016,4 +2556,197 @@ img, .pc-slot-img, #pc-mon-sprite, #hub-starter-img, .animated-egg-img, .gacha-e
     background: #2a364a;
     border-color: var(--text-gold);
     color: #fff;
+}
+
+
+/* ==========================================================================
+   AUTHENTIC 2D OVERWORLD ROOM (POKÉMON CENTER INTERACTIVE HUB)
+   ========================================================================== */
+
+.subscreen-return-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    background: #18202c;
+    border: 2px solid #283648;
+    box-shadow: 2px 2px 0 #000000;
+}
+
+.subscreen-hint {
+    font-family: var(--font-pixel);
+    font-size: 8px;
+    color: var(--text-muted);
+}
+
+.overworld-hub-card {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #18202c;
+    border: 3px solid #0a0d12;
+    box-shadow: 4px 4px 0 #000000;
+}
+
+.overworld-header {
+    margin-bottom: 12px;
+}
+
+.overworld-title-wrap h3 {
+    font-family: var(--font-pixel);
+    font-size: 13px;
+    color: #f7fafc;
+    margin-top: 4px;
+}
+
+.overworld-hint-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-pixel);
+    font-size: 8px;
+    background: #0f151c;
+    color: var(--text-gold);
+    border: 2px solid #2a3848;
+    padding: 6px 12px;
+    box-shadow: 2px 2px 0 #000000;
+}
+
+.overworld-viewport-container {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    aspect-ratio: 240 / 160;
+    background: #000000;
+    border: 4px solid #101418;
+    box-shadow: 4px 4px 0 #000000;
+    overflow: hidden;
+    user-select: none;
+}
+
+#overworld-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: crosshair;
+}
+
+.overworld-dialogue-box {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 20px);
+    max-width: 860px;
+    background: #f8f8f0;
+    border: 3px solid #101418;
+    box-shadow: 4px 4px 0 #000000;
+    padding: 10px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    z-index: 25;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.dialogue-avatar {
+    font-size: 30px;
+    flex-shrink: 0;
+}
+
+.dialogue-body {
+    flex: 1;
+}
+
+.dialogue-body h4 {
+    font-family: var(--font-pixel);
+    font-size: 10px;
+    color: #c02820;
+    margin-bottom: 3px;
+}
+
+.dialogue-body p {
+    font-family: var(--font-pixel);
+    font-size: 8px;
+    color: #101418;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.dialogue-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.overworld-quick-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (max-width: 768px) {
+    .overworld-quick-bar {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.btn-overworld-station {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: #1e2634;
+    border: 3px solid #0f151e;
+    box-shadow: 3px 3px 0 #000000;
+    color: #f7fafc;
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.08s ease, background 0.08s ease;
+}
+
+.btn-overworld-station:hover {
+    transform: translateY(-2px);
+    background: #2a364a;
+    border-color: var(--text-gold);
+}
+
+.btn-overworld-station:active {
+    transform: translateY(1px);
+    box-shadow: 1px 1px 0 #000000;
+}
+
+.station-icon {
+    font-size: 20px;
+}
+
+.station-info strong {
+    display: block;
+    font-family: var(--font-pixel);
+    font-size: 9px;
+    color: #f7fafc;
+    margin-bottom: 2px;
+}
+
+.station-info small {
+    display: block;
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+.btn-station-play {
+    border-color: #c02820;
+    background: #2a181c;
+}
+
+.btn-station-play:hover {
+    background: #3d2024;
+    border-color: #ef4444;
 }

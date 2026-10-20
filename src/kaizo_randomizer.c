@@ -2893,6 +2893,16 @@ struct BoxPokemon *GetUnlockedRosterMon(u16 species)
     if (species == SPECIES_NONE || species >= NUM_SPECIES)
         return NULL;
 
+    u16 dexNum = SpeciesToNationalPokedexNum(species);
+    if (dexNum >= 1 && dexNum <= TOTAL_BOXES_COUNT * IN_BOX_COUNT)
+    {
+        u8 box = (dexNum - 1) / IN_BOX_COUNT;
+        u8 slot = (dexNum - 1) % IN_BOX_COUNT;
+        struct BoxPokemon *b = GetBoxedMonPtr(box, slot);
+        if (!GetBoxMonData(b, MON_DATA_IS_EGG) && GetBoxMonData(b, MON_DATA_SPECIES) == species)
+            return b;
+    }
+
     for (int box = 0; box < TOTAL_BOXES_COUNT; box++)
     {
         for (int slot = 0; slot < IN_BOX_COUNT; slot++)
@@ -2908,42 +2918,25 @@ struct BoxPokemon *GetUnlockedRosterMon(u16 species)
 void SortRosterBoxes(void)
 {
     u32 totalSlots = TOTAL_BOXES_COUNT * IN_BOX_COUNT;
-    u32 writeIdx = 0;
-
-    // 1. Compatta tutti i Pokémon all'inizio dei box
-    for (u32 readIdx = 0; readIdx < totalSlots; readIdx++)
+    for (u32 i = 0; i < totalSlots; i++)
     {
-        struct BoxPokemon *readMon = GetBoxedMonPtr(readIdx / IN_BOX_COUNT, readIdx % IN_BOX_COUNT);
-        u16 sp = GetBoxMonData(readMon, MON_DATA_SPECIES);
-        if (sp != SPECIES_NONE && sp < NUM_SPECIES)
+        struct BoxPokemon *mon = GetBoxedMonPtr(i / IN_BOX_COUNT, i % IN_BOX_COUNT);
+        u16 sp = GetBoxMonData(mon, MON_DATA_SPECIES);
+        if (sp != SPECIES_NONE && sp < NUM_SPECIES && !GetBoxMonData(mon, MON_DATA_IS_EGG))
         {
-            if (readIdx != writeIdx)
+            u16 dexNum = SpeciesToNationalPokedexNum(sp);
+            if (dexNum >= 1 && dexNum <= totalSlots)
             {
-                struct BoxPokemon *writeMon = GetBoxedMonPtr(writeIdx / IN_BOX_COUNT, writeIdx % IN_BOX_COUNT);
-                *writeMon = *readMon;
-                ZeroBoxMonData(readMon);
-            }
-            writeIdx++;
-        }
-    }
-
-    u32 count = writeIdx;
-
-    // 2. Ordina in-place per specie (senza allocare memoria nell'heap)
-    for (u32 i = 0; i < count; i++)
-    {
-        struct BoxPokemon *monA = GetBoxedMonPtr(i / IN_BOX_COUNT, i % IN_BOX_COUNT);
-        u16 spA = GetBoxMonData(monA, MON_DATA_SPECIES);
-        for (u32 j = i + 1; j < count; j++)
-        {
-            struct BoxPokemon *monB = GetBoxedMonPtr(j / IN_BOX_COUNT, j % IN_BOX_COUNT);
-            u16 spB = GetBoxMonData(monB, MON_DATA_SPECIES);
-            if (spA > spB)
-            {
-                struct BoxPokemon tmp = *monA;
-                *monA = *monB;
-                *monB = tmp;
-                spA = spB;
+                u32 targetIdx = dexNum - 1;
+                if (targetIdx != i)
+                {
+                    struct BoxPokemon *targetMon = GetBoxedMonPtr(targetIdx / IN_BOX_COUNT, targetIdx % IN_BOX_COUNT);
+                    if (GetBoxMonData(targetMon, MON_DATA_SPECIES) == SPECIES_NONE)
+                    {
+                        *targetMon = *mon;
+                        ZeroBoxMonData(mon);
+                    }
+                }
             }
         }
     }
@@ -2954,6 +2947,42 @@ bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
     u16 species = GetBoxMonData(newMon, MON_DATA_SPECIES);
     if (species == SPECIES_NONE || species >= NUM_SPECIES)
         return FALSE;
+
+    u16 dexNum = SpeciesToNationalPokedexNum(species);
+    if (dexNum >= 1 && dexNum <= TOTAL_BOXES_COUNT * IN_BOX_COUNT)
+    {
+        u8 box = (dexNum - 1) / IN_BOX_COUNT;
+        u8 slot = (dexNum - 1) % IN_BOX_COUNT;
+        struct BoxPokemon *existing = GetBoxedMonPtr(box, slot);
+        if (GetBoxMonData(existing, MON_DATA_SPECIES) == species)
+        {
+            if (GetBoxMonData(newMon, MON_DATA_IS_SHINY) || GetBoxMonData(newMon, MON_DATA_SHINY_UNLOCKED))
+            {
+                bool32 trueVal = TRUE;
+                SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+                SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
+            }
+            for (u8 stat = MON_DATA_HP_IV; stat <= MON_DATA_SPDEF_IV; stat++)
+            {
+                u8 oldIv = GetBoxMonData(existing, stat);
+                u8 newIv = GetBoxMonData(newMon, stat);
+                if (newIv > oldIv)
+                    SetBoxMonData(existing, stat, &newIv);
+            }
+            return TRUE;
+        }
+        else
+        {
+            *existing = *newMon;
+            if (GetBoxMonData(newMon, MON_DATA_IS_SHINY) || GetBoxMonData(newMon, MON_DATA_SHINY_UNLOCKED))
+            {
+                bool32 trueVal = TRUE;
+                SetBoxMonData(existing, MON_DATA_SHINY_UNLOCKED, &trueVal);
+                SetBoxMonData(existing, MON_DATA_IS_SHINY, &trueVal);
+            }
+            return TRUE;
+        }
+    }
 
     struct BoxPokemon *existing = GetUnlockedRosterMon(species);
     if (existing != NULL)
@@ -2981,7 +3010,6 @@ bool8 AddUnlockedRosterMon(struct BoxPokemon *newMon)
                     SetBoxMonData(b, MON_DATA_SHINY_UNLOCKED, &trueVal);
                     SetBoxMonData(b, MON_DATA_IS_SHINY, &trueVal);
                 }
-                SortRosterBoxes();
                 return TRUE;
             }
         }

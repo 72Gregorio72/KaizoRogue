@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
     <div class="app-wrapper">
@@ -362,84 +362,71 @@
                     </div>
                 </div>
 
-                <!-- Gacha Machine Visual Stage & Side Summary Panel Layout -->
-                <div class="gacha-main-layout">
-                    <!-- Left: Large Gacha Machine Stage -->
-                    <div class="card gacha-stage-card">
-                        <div class="current-banner-header flex-between">
-                            <div>
-                                <span class="badge-mini" id="active-banner-badge">BANNER ATTIVO</span>
-                                <h3 id="active-banner-title">ALL GENERATIONS</h3>
-                            </div>
+                <!-- Gacha Machine Single Unified Arcade Screen -->
+                <div class="card gacha-stage-card gacha-unified-card">
+                    <div class="current-banner-header flex-between">
+                        <div>
+                            <span class="badge-mini" id="active-banner-badge">BANNER ATTIVO</span>
+                            <h3 id="active-banner-title">ALL GENERATIONS</h3>
                             <p id="active-banner-desc">Include tutti i Pokémon da Kanto a Paldea.</p>
                         </div>
-
-                        <!-- Authentic Gacha Egg Animation Stage (Large Viewport) -->
-                        <div class="gacha-egg-stage" id="gacha-egg-stage">
-                            <!-- Chute & dropping zone -->
-                            <div class="chute-top"></div>
-                            <div class="egg-landing-area" id="egg-landing-area">
-                                <div class="idle-gacha-pod">
-                                    <div class="idle-egg"><img src="/assets/egg_common.png" alt="Egg" class="gacha-egg-img" /></div>
-                                    <span>Pronto all'estrazione</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="gacha-action-controls">
-                            <button id="btn-gacha-pull-1" class="btn btn-primary btn-large">
-                                🥚 Tira 1x <small>(1 Biglietto)</small>
-                            </button>
-                            <button id="btn-gacha-pull-10" class="btn btn-secondary btn-large">
-                                🥚🥚 Tira 10x <small>(10 Biglietti)</small>
-                            </button>
+                        <div class="gacha-header-actions">
+                            <button id="btn-toggle-gacha-rates" class="btn-xs">📊 Info Tassi & Uova</button>
                         </div>
                     </div>
 
-                    <!-- Right: Side Summary & Rates Panel -->
-                    <div class="card gacha-side-panel" id="gacha-side-panel">
-                        <div class="card-header flex-between">
-                            <h3 id="gacha-side-title">🎁 Ultima Estrazione</h3>
-                            <button id="btn-toggle-gacha-rates" class="btn-xs">📊 Info Tassi</button>
+                    <!-- Collapsible Rates & Egg Color Guide Modal / Bar -->
+                    <div id="gacha-rates-modal" class="gacha-rates-modal hidden">
+                        <div class="gacha-rates-modal-header flex-between">
+                            <h4>📊 Tassi di Estrazione & Guida Uova</h4>
+                            <button id="btn-close-gacha-rates" class="btn-xs">✖ Chiudi</button>
                         </div>
+                        <ul class="rates-list">
+                            <li><span class="rate-badge tier-common">Comune</span> <strong>60%</strong> — Doppione: <strong>+5 Pti</strong> & unisce IV</li>
+                            <li><span class="rate-badge tier-uncommon">Non Comune</span> <strong>25%</strong> — Doppione: <strong>+10 Pti</strong> & unisce IV</li>
+                            <li><span class="rate-badge tier-rare">Raro</span> <strong>10%</strong> — Doppione: <strong>+15 Pti</strong> & unisce IV</li>
+                            <li><span class="rate-badge tier-epic">Epico</span> <strong>4%</strong> — Doppione: <strong>+25 Pti</strong> & unisce IV</li>
+                            <li><span class="rate-badge tier-legendary">Leggendario</span> <strong>1%</strong> — Doppione: <strong>+50 Pti</strong> & unisce IV</li>
+                        </ul>
 
-                        <!-- Side Results List -->
-                        <div id="gacha-side-results" class="gacha-side-results-list">
-                            <div class="gacha-empty-results">
-                                <p style="font-family:var(--font-pixel); font-size:9px; color:var(--text-gold); margin-bottom:6px;">Nessuna estrazione recente</p>
-                                <small style="color:var(--text-muted); font-size:11px; line-height:1.4; display:block;">
-                                    Tira 1x o 10x per vedere qui di lato l'elenco riassuntivo dei Pokémon estratti con i rispettivi IV, rarità e bonus doppioni!
-                                </small>
+                        <div class="egg-legend-box">
+                            <span class="legend-header">🎨 Colori Uova Gacha (Stile ROM):</span>
+                            <div class="egg-legend-grid">
+                                <div class="egg-legend-item"><img src="/assets/egg_common.png" alt="Grigio" /> <span>Grigio (Comune)</span></div>
+                                <div class="egg-legend-item"><img src="/assets/egg_uncommon.png" alt="Verde" /> <span>Verde (Non Com.)</span></div>
+                                <div class="egg-legend-item"><img src="/assets/egg_rare.png" alt="Blu" /> <span>Blu (Raro)</span></div>
+                                <div class="egg-legend-item"><img src="/assets/egg_epic.png" alt="Rosso" /> <span>Rosso (Epico)</span></div>
+                                <div class="egg-legend-item"><img src="/assets/egg_legendary.png" alt="Viola" /> <span>Viola (Leggendario)</span></div>
+                                <div class="egg-legend-item"><img src="/assets/egg_shiny_legendary.png" alt="Oro" /> <span>Giallo Oro (Shiny ★)</span></div>
                             </div>
                         </div>
 
-                        <!-- Collapsible Rates & Egg Color Guide -->
-                        <div id="gacha-side-rates" class="gacha-side-rates hidden">
-                            <ul class="rates-list">
-                                <li><span class="rate-badge tier-common">Comune</span> <strong>60%</strong> — Doppione: <strong>+5 Pti</strong> & unisce IV</li>
-                                <li><span class="rate-badge tier-uncommon">Non Comune</span> <strong>25%</strong> — Doppione: <strong>+10 Pti</strong> & unisce IV</li>
-                                <li><span class="rate-badge tier-rare">Raro</span> <strong>10%</strong> — Doppione: <strong>+15 Pti</strong> & unisce IV</li>
-                                <li><span class="rate-badge tier-epic">Epico</span> <strong>4%</strong> — Doppione: <strong>+25 Pti</strong> & unisce IV</li>
-                                <li><span class="rate-badge tier-legendary">Leggendario</span> <strong>1%</strong> — Doppione: <strong>+50 Pti</strong> & unisce IV</li>
-                            </ul>
+                        <div class="shiny-rate-info" style="margin-top:8px;">
+                            <span class="shiny-star-indicator">★</span>
+                            <p><strong>Shiny Rate: 1 / 128!</strong> L'uovo Shiny ha il corpo giallo dorato e sblocca la stella rossa per sempre!</p>
+                        </div>
+                    </div>
 
-                            <div class="egg-legend-box">
-                                <span class="legend-header">🎨 Colori Uova Gacha (Stile ROM):</span>
-                                <div class="egg-legend-grid">
-                                    <div class="egg-legend-item"><img src="/assets/egg_common.png" /> <span>Grigio (Comune)</span></div>
-                                    <div class="egg-legend-item"><img src="/assets/egg_uncommon.png" /> <span>Verde (Non Com.)</span></div>
-                                    <div class="egg-legend-item"><img src="/assets/egg_rare.png" /> <span>Blu (Raro)</span></div>
-                                    <div class="egg-legend-item"><img src="/assets/egg_epic.png" /> <span>Rosso (Epico)</span></div>
-                                    <div class="egg-legend-item"><img src="/assets/egg_legendary.png" /> <span>Viola (Leggendario)</span></div>
-                                    <div class="egg-legend-item"><img src="/assets/egg_shiny_legendary.png" /> <span>Giallo Oro (Shiny ★)</span></div>
-                                </div>
-                            </div>
-
-                            <div class="shiny-rate-info" style="margin-top:8px;">
-                                <span class="shiny-star-indicator">★</span>
-                                <p><strong>Shiny Rate: 1 / 128!</strong> L'uovo Shiny ha il corpo giallo dorato e sblocca la stella rossa per sempre!</p>
+                    <!-- Authentic Gacha Egg Animation Stage (Large Viewport) -->
+                    <div class="gacha-egg-stage" id="gacha-egg-stage">
+                        <!-- Chute & dropping zone -->
+                        <div class="chute-top"></div>
+                        <div class="egg-landing-area" id="egg-landing-area">
+                            <div class="idle-gacha-pod">
+                                <div class="idle-egg"><img src="/assets/egg_common.png" alt="Egg" class="gacha-egg-img" /></div>
+                                <span class="idle-gacha-title">Pronto all'estrazione</span>
+                                <span class="idle-gacha-sub">Seleziona 1x o 10x per iniziare l'estrazione regionale</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="gacha-action-controls" id="gacha-action-controls">
+                        <button id="btn-gacha-pull-1" class="btn btn-primary btn-large">
+                            🥚 Tira 1x <small>(1 Biglietto)</small>
+                        </button>
+                        <button id="btn-gacha-pull-10" class="btn btn-secondary btn-large">
+                            🥚🥚 Tira 10x <small>(10 Biglietti)</small>
+                        </button>
                     </div>
                 </div>
             </section>
@@ -638,6 +625,6 @@
     </div>
 
     <!-- Application Script -->
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=14"></script>
 </body>
 </html>

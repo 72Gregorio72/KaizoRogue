@@ -251,6 +251,7 @@ enum {
     PALTAG_ITEM_ICON_2, // Used implicitly in CreateItemIconSprites
     PALTAG_MARKING_MENU,
     PALTAG_SHINY_STAR,
+    PALTAG_MON_SILHOUETTE,
 };
 
 enum {
@@ -644,6 +645,8 @@ static bool8 ResetReleaseMonSpritePtr(void);
 static void SetMovingMonPriority(u8);
 static void SpriteCB_HeldMon(struct Sprite *);
 static struct Sprite *CreateMonIconSprite(enum Species species, u32 personality, s16 x, s16 y, u8 oamPriority, u8 subpriority, bool32 isEgg);
+static struct Sprite *CreateSilhouetteMonIconSprite(enum Species species, s16 x, s16 y, u8 oamPriority, u8 subpriority);
+static enum Species GetStandardSlotSpecies(u8 boxId, u8 boxPosition);
 static void DestroyBoxMonIcon(struct Sprite *);
 
 // Pokémon data
@@ -1077,6 +1080,17 @@ static const u16 sShinyStar_Pal[] =
 static const struct SpritePalette sShinyStarSpritePalette =
 {
     sShinyStar_Pal, PALTAG_SHINY_STAR
+};
+
+static const u16 sMonSilhouette_Pal[16] =
+{
+    [0] = RGB_BLACK,
+    [1 ... 15] = RGB(1, 1, 2)
+};
+
+static const struct SpritePalette sMonSilhouetteSpritePalette =
+{
+    sMonSilhouette_Pal, PALTAG_MON_SILHOUETTE
 };
 
 static const struct SpriteSheet sSpriteSheet_ShinyStar =
@@ -1778,8 +1792,12 @@ void ResetPokemonStorageSystem(void)
     }
     for (boxId = 0; boxId < TOTAL_BOXES_COUNT; boxId++)
     {
-        u8 *dest = StringCopy(GetBoxNamePtr(boxId), gText_Box);
-        ConvertIntToDecimalStringN(dest, boxId + 1, STR_CONV_MODE_LEFT_ALIGN, 2);
+        u16 startDex = boxId * IN_BOX_COUNT + 1;
+        u16 endDex = (boxId + 1) * IN_BOX_COUNT;
+        u8 *dest = GetBoxNamePtr(boxId);
+        dest = ConvertIntToDecimalStringN(dest, startDex, STR_CONV_MODE_LEFT_ALIGN, 3);
+        dest = StringAppend(dest, COMPOUND_STRING("-"));
+        ConvertIntToDecimalStringN(dest, endDex, STR_CONV_MODE_LEFT_ALIGN, 3);
     }
 
     for (boxId = 0; boxId < TOTAL_BOXES_COUNT; boxId++)
@@ -3939,6 +3957,7 @@ static void LoadWaveformSpritePalette(void)
 {
     LoadSpritePalette(&sWaveformSpritePalette);
     LoadSpritePalette(&sShinyStarSpritePalette);
+    LoadSpritePalette(&sMonSilhouetteSpritePalette);
 }
 
 static void InitPalettesAndSprites(void)
@@ -3956,6 +3975,7 @@ static void InitPalettesAndSprites(void)
     CreateMarkingComboSprite();
     CreateWaveformSprites();
     LoadSpritePalette(&sShinyStarSpritePalette);
+    LoadSpritePalette(&sMonSilhouetteSpritePalette);
     LoadSpriteSheet(&sSpriteSheet_ShinyStar);
     RefreshDisplayMonData();
 }
@@ -4520,6 +4540,7 @@ static void InitMonIconFields(void)
     u16 i;
 
     LoadMonIconPalettes();
+    LoadSpritePalette(&sMonSilhouetteSpritePalette);
     for (i = 0; i < MAX_MON_ICONS; i++)
         sStorage->numIconsPerSpecies[i] = 0;
     for (i = 0; i < MAX_MON_ICONS; i++)
@@ -4609,7 +4630,11 @@ static void InitBoxMonSprites(u8 boxId)
             }
             else
             {
-                sStorage->boxMonsSprites[count] = NULL;
+                enum Species standardSpecies = GetStandardSlotSpecies(boxId, boxPosition);
+                if (standardSpecies != SPECIES_NONE)
+                    sStorage->boxMonsSprites[count] = CreateSilhouetteMonIconSprite(standardSpecies, 8 * (3 * j) + 100, 8 * (3 * i) + 44, 2, 19 - j);
+                else
+                    sStorage->boxMonsSprites[count] = NULL;
                 sStorage->boxShinySprites[count] = NULL;
             }
             boxPosition++;
@@ -4622,21 +4647,42 @@ static void CreateBoxMonIconAtPos(u8 boxPosition)
 {
     enum Species species = GetCurrentBoxMonData(boxPosition, MON_DATA_SPECIES);
     bool32 isEgg = GetCurrentBoxMonData(boxPosition, MON_DATA_IS_EGG);
+    s16 x = 8 * (3 * (boxPosition % IN_BOX_COLUMNS)) + 100;
+    s16 y = 8 * (3 * (boxPosition / IN_BOX_COLUMNS)) + 44;
+    u8 subpriority = 19 - (boxPosition % IN_BOX_COLUMNS);
+
+    if (sStorage->boxMonsSprites[boxPosition] != NULL)
+    {
+        DestroyBoxMonIcon(sStorage->boxMonsSprites[boxPosition]);
+        sStorage->boxMonsSprites[boxPosition] = NULL;
+    }
+    if (sStorage->boxShinySprites[boxPosition] != NULL)
+    {
+        DestroySprite(sStorage->boxShinySprites[boxPosition]);
+        sStorage->boxShinySprites[boxPosition] = NULL;
+    }
 
     if (species != SPECIES_NONE)
     {
-        s16 x = 8 * (3 * (boxPosition % IN_BOX_COLUMNS)) + 100;
-        s16 y = 8 * (3 * (boxPosition / IN_BOX_COLUMNS)) + 44;
         u32 personality = GetCurrentBoxMonData(boxPosition, MON_DATA_PERSONALITY);
 
-        sStorage->boxMonsSprites[boxPosition] = CreateMonIconSprite(species, personality, x, y, 2, 19 - (boxPosition % IN_BOX_COLUMNS), isEgg);
+        sStorage->boxMonsSprites[boxPosition] = CreateMonIconSprite(species, personality, x, y, 2, subpriority, isEgg);
         if (ShouldBoxmonSpriteBeTransparent(StorageGetCurrentBox(), boxPosition))
             sStorage->boxMonsSprites[boxPosition]->oam.objMode = ST_OAM_OBJ_BLEND;
 
         if (!isEgg && GetCurrentBoxMonData(boxPosition, MON_DATA_SHINY_UNLOCKED))
-            sStorage->boxShinySprites[boxPosition] = CreateShinyStarSprite(x + 8, y - 8, 2, 18 - (boxPosition % IN_BOX_COLUMNS));
+            sStorage->boxShinySprites[boxPosition] = CreateShinyStarSprite(x + 8, y - 8, 2, subpriority - 1);
         else
             sStorage->boxShinySprites[boxPosition] = NULL;
+    }
+    else
+    {
+        enum Species standardSpecies = GetStandardSlotSpecies(StorageGetCurrentBox(), boxPosition);
+        if (standardSpecies != SPECIES_NONE)
+            sStorage->boxMonsSprites[boxPosition] = CreateSilhouetteMonIconSprite(standardSpecies, x, y, 2, subpriority);
+        else
+            sStorage->boxMonsSprites[boxPosition] = NULL;
+        sStorage->boxShinySprites[boxPosition] = NULL;
     }
 }
 
@@ -4784,6 +4830,27 @@ static u8 CreateBoxMonIconsInColumn(u8 column, u16 distance, s16 speed)
             {
                 sStorage->boxShinySprites[boxPosition] = NULL;
             }
+        }
+        else
+        {
+            enum Species standardSpecies = GetStandardSlotSpecies(sStorage->incomingBoxId, boxPosition);
+            if (standardSpecies != SPECIES_NONE)
+            {
+                sStorage->boxMonsSprites[boxPosition] = CreateSilhouetteMonIconSprite(standardSpecies, x, y, 2, subpriority);
+                if (sStorage->boxMonsSprites[boxPosition] != NULL)
+                {
+                    sStorage->boxMonsSprites[boxPosition]->sDistance = distance;
+                    sStorage->boxMonsSprites[boxPosition]->sSpeed = speed;
+                    sStorage->boxMonsSprites[boxPosition]->sScrollInDestX = xDest;
+                    sStorage->boxMonsSprites[boxPosition]->callback = SpriteCB_BoxMonIconScrollIn;
+                    iconsCreated++;
+                }
+            }
+            else
+            {
+                sStorage->boxMonsSprites[boxPosition] = NULL;
+            }
+            sStorage->boxShinySprites[boxPosition] = NULL;
         }
         boxPosition += IN_BOX_COLUMNS;
         y += 24;
@@ -5258,6 +5325,7 @@ static void SetMovingMonSprite(u8 mode, u8 id)
         sStorage->boxMonsSprites[id] = NULL;
         sStorage->movingMonShinySprite = sStorage->boxShinySprites[id];
         sStorage->boxShinySprites[id] = NULL;
+        CreateBoxMonIconAtPos(id);
     }
     else
     {
@@ -5293,10 +5361,18 @@ static void SetPlacedMonSprite(u8 boxId, u8 position)
     }
     else
     {
+        if (sStorage->boxMonsSprites[position] != NULL && sStorage->boxMonsSprites[position] != sStorage->movingMonSprite)
+        {
+            DestroyBoxMonIcon(sStorage->boxMonsSprites[position]);
+        }
         sStorage->boxMonsSprites[position] = sStorage->movingMonSprite;
         sStorage->boxMonsSprites[position]->oam.priority = 2;
         sStorage->boxMonsSprites[position]->subpriority = 19 - (position % IN_BOX_COLUMNS);
 
+        if (sStorage->boxShinySprites[position] != NULL && sStorage->boxShinySprites[position] != sStorage->movingMonShinySprite)
+        {
+            DestroySprite(sStorage->boxShinySprites[position]);
+        }
         sStorage->boxShinySprites[position] = sStorage->movingMonShinySprite;
         if (sStorage->boxShinySprites[position] != NULL)
         {
@@ -5608,6 +5684,44 @@ static void DestroyBoxMonIcon(struct Sprite *sprite)
 {
     RemoveSpeciesFromIconList(sprite->data[0], sprite->data[1]);
     DestroySprite(sprite);
+}
+
+static enum Species GetStandardSlotSpecies(u8 boxId, u8 boxPosition)
+{
+    u16 natDexNum = (boxId * IN_BOX_COUNT) + boxPosition + 1;
+    if (natDexNum >= 1 && natDexNum <= NATIONAL_DEX_COUNT)
+        return NationalPokedexNumToSpecies(natDexNum);
+    return SPECIES_NONE;
+}
+
+static struct Sprite *CreateSilhouetteMonIconSprite(enum Species species, s16 x, s16 y, u8 oamPriority, u8 subpriority)
+{
+    u16 tileNum;
+    u8 spriteId;
+    struct SpriteTemplate template = sSpriteTemplate_MonIcon;
+    u32 iconType = NORMAL_ICON;
+
+    species = SanitizeSpeciesId(species);
+    template.paletteTag = PALTAG_MON_SILHOUETTE;
+
+    tileNum = TryLoadMonIconTiles(species, iconType);
+    if (tileNum == 0xFFFF)
+        return NULL;
+
+    spriteId = CreateSpriteUnchecked(&template, x, y, subpriority);
+    if (spriteId == MAX_SPRITES)
+    {
+        RemoveSpeciesFromIconList(species, iconType);
+        return NULL;
+    }
+
+    gSprites[spriteId].oam.tileNum = tileNum;
+    gSprites[spriteId].oam.priority = oamPriority;
+    gSprites[spriteId].data[0] = species;
+    gSprites[spriteId].data[1] = iconType;
+    gSprites[spriteId].data[2] = 1; // Silhouette
+
+    return &gSprites[spriteId];
 }
 
 
@@ -6848,24 +6962,43 @@ static void SetShiftedMonData(u8 boxId, u8 position)
 
 static bool8 TryStorePartyMonInBox(u8 boxId)
 {
-    s16 boxPosition = GetFirstFreeBoxSpot(boxId);
+    u16 species = SPECIES_NONE;
+    if (sIsMonBeingMoved)
+        species = GetMonData(&sStorage->movingMon, MON_DATA_SPECIES);
+    else if (sCursorPosition < PARTY_SIZE)
+        species = GetMonData(&gParties[B_TRAINER_PLAYER][sCursorPosition], MON_DATA_SPECIES);
+
+    u16 dexNum = SpeciesToNationalPokedexNum(species);
+    u8 targetBox = boxId;
+    s16 boxPosition = -1;
+
+    if (dexNum >= 1 && dexNum <= TOTAL_BOXES_COUNT * IN_BOX_COUNT)
+    {
+        targetBox = (dexNum - 1) / IN_BOX_COUNT;
+        boxPosition = (dexNum - 1) % IN_BOX_COUNT;
+    }
+    else
+    {
+        boxPosition = GetFirstFreeBoxSpot(boxId);
+    }
+
     if (boxPosition == -1)
         return FALSE;
 
     if (sIsMonBeingMoved)
     {
-        SetPlacedMonData(boxId, boxPosition);
+        SetPlacedMonData(targetBox, boxPosition);
         DestroyMovingMonIcon();
         sIsMonBeingMoved = FALSE;
     }
     else
     {
         SetMovingMonData(TOTAL_BOXES_COUNT, sCursorPosition);
-        SetPlacedMonData(boxId, boxPosition);
+        SetPlacedMonData(targetBox, boxPosition);
         DestroyPartyMonIcon(sCursorPosition);
     }
 
-    if (boxId == StorageGetCurrentBox())
+    if (targetBox == StorageGetCurrentBox())
         CreateBoxMonIconAtPos(boxPosition);
 
     StartSpriteAnim(sStorage->cursorSprite, CURSOR_ANIM_STILL);
@@ -7247,7 +7380,12 @@ static bool8 CanPlaceMon(void)
         if (sCursorArea == CURSOR_AREA_IN_PARTY && GetMonData(&gParties[B_TRAINER_PLAYER][sCursorPosition], MON_DATA_SPECIES) == SPECIES_NONE)
             return TRUE;
         else if (sCursorArea == CURSOR_AREA_IN_BOX && GetBoxMonDataAt(StorageGetCurrentBox(), sCursorPosition, MON_DATA_SPECIES_OR_EGG) == SPECIES_NONE)
-            return TRUE;
+        {
+            enum Species movingSpecies = GetMonData(&sStorage->movingMon, MON_DATA_SPECIES);
+            if (movingSpecies == GetStandardSlotSpecies(StorageGetCurrentBox(), sCursorPosition))
+                return TRUE;
+            return FALSE;
+        }
         else
             return FALSE;
     }
@@ -7406,6 +7544,20 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
 
     if (sStorage->displayMonSpecies == SPECIES_NONE)
     {
+        if (sCursorArea == CURSOR_AREA_IN_BOX)
+        {
+            enum Species standardSpecies = GetStandardSlotSpecies(StorageGetCurrentBox(), sCursorPosition);
+            if (standardSpecies != SPECIES_NONE)
+            {
+                u16 natDexNum = (StorageGetCurrentBox() * IN_BOX_COUNT) + sCursorPosition + 1;
+                u8 *txt = StringCopy(sStorage->displayMonNameText, COMPOUND_STRING("No. "));
+                txt = ConvertIntToDecimalStringN(txt, natDexNum, STR_CONV_MODE_LEADING_ZEROS, 3);
+                StringCopy(sStorage->displayMonSpeciesName, COMPOUND_STRING("/ ???"));
+                StringFill(sStorage->displayMonGenderLvlText, CHAR_SPACE, 8);
+                StringFill(sStorage->displayMonItemName, CHAR_SPACE, 8);
+                return;
+            }
+        }
         StringFill(sStorage->displayMonName, CHAR_SPACE, 5);
         StringFill(sStorage->displayMonNameText, CHAR_SPACE, 8);
         StringFill(sStorage->displayMonSpeciesName, CHAR_SPACE, 8);
@@ -7584,39 +7736,46 @@ static u8 InBoxInput_Normal(void)
             break;
         }
 
-        if ((JOY_NEW(A_BUTTON)) && SetSelectionMenuTexts())
+        if (JOY_NEW(A_BUTTON))
         {
-            if (!sAutoActionOn)
-                return INPUT_IN_MENU;
-
-            if (sStorage->boxOption != OPTION_MOVE_MONS || sIsMonBeingMoved == TRUE)
+            if (SetSelectionMenuTexts())
             {
-                switch (GetMenuItemTextId(0))
+                if (!sAutoActionOn)
+                    return INPUT_IN_MENU;
+
+                if (sStorage->boxOption != OPTION_MOVE_MONS || sIsMonBeingMoved == TRUE)
                 {
-                case MENU_STORE:
-                    return INPUT_DEPOSIT;
-                case MENU_WITHDRAW:
-                    return INPUT_WITHDRAW;
-                case MENU_MOVE:
-                    return INPUT_MOVE_MON;
-                case MENU_SHIFT:
-                    return INPUT_SHIFT_MON;
-                case MENU_PLACE:
-                    return INPUT_PLACE_MON;
-                case MENU_TAKE:
-                    return INPUT_TAKE_ITEM;
-                case MENU_GIVE:
-                    return INPUT_GIVE_ITEM;
-                case MENU_SWITCH:
-                    return INPUT_SWITCH_ITEMS;
-                case MENU_SELECT:
-                    return INPUT_SELECT_MON;
+                    switch (GetMenuItemTextId(0))
+                    {
+                    case MENU_STORE:
+                        return INPUT_DEPOSIT;
+                    case MENU_WITHDRAW:
+                        return INPUT_WITHDRAW;
+                    case MENU_MOVE:
+                        return INPUT_MOVE_MON;
+                    case MENU_SHIFT:
+                        return INPUT_SHIFT_MON;
+                    case MENU_PLACE:
+                        return INPUT_PLACE_MON;
+                    case MENU_TAKE:
+                        return INPUT_TAKE_ITEM;
+                    case MENU_GIVE:
+                        return INPUT_GIVE_ITEM;
+                    case MENU_SWITCH:
+                        return INPUT_SWITCH_ITEMS;
+                    case MENU_SELECT:
+                        return INPUT_SELECT_MON;
+                    }
+                }
+                else
+                {
+                    sStorage->inBoxMovingMode = MOVE_MODE_MULTIPLE_SELECTING;
+                    return INPUT_MULTIMOVE_START;
                 }
             }
             else
             {
-                sStorage->inBoxMovingMode = MOVE_MODE_MULTIPLE_SELECTING;
-                return INPUT_MULTIMOVE_START;
+                PlaySE(SE_BOO);
             }
         }
 
