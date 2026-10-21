@@ -109,6 +109,8 @@ enum {
     MSG_ITEM_IS_HELD,
     MSG_CHANGED_TO_ITEM,
     MSG_CANT_STORE_MAIL,
+    MSG_NOW_FOLLOWING,
+    MSG_NO_LONGER_FOLLOWING,
 };
 
 // IDs for how to resolve variables in the above messages
@@ -814,7 +816,6 @@ static void SetCurrentBox(u8);
 static struct BoxPokemon *GetCursorBoxMon(void);
 
 // Misc
-static void CreateMainMenu(u8, s16 *);
 static void EnterPokeStorage(u8 boxOption);
 static u8 GetCurrentBoxOption(void);
 static void ScrollBackground(void);
@@ -869,33 +870,6 @@ static void TilemapUtil_Draw(u8);
 void SetMonFormPSS(struct BoxPokemon *boxMon, enum FormChanges method);
 void SetMonFormPSS_ItemHold(struct BoxPokemon *boxMon);
 void UpdateSpeciesSpritePSS(struct BoxPokemon *boxmon);
-
-static const u8 gText_JustOnePkmn[] = _("There is just one POKéMON with you.");
-static const u8 gText_PartyFull[] = _("Your party is full!");
-static const u8 gText_Box[] = _("BOX");
-
-struct {
-    const u8 *text;
-    const u8 *desc;
-} static const sMainMenuTexts[OPTIONS_COUNT] =
-{
-    [OPTION_WITHDRAW]   = {COMPOUND_STRING("WITHDRAW POKéMON"), COMPOUND_STRING("Move POKéMON stored in BOXES to\nyour party.")},
-    [OPTION_DEPOSIT]    = {COMPOUND_STRING("DEPOSIT POKéMON"),  COMPOUND_STRING("Store POKéMON in your party in BOXES.")},
-    [OPTION_MOVE_MONS]  = {COMPOUND_STRING("MOVE POKéMON"),     COMPOUND_STRING("Organize the POKéMON in BOXES and\nin your party.")},
-    [OPTION_MOVE_ITEMS] = {COMPOUND_STRING("MOVE ITEMS"),       COMPOUND_STRING("Move items held by any POKéMON\nin a BOX or your party.")},
-    [OPTION_EXIT]       = {COMPOUND_STRING("SEE YA!"),          COMPOUND_STRING("Return to the previous menu.")}
-};
-
-static const struct WindowTemplate sWindowTemplate_MainMenu =
-{
-    .bg = 0,
-    .tilemapLeft = 1,
-    .tilemapTop = 1,
-    .width = 17,
-    .height = 10,
-    .paletteNum = 15,
-    .baseBlock = 0x1,
-};
 
 static const union AnimCmd sAnim_ChooseBoxMenu_TopLeft[] =
 {
@@ -1161,6 +1135,8 @@ static const struct StorageMessage sMessages[] =
     [MSG_ITEM_IS_HELD]         = {COMPOUND_STRING("{DYNAMIC 0} is now held."),   MSG_VAR_ITEM_NAME},
     [MSG_CHANGED_TO_ITEM]      = {COMPOUND_STRING("Changed to {DYNAMIC 0}."),    MSG_VAR_ITEM_NAME},
     [MSG_CANT_STORE_MAIL]      = {COMPOUND_STRING("MAIL can't be stored!"),      MSG_VAR_NONE},
+    [MSG_NOW_FOLLOWING]        = {COMPOUND_STRING("{DYNAMIC 0} ora ti segue!"),    MSG_VAR_MON_NAME_1},
+    [MSG_NO_LONGER_FOLLOWING]  = {COMPOUND_STRING("{DYNAMIC 0} non ti segue più."), MSG_VAR_MON_NAME_1},
 };
 
 static const struct WindowTemplate sYesNoWindowTemplate =
@@ -1583,118 +1559,21 @@ enum {
     STATE_ENTER_PC,
 };
 
-#define tState          data[0]
-#define tSelectedOption data[1]
-#define tInput          data[2]
-#define tNextOption     data[3]
-#define tWindowId       data[15]
-
 static void Task_PCMainMenu(u8 taskId)
 {
     struct Task *task = &gTasks[taskId];
 
-    switch (task->tState)
+    switch (task->data[0])
     {
-    case STATE_LOAD:
-        CreateMainMenu(task->tSelectedOption, &task->tWindowId);
-        LoadMessageBoxAndBorderGfx();
-        DrawDialogueFrame(0, FALSE);
-        FillWindowPixelBuffer(0, PIXEL_FILL(1));
-        AddTextPrinterParameterized2(0, FONT_NORMAL, sMainMenuTexts[task->tSelectedOption].desc, TEXT_SKIP_DRAW, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-        CopyWindowToVram(0, COPYWIN_FULL);
-        CopyWindowToVram(task->tWindowId, COPYWIN_FULL);
-        task->tState++;
+    case 0:
+        FadeScreen(FADE_TO_BLACK, 0);
+        task->data[0] = 1;
         break;
-    case STATE_FADE_IN:
-        if (IsWeatherNotFadingIn())
-            task->tState++;
-        break;
-    case STATE_HANDLE_INPUT:
-        task->tInput = Menu_ProcessInput();
-        switch (task->tInput)
-        {
-        case MENU_NOTHING_CHOSEN:
-            task->tNextOption = task->tSelectedOption;
-            if (JOY_NEW(DPAD_UP) && --task->tNextOption < 0)
-                task->tNextOption = OPTIONS_COUNT - 1;
-            if (JOY_NEW(DPAD_DOWN) && ++task->tNextOption > OPTIONS_COUNT - 1)
-                task->tNextOption = 0;
-
-            if (task->tSelectedOption != task->tNextOption)
-            {
-                task->tSelectedOption = task->tNextOption;
-                FillWindowPixelBuffer(0, PIXEL_FILL(1));
-                AddTextPrinterParameterized2(0, FONT_NORMAL, sMainMenuTexts[task->tSelectedOption].desc, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-            }
-            break;
-        case MENU_B_PRESSED:
-        case OPTION_EXIT:
-            ClearStdWindowAndFrame(task->tWindowId, TRUE);
-            UnlockPlayerFieldControls();
-            ScriptContext_Enable();
-            RemoveWindow(task->tWindowId);
-            DestroyTask(taskId);
-            break;
-        default:
-            if (task->tInput == OPTION_WITHDRAW && CountPartyMons() == PARTY_SIZE)
-            {
-                // Can't withdraw
-                FillWindowPixelBuffer(0, PIXEL_FILL(1));
-                AddTextPrinterParameterized2(0, FONT_NORMAL, gText_PartyFull, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-                task->tState = STATE_ERROR_MSG;
-            }
-            else if (task->tInput == OPTION_DEPOSIT && CountPartyMons() == 1)
-            {
-                // Can't deposit
-                FillWindowPixelBuffer(0, PIXEL_FILL(1));
-                AddTextPrinterParameterized2(0, FONT_NORMAL, gText_JustOnePkmn, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-                task->tState = STATE_ERROR_MSG;
-            }
-            else
-            {
-                // Enter PC
-                FadeScreen(FADE_TO_BLACK, 0);
-                task->tState = STATE_ENTER_PC;
-            }
-            break;
-        }
-        break;
-    case STATE_ERROR_MSG:
-        // Printed "can't do PC option message"
-        // Wait for new input after message
-        if (JOY_NEW(A_BUTTON | B_BUTTON))
-        {
-            FillWindowPixelBuffer(0, PIXEL_FILL(1));
-            AddTextPrinterParameterized2(0, FONT_NORMAL, sMainMenuTexts[task->tSelectedOption].desc, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-            task->tState = STATE_HANDLE_INPUT;
-        }
-        else if (JOY_NEW(DPAD_UP))
-        {
-            if (--task->tSelectedOption < 0)
-                task->tSelectedOption = OPTIONS_COUNT - 1;
-            Menu_MoveCursor(-1);
-            task->tSelectedOption = Menu_GetCursorPos();
-            FillWindowPixelBuffer(0, PIXEL_FILL(1));
-            AddTextPrinterParameterized2(0, FONT_NORMAL, sMainMenuTexts[task->tSelectedOption].desc, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-            task->tState = STATE_HANDLE_INPUT;
-        }
-        else if (JOY_NEW(DPAD_DOWN))
-        {
-            if (++task->tSelectedOption >= OPTIONS_COUNT - 1)
-                task->tSelectedOption = 0;
-            Menu_MoveCursor(1);
-            task->tSelectedOption = Menu_GetCursorPos();
-            FillWindowPixelBuffer(0, PIXEL_FILL(1));
-            AddTextPrinterParameterized2(0, FONT_NORMAL, sMainMenuTexts[task->tSelectedOption].desc, 0, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
-            task->tState = STATE_HANDLE_INPUT;
-        }
-        break;
-    case STATE_ENTER_PC:
+    case 1:
         if (!gPaletteFade.active)
         {
             CleanupOverworldWindowsAndTilemaps();
-            EnterPokeStorage(task->tInput);
-            RemoveWindow(task->tWindowId);
+            EnterPokeStorage(OPTION_MOVE_MONS);
             DestroyTask(taskId);
         }
         break;
@@ -1704,49 +1583,14 @@ static void Task_PCMainMenu(u8 taskId)
 void ShowPokemonStorageSystemPC(void)
 {
     u8 taskId = CreateTask(Task_PCMainMenu, 80);
-    gTasks[taskId].tState = 0;
-    gTasks[taskId].tSelectedOption = 0;
+    gTasks[taskId].data[0] = 0;
     LockPlayerFieldControls();
-}
-
-static void FieldTask_ReturnToPcMenu(void)
-{
-    u8 taskId;
-    MainCallback vblankCb = gMain.vblankCallback;
-
-    SetVBlankCallback(NULL);
-    taskId = CreateTask(Task_PCMainMenu, 80);
-    gTasks[taskId].tState = 0;
-    gTasks[taskId].tSelectedOption = sPreviousBoxOption;
-    Task_PCMainMenu(taskId);
-    SetVBlankCallback(vblankCb);
-    FadeInFromBlack();
-}
-
-#undef tState
-#undef tSelectedOption
-#undef tInput
-#undef tNextOption
-#undef tWindowId
-
-static void CreateMainMenu(u8 whichMenu, s16 *windowIdPtr)
-{
-    s16 windowId;
-    struct WindowTemplate template = sWindowTemplate_MainMenu;
-    template.width = GetMaxWidthInMenuTable((void *)sMainMenuTexts, OPTIONS_COUNT);
-    windowId = AddWindow(&template);
-
-    DrawStdWindowFrame(windowId, FALSE);
-    PrintMenuTable(windowId, OPTIONS_COUNT, (void *)sMainMenuTexts);
-    InitMenuInUpperLeftCornerNormal(windowId, OPTIONS_COUNT, whichMenu);
-    *windowIdPtr = windowId;
 }
 
 static void CB2_ExitPokeStorage(void)
 {
     sPreviousBoxOption = GetCurrentBoxOption();
-    gFieldCallback = FieldTask_ReturnToPcMenu;
-    SetMainCallback2(CB2_ReturnToField);
+    SetMainCallback2(CB2_ReturnToFieldContinueScript);
 }
 
 static s16 UNUSED StorageSystemGetNextMonIndex(struct BoxPokemon *box, s8 startIdx, u8 stopIdx, u8 mode)
@@ -2411,52 +2255,11 @@ static void Task_PokeStorageMain(u8 taskId)
             }
             break;
         case INPUT_DEPOSIT:
-            if (!IsRemovingLastPartyMon())
-            {
-                if (ItemIsMail(sStorage->displayMonItemId))
-                {
-                    sStorage->state = MSTATE_ERROR_HAS_MAIL;
-                }
-                else
-                {
-                    PlaySE(SE_SELECT);
-                    SetPokeStorageTask(Task_DepositMenu);
-                }
-            }
-            else
-            {
-                sStorage->state = MSTATE_ERROR_LAST_PARTY_MON;
-            }
-            break;
         case INPUT_MOVE_MON:
-            if (IsRemovingLastPartyMon())
-            {
-                sStorage->state = MSTATE_ERROR_LAST_PARTY_MON;
-            }
-            else
-            {
-                PlaySE(SE_SELECT);
-                SetPokeStorageTask(Task_MoveMon);
-            }
-            break;
         case INPUT_SHIFT_MON:
-            if (!CanShiftMon())
-            {
-                sStorage->state = MSTATE_ERROR_LAST_PARTY_MON;
-            }
-            else
-            {
-                PlaySE(SE_SELECT);
-                SetPokeStorageTask(Task_ShiftMon);
-            }
-            break;
         case INPUT_WITHDRAW:
-            PlaySE(SE_SELECT);
-            SetPokeStorageTask(Task_WithdrawMon);
-            break;
         case INPUT_PLACE_MON:
-            PlaySE(SE_SELECT);
-            SetPokeStorageTask(Task_PlaceMon);
+            sStorage->state = MSTATE_HANDLE_INPUT;
             break;
         case INPUT_TAKE_ITEM:
             PlaySE(SE_SELECT);
@@ -2671,72 +2474,27 @@ static void Task_OnSelectedMon(u8 taskId)
             SetPokeStorageTask(Task_PokeStorageMain);
             break;
         case MENU_MOVE:
-            if (IsRemovingLastPartyMon())
-            {
-                sStorage->state = 3;
-            }
-            else
-            {
-                PlaySE(SE_SELECT);
-                ClearBottomWindow();
-                SetPokeStorageTask(Task_MoveMon);
-            }
-            break;
         case MENU_PLACE:
-            PlaySE(SE_SELECT);
-            ClearBottomWindow();
-            SetPokeStorageTask(Task_PlaceMon);
-            break;
         case MENU_SHIFT:
-            if (!CanShiftMon())
-            {
-                sStorage->state = 3;
-            }
-            else
-            {
-                PlaySE(SE_SELECT);
-                ClearBottomWindow();
-                SetPokeStorageTask(Task_ShiftMon);
-            }
-            break;
         case MENU_WITHDRAW:
-            PlaySE(SE_SELECT);
-            ClearBottomWindow();
-            SetPokeStorageTask(Task_WithdrawMon);
-            break;
         case MENU_STORE:
-            if (IsRemovingLastPartyMon())
-            {
-                sStorage->state = 3;
-            }
-            else if (ItemIsMail(sStorage->displayMonItemId))
-            {
-                sStorage->state = 4;
-            }
-            else
-            {
-                PlaySE(SE_SELECT);
-                ClearBottomWindow();
-                SetPokeStorageTask(Task_DepositMenu);
-            }
             break;
         case MENU_RELEASE:
-            if (IsRemovingLastPartyMon())
+            if (sCursorArea == CURSOR_AREA_IN_PARTY)
             {
-                sStorage->state = 3;
-            }
-            else if (sStorage->displayMonIsEgg)
-            {
-                sStorage->state = 5; // Cannot release an Egg.
-            }
-            else if (ItemIsMail(sStorage->displayMonItemId))
-            {
-                sStorage->state = 4;
-            }
-            else
-            {
+                u16 i;
                 PlaySE(SE_SELECT);
-                SetPokeStorageTask(Task_ReleaseMon);
+                ClearBottomWindow();
+                for (i = 0; i < PARTY_SIZE; i++)
+                    ZeroMonData(&gPlayerParty[i]);
+                gPlayerPartyCount = 0;
+
+                DestroyAllPartyMonIcons();
+                CreatePartyMonsSprites(sInPartyMenu);
+                UpdatePartySlotColors();
+
+                PrintMessage(MSG_NO_LONGER_FOLLOWING);
+                sStorage->state = 6;
             }
             break;
         case MENU_SUMMARY:
@@ -2771,23 +2529,27 @@ static void Task_OnSelectedMon(u8 taskId)
             break;
         case MENU_SELECT:
             PlaySE(SE_SELECT);
-            struct BoxPokemon *boxmon = GetCursorBoxMon();
-            if (sInPartyMenu)
+            ClearBottomWindow();
             {
-                gSpecialVar_0x8004 = sCursorPosition;
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                u16 i;
+                u16 maxHp;
+
+                BoxMonToMon(boxmon, &gPlayerParty[0]);
+                CalculateMonStats(&gPlayerParty[0]);
+                maxHp = GetMonData(&gPlayerParty[0], MON_DATA_MAX_HP);
+                SetMonData(&gPlayerParty[0], MON_DATA_HP, &maxHp);
+                for (i = 1; i < PARTY_SIZE; i++)
+                    ZeroMonData(&gPlayerParty[i]);
+                gPlayerPartyCount = 1;
+
+                DestroyAllPartyMonIcons();
+                CreatePartyMonsSprites(sInPartyMenu);
+                UpdatePartySlotColors();
+
+                PrintMessage(MSG_NOW_FOLLOWING);
+                sStorage->state = 6;
             }
-            else
-            {
-                gSpecialVar_0x8004 = PC_MON_CHOSEN;
-                gSpecialVar_MonBoxPos = sCursorPosition;
-                gSpecialVar_MonBoxId = StorageGetCurrentBox();
-            }
-            if (IsBoxMonExcluded(boxmon))
-                gSpecialVar_Result = FALSE;
-            else
-                gSpecialVar_Result = TRUE;
-            sStorage->screenChangeType = SCREEN_CHANGE_EXIT_BOX;
-            SetPokeStorageTask(Task_ChangeScreen);
             break;
         }
         break;
@@ -8280,61 +8042,28 @@ static bool8 SetMenuTexts_Mon(void)
 {
     enum Species species = GetSpeciesAtCursorPosition();
 
-    switch (sStorage->boxOption)
-    {
-    case OPTION_DEPOSIT:
-        if (species != SPECIES_NONE)
-            SetMenuText(MENU_STORE);
-        else
-            return FALSE;
-        break;
-    case OPTION_WITHDRAW:
-        if (species != SPECIES_NONE)
-            SetMenuText(MENU_WITHDRAW);
-        else
-            return FALSE;
-        break;
-    case OPTION_MOVE_MONS:
-        if (sIsMonBeingMoved)
-        {
-            if (species != SPECIES_NONE)
-                SetMenuText(MENU_SHIFT);
-            else
-                SetMenuText(MENU_PLACE);
-        }
-        else
-        {
-            if (species != SPECIES_NONE)
-                SetMenuText(MENU_MOVE);
-            else
-                return FALSE;
-        }
-        break;
-    case OPTION_SELECT_MON:
-        if (species != SPECIES_NONE && CanBoxMonBeSelected(GetCursorBoxMon()))
-            SetMenuText(MENU_SELECT);
-        else
-            return FALSE;
-        break;
-    case OPTION_MOVE_ITEMS:
-    default:
+    if (species == SPECIES_NONE)
         return FALSE;
-    }
 
-    SetMenuText(MENU_SUMMARY);
-    if (sStorage->boxOption == OPTION_MOVE_MONS)
+    if (sCursorArea == CURSOR_AREA_IN_BOX)
     {
-        if (sCursorArea == CURSOR_AREA_IN_BOX)
-            SetMenuText(MENU_WITHDRAW);
-        else
-            SetMenuText(MENU_STORE);
+        bool32 isEgg = GetBoxMonData(GetCursorBoxMon(), MON_DATA_IS_EGG);
+        if (!isEgg)
+            SetMenuText(MENU_SELECT);
+        SetMenuText(MENU_SUMMARY);
+        SetMenuText(MENU_MARK);
+        SetMenuText(MENU_CANCEL);
+        return TRUE;
+    }
+    else if (sCursorArea == CURSOR_AREA_IN_PARTY)
+    {
+        SetMenuText(MENU_SUMMARY);
+        SetMenuText(MENU_RELEASE);
+        SetMenuText(MENU_CANCEL);
+        return TRUE;
     }
 
-    SetMenuText(MENU_MARK);
-    if (sStorage->boxOption != OPTION_SELECT_MON)
-        SetMenuText(MENU_RELEASE);
-    SetMenuText(MENU_CANCEL);
-    return TRUE;
+    return FALSE;
 }
 
 static bool8 SetMenuTexts_Item(void)
@@ -8521,8 +8250,7 @@ static void CreateCursorSprites(void)
 
 static void ToggleCursorAutoAction(void)
 {
-    sAutoActionOn = !sAutoActionOn;
-    sStorage->cursorSprite->oam.paletteNum = sStorage->cursorPalNums[sAutoActionOn];
+    // Disabled: moving Pokémon is not allowed
 }
 
 static u8 GetCursorPosition(void)
@@ -8595,7 +8323,7 @@ static const u8 *const sMenuTexts[] =
     [MENU_SHIFT]      = COMPOUND_STRING("SHIFT"),
     [MENU_PLACE]      = COMPOUND_STRING("PLACE"),
     [MENU_SUMMARY]    = COMPOUND_STRING("SUMMARY"),
-    [MENU_RELEASE]    = COMPOUND_STRING("RELEASE"),
+    [MENU_RELEASE]    = COMPOUND_STRING("RIMUOVI"),
     [MENU_MARK]       = COMPOUND_STRING("MARK"),
     [MENU_JUMP]       = COMPOUND_STRING("JUMP"),
     [MENU_WALLPAPER]  = COMPOUND_STRING("WALLPAPER"),
@@ -8627,7 +8355,7 @@ static const u8 *const sMenuTexts[] =
     [MENU_POKECENTER] = COMPOUND_STRING("POKéCENTER"),
     [MENU_MACHINE]    = COMPOUND_STRING("MACHINE"),
     [MENU_SIMPLE]     = COMPOUND_STRING("SIMPLE"),
-    [MENU_SELECT]     = COMPOUND_STRING("SELECT"),
+    [MENU_SELECT]     = COMPOUND_STRING("SEGUI"),
 };
 
 static void SetMenuText(u8 textId)

@@ -391,7 +391,28 @@ static const u8 *GetInteractedObjectEventScript(struct MapPosition *position, u8
 
     if (objectEventId == OBJECT_EVENTS_COUNT || gObjectEvents[objectEventId].localId == LOCALID_PLAYER)
     {
-        if (MetatileBehavior_IsCounter(metatileBehavior) != TRUE)
+        bool8 isCounter = MetatileBehavior_IsCounter(metatileBehavior);
+        if (!isCounter)
+        {
+            s16 nextX = position->x + gDirectionToVectors[direction].x;
+            s16 nextY = position->y + gDirectionToVectors[direction].y;
+            u8 nextObj = GetObjectEventIdByPosition(nextX, nextY, position->elevation);
+            if (nextObj != OBJECT_EVENTS_COUNT && gObjectEvents[nextObj].localId != LOCALID_PLAYER)
+            {
+                if (MapGridGetCollisionAt(position->x, position->y) != 0
+                 && !MetatileBehavior_IsDoor(metatileBehavior)
+                 && !MetatileBehavior_IsWarpDoor(metatileBehavior)
+                 && !MetatileBehavior_IsNonAnimDoor(metatileBehavior)
+                 && !MetatileBehavior_IsPC(metatileBehavior)
+                 && metatileBehavior != MB_SLOT_MACHINE
+                 && metatileBehavior != MB_ROULETTE)
+                {
+                    isCounter = TRUE;
+                }
+            }
+        }
+
+        if (!isCounter)
             return NULL;
 
         // Look for an object event on the other side of the counter.
