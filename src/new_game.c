@@ -54,6 +54,7 @@
 #include "difficulty.h"
 #include "follower_npc.h"
 #include "kaizo_randomizer.h"
+#include "kaizo_roster.h"
 
 extern const u8 EventScript_ResetAllMapFlags[];
 extern const u8 EventScript_ResetAllMapFlagsFrlg[];
@@ -234,6 +235,7 @@ void NewGameInitData(void)
     ZeroPlayerPartyMons();
     if (!sPreservePokemonStorage)
         ResetPokemonStorageSystem();
+    InitKaizoMetaProgression();
     DeactivateAllRoamers();
     gSaveBlock1Ptr->registeredItem = ITEM_NONE;
     ClearBag();

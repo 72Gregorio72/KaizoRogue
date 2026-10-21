@@ -120,7 +120,7 @@
       "y": 18,
       "elevation": 3,
       "dest_map": "MAP_CITY_HUB",
-      "dest_warp_id": "4"
+      "dest_warp_id": "3"
     }
   ],
   "coord_events": [],

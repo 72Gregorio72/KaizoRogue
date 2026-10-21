@@ -50,5 +50,12 @@ u8 GetSpeciesMegaStones(u16 species, u16 *outStone1, u16 *outStone2);
 void Script_Gacha_ToggleShiny(void);
 void Script_Gacha_SetBanner(void);
 void Script_Meta_CheatCleanEggs(void);
+void Script_UpdateHubRoamingMons(void);
+void Script_HubRoaming_PushSlotMenu(void);
+void Script_HubRoaming_CheckSlotOccupied(void);
+void Script_HubRoaming_ClearSlot(void);
+void Script_HubRoaming_ClearAll(void);
+void Script_HubRoaming_ValidateAndSet(void);
+void Script_HubMon_Interact(void);
 
 #endif // GUARD_KAIZO_ROSTER_H

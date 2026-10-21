@@ -69,6 +69,7 @@ enum
     MENU_ACTION_PYRAMID_BAG,
     MENU_ACTION_DEBUG,
     MENU_ACTION_DEXNAV,
+    MENU_ACTION_END_RUN,
 };
 
 // Save status
@@ -88,7 +89,7 @@ EWRAM_DATA static u8 sSafariBallsWindowId = 0;
 EWRAM_DATA static u8 sBattlePyramidFloorWindowId = 0;
 EWRAM_DATA static u8 sStartMenuCursorPos = 0;
 EWRAM_DATA static u8 sNumStartMenuActions = 0;
-EWRAM_DATA static u8 sCurrentStartMenuActions[9] = {0};
+EWRAM_DATA static u8 sCurrentStartMenuActions[12] = {0};
 EWRAM_DATA static s8 sInitStartMenuData[2] = {0};
 
 EWRAM_DATA static u8 (*sSaveDialogCallback)(void) = NULL;
@@ -111,6 +112,7 @@ static bool8 StartMenuBattlePyramidRetireCallback(void);
 static bool8 StartMenuBattlePyramidBagCallback(void);
 static bool8 StartMenuDebugCallback(void);
 static bool8 StartMenuDexNavCallback(void);
+static bool8 StartMenuEndRunCallback(void);
 
 // Menu callbacks
 static bool8 SaveStartCallback(void);
@@ -118,6 +120,12 @@ static bool8 SaveCallback(void);
 static bool8 BattlePyramidRetireStartCallback(void);
 static bool8 BattlePyramidRetireReturnCallback(void);
 static bool8 BattlePyramidRetireCallback(void);
+static void InitEndRunConfirm(void);
+static u8 EndRunShowPromptCallback(void);
+static u8 EndRunYesNoCallback(void);
+static u8 EndRunInputCallback(void);
+static bool8 EndRunConfirmCallback(void);
+static void Task_EndRunAfterFade(u8 taskId);
 static bool8 HandleStartMenuInput(void);
 
 // Save dialog callbacks
@@ -206,6 +214,7 @@ static const struct MenuAction sStartMenuItems[] =
     [MENU_ACTION_PYRAMID_BAG]     = {gText_MenuBag,     {.u8_void = StartMenuBattlePyramidBagCallback}},
     [MENU_ACTION_DEBUG]           = {sText_MenuDebug,   {.u8_void = StartMenuDebugCallback}},
     [MENU_ACTION_DEXNAV]          = {gText_MenuDexNav,  {.u8_void = StartMenuDexNavCallback}},
+    [MENU_ACTION_END_RUN]         = {COMPOUND_STRING("RETURN TO HUB"), {.u8_void = StartMenuEndRunCallback}},
 };
 
 static const struct BgTemplate sBgTemplates_LinkBattleSave[] =
@@ -322,6 +331,19 @@ static void AddStartMenuAction(u8 action)
     AppendToList(sCurrentStartMenuActions, &sNumStartMenuActions, action);
 }
 
+static bool8 IsPlayerInHub(void)
+{
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_CITY_HUB))
+        return TRUE;
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_KAIZO_HUB)
+     && (gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB)
+      || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB_MART)
+      || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB_STARTER)
+      || gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_KAIZO_HUB_FORTUNE)))
+        return TRUE;
+    return FALSE;
+}
+
 static void BuildNormalStartMenu(void)
 {
     if (FlagGet(FLAG_SYS_POKEDEX_GET) == TRUE)
@@ -341,6 +363,10 @@ static void BuildNormalStartMenu(void)
     AddStartMenuAction(MENU_ACTION_PLAYER);
     AddStartMenuAction(MENU_ACTION_SAVE);
     AddStartMenuAction(MENU_ACTION_OPTION);
+
+    if (!IsPlayerInHub())
+        AddStartMenuAction(MENU_ACTION_END_RUN);
+
     AddStartMenuAction(MENU_ACTION_EXIT);
 }
 
@@ -357,6 +383,9 @@ static void BuildDebugStartMenu(void)
     AddStartMenuAction(MENU_ACTION_PLAYER);
     AddStartMenuAction(MENU_ACTION_SAVE);
     AddStartMenuAction(MENU_ACTION_OPTION);
+
+    if (!IsPlayerInHub())
+        AddStartMenuAction(MENU_ACTION_END_RUN);
 }
 
 static void BuildSafariZoneStartMenu(void)
@@ -656,7 +685,8 @@ static bool8 HandleStartMenuInput(void)
             && gMenuCallback != StartMenuExitCallback
             && gMenuCallback != StartMenuDebugCallback
             && gMenuCallback != StartMenuSafariZoneRetireCallback
-            && gMenuCallback != StartMenuBattlePyramidRetireCallback)
+            && gMenuCallback != StartMenuBattlePyramidRetireCallback
+            && gMenuCallback != StartMenuEndRunCallback)
         {
            FadeScreen(FADE_TO_BLACK, 0);
         }
@@ -1255,6 +1285,81 @@ static u8 BattlePyramidRetireInputCallback(void)
     }
 
     return SAVE_IN_PROGRESS;
+}
+
+static void Task_EndRunAfterFade(u8 taskId)
+{
+    if (!gPaletteFade.active)
+    {
+        DestroyTask(taskId);
+        SetMainCallback2(CB2_WhiteOut);
+    }
+}
+
+static bool8 StartMenuEndRunCallback(void)
+{
+    InitEndRunConfirm();
+    gMenuCallback = EndRunConfirmCallback;
+    return FALSE;
+}
+
+static void InitEndRunConfirm(void)
+{
+    sSaveDialogCallback = EndRunShowPromptCallback;
+    sSavingComplete = FALSE;
+}
+
+static u8 EndRunShowPromptCallback(void)
+{
+    ClearStdWindowAndFrame(GetStartMenuWindowId(), FALSE);
+    RemoveStartMenuWindow();
+    ShowSaveMessage(COMPOUND_STRING("Vuoi chiudere la run e\ntornare all'Hub?"), EndRunYesNoCallback);
+    return SAVE_IN_PROGRESS;
+}
+
+static u8 EndRunYesNoCallback(void)
+{
+    DisplayYesNoMenuWithDefault(1); // Default is "No" for safety
+    sSaveDialogCallback = EndRunInputCallback;
+    return SAVE_IN_PROGRESS;
+}
+
+static u8 EndRunInputCallback(void)
+{
+    switch (Menu_ProcessInputNoWrapClearOnChoose())
+    {
+    case 0: // Sì (Yes)
+        return SAVE_CANCELED;
+    case MENU_B_PRESSED:
+    case 1: // No
+        HideSaveMessageWindow();
+        return SAVE_SUCCESS;
+    }
+
+    return SAVE_IN_PROGRESS;
+}
+
+static bool8 EndRunConfirmCallback(void)
+{
+    switch (RunSaveCallback())
+    {
+    case SAVE_SUCCESS: // No
+        RemoveExtraStartMenuWindows();
+        InitStartMenu();
+        gMenuCallback = HandleStartMenuInput;
+        return FALSE;
+    case SAVE_IN_PROGRESS:
+        return FALSE;
+    case SAVE_CANCELED: // Sì
+        ClearDialogWindowAndFrameToTransparent(0, TRUE);
+        ScriptUnfreezeObjectEvents();
+        UnlockPlayerFieldControls();
+        FadeScreen(FADE_TO_BLACK, 0);
+        CreateTask(Task_EndRunAfterFade, 80);
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void VBlankCB_LinkBattleSave(void)

@@ -613,6 +613,12 @@ struct KaizoMetaProgression
     u16 chosenGachaSpecies;    // SPECIES_NONE (0) = starter casuale Oak, altrimenti Specie dello starter scelto
     u16 gachaPityLegendary;    // Contatore pity per Leggendario garantito (a 100 pull garantito)
     bool8 shinyDefaultMigrationDone;
+
+    // Roaming Pokémon nell'Hub
+    u16 hubForestMons[5];      // Specie Pokémon nel boschetto
+    u16 hubLakeMons[5];        // Specie Pokémon nel laghetto
+    u8 hubForestShiny;         // Bitmask shiny boschetto (bit 0..4)
+    u8 hubLakeShiny;           // Bitmask shiny laghetto (bit 0..4)
 };
 
 struct SaveBlock2

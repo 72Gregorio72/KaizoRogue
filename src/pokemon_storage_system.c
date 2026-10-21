@@ -46,6 +46,10 @@
 #include "constants/pokemon_icon.h"
 #include "chooseboxmon.h"
 #include "party_menu.h"
+#include "battle_main.h"
+#include "kaizo_roster.h"
+
+extern const u8 Kaizo_Hub_EventScript_BuildNPC_MonMenu[];
 
 /*
     NOTE: This file is large. Some general groups of functions have
@@ -111,6 +115,7 @@ enum {
     MSG_CANT_STORE_MAIL,
     MSG_NOW_FOLLOWING,
     MSG_NO_LONGER_FOLLOWING,
+    MSG_SET_AS_STARTER,
 };
 
 // IDs for how to resolve variables in the above messages
@@ -167,6 +172,10 @@ enum {
     MENU_MACHINE,
     MENU_SIMPLE,
     MENU_SELECT,
+    MENU_STARTER,
+    MENU_BUILD,
+    MENU_FILTER,
+    MENU_CHOOSE,
 };
 #define MENU_WALLPAPER_SETS_START MENU_SCENERY_1
 #define MENU_WALLPAPERS_START MENU_FOREST
@@ -470,9 +479,17 @@ struct PokemonStorageSystemData
     u8 iconScrollState;
     struct WindowTemplate menuWindow;
     struct StorageMenu menuItems[7];
+    u16 storageSlotMap[TOTAL_BOXES_COUNT * IN_BOX_COUNT];
     u8 menuItemsCount;
     u8 menuWidth;
     u16 menuWindowId;
+    u8 filterWindowId;
+    u8 filterCursorPos;
+    u8 filterTempGen;
+    u8 filterTempTypeIndex;
+    u8 filterTempOwned;
+    u8 filterTempIv;
+    u8 filterTempShiny;
     struct Sprite *cursorSprite;
     struct Sprite *cursorShadowSprite;
     s32 cursorNewX;
@@ -569,6 +586,12 @@ EWRAM_DATA static u8 sMovingMonOrigBoxPos = 0;
 EWRAM_DATA static bool8 sAutoActionOn = 0;
 EWRAM_DATA static bool8 sJustOpenedBag = 0;
 EWRAM_DATA static bool8 sRefreshDisplayMonGfx = FALSE;
+EWRAM_DATA static u8 sFilterGen = 0;
+EWRAM_DATA static u8 sFilterTypeIndex = 0;
+EWRAM_DATA static u8 sFilterOwned = 0;
+EWRAM_DATA static u8 sFilterIv = 0;
+EWRAM_DATA static u8 sFilterShiny = 0;
+EWRAM_DATA static bool8 sReturnToFieldRunBuildScript = FALSE;
 
 // Main tasks
 static void Task_InitPokeStorage(u8);
@@ -577,6 +600,13 @@ static void Task_ChangeScreen(u8);
 static void Task_ShowPokeStorage(u8);
 static void Task_OnBPressed(u8);
 static void Task_HandleBoxOptions(u8);
+static void Task_HandleFilterMenu(u8);
+static void ReloadCurrentBoxMonSprites(void);
+static void ApplyBoxFilters(void);
+static u8 GetSpeciesGeneration(u16);
+static void PrintFilterMenu(void);
+static u16 GetMappedNatDexNum(u8, u8);
+static struct BoxPokemon *GetMappedBoxedMonPtr(u8, u8);
 static void Task_OnSelectedMon(u8);
 static void Task_OnCloseBoxPressed(u8);
 static void Task_HidePartyPokemon(u8);
@@ -672,9 +702,9 @@ static void LoadSavedMovingMon(void);
 static void InitSummaryScreenData(void);
 static void SetSelectionAfterSummaryScreen(void);
 static void SetMonMarkings(u8);
-static bool8 IsRemovingLastPartyMon(void);
+static bool8 UNUSED IsRemovingLastPartyMon(void);
 static bool8 CanPlaceMon(void);
-static bool8 CanShiftMon(void);
+static bool8 UNUSED CanShiftMon(void);
 static bool8 IsMonBeingMoved(void);
 static void TryRefreshDisplayMon(void);
 static void ReshowDisplayMon(void);
@@ -1137,6 +1167,7 @@ static const struct StorageMessage sMessages[] =
     [MSG_CANT_STORE_MAIL]      = {COMPOUND_STRING("MAIL can't be stored!"),      MSG_VAR_NONE},
     [MSG_NOW_FOLLOWING]        = {COMPOUND_STRING("{DYNAMIC 0} ora ti segue!"),    MSG_VAR_MON_NAME_1},
     [MSG_NO_LONGER_FOLLOWING]  = {COMPOUND_STRING("{DYNAMIC 0} non ti segue più."), MSG_VAR_MON_NAME_1},
+    [MSG_SET_AS_STARTER]       = {COMPOUND_STRING("{DYNAMIC 0} è ora lo Starter!"), MSG_VAR_MON_NAME_1},
 };
 
 static const struct WindowTemplate sYesNoWindowTemplate =
@@ -1587,10 +1618,36 @@ void ShowPokemonStorageSystemPC(void)
     LockPlayerFieldControls();
 }
 
+static void Task_WaitForFadeAndRunBuildScript(u8 taskId)
+{
+    if (IsWeatherNotFadingIn())
+    {
+        DestroyTask(taskId);
+        ScriptContext_SetupScript(Kaizo_Hub_EventScript_BuildNPC_MonMenu);
+        ScriptContext_Enable();
+    }
+}
+
+static void FieldCB_ReturnFromStorageRunBuildScript(void)
+{
+    LockPlayerFieldControls();
+    FadeInFromBlack();
+    sReturnToFieldRunBuildScript = FALSE;
+    CreateTask(Task_WaitForFadeAndRunBuildScript, 10);
+}
+
 static void CB2_ExitPokeStorage(void)
 {
     sPreviousBoxOption = GetCurrentBoxOption();
-    SetMainCallback2(CB2_ReturnToFieldContinueScript);
+    if (sReturnToFieldRunBuildScript)
+    {
+        gFieldCallback = FieldCB_ReturnFromStorageRunBuildScript;
+        SetMainCallback2(CB2_ReturnToField);
+    }
+    else
+    {
+        SetMainCallback2(CB2_ReturnToFieldContinueScript);
+    }
 }
 
 static s16 UNUSED StorageSystemGetNextMonIndex(struct BoxPokemon *box, s8 startIdx, u8 stopIdx, u8 mode)
@@ -1913,6 +1970,13 @@ static void EnterPokeStorage(u8 boxOption)
     }
     else
     {
+        u32 i;
+        SortRosterBoxes();
+        for (i = 0; i < TOTAL_BOXES_COUNT * IN_BOX_COUNT; i++)
+            sStorage->storageSlotMap[i] = i + 1;
+        if (sFilterGen != 0 || sFilterTypeIndex != 0 || sFilterOwned != 0 || sFilterIv != 0 || sFilterShiny != 0)
+            ApplyBoxFilters();
+
         sStorage->boxOption = boxOption;
         sStorage->isReopening = FALSE;
         sMovingItemId = ITEM_NONE;
@@ -1936,6 +2000,13 @@ static void CB2_ReturnToPokeStorage(void)
     }
     else
     {
+        u32 i;
+        SortRosterBoxes();
+        for (i = 0; i < TOTAL_BOXES_COUNT * IN_BOX_COUNT; i++)
+            sStorage->storageSlotMap[i] = i + 1;
+        if (sFilterGen != 0 || sFilterTypeIndex != 0 || sFilterOwned != 0 || sFilterIv != 0 || sFilterShiny != 0)
+            ApplyBoxFilters();
+
         sStorage->boxOption = sCurrentBoxOption;
         sStorage->isReopening = TRUE;
         sStorage->state = 0;
@@ -2486,8 +2557,8 @@ static void Task_OnSelectedMon(u8 taskId)
                 PlaySE(SE_SELECT);
                 ClearBottomWindow();
                 for (i = 0; i < PARTY_SIZE; i++)
-                    ZeroMonData(&gPlayerParty[i]);
-                gPlayerPartyCount = 0;
+                    ZeroMonData(&gParties[B_TRAINER_PLAYER][i]);
+                gPartiesCount[B_TRAINER_PLAYER] = 0;
 
                 DestroyAllPartyMonIcons();
                 CreatePartyMonsSprites(sInPartyMenu);
@@ -2535,13 +2606,13 @@ static void Task_OnSelectedMon(u8 taskId)
                 u16 i;
                 u16 maxHp;
 
-                BoxMonToMon(boxmon, &gPlayerParty[0]);
-                CalculateMonStats(&gPlayerParty[0]);
-                maxHp = GetMonData(&gPlayerParty[0], MON_DATA_MAX_HP);
-                SetMonData(&gPlayerParty[0], MON_DATA_HP, &maxHp);
+                BoxMonToMon(boxmon, &gParties[B_TRAINER_PLAYER][0]);
+                CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
+                maxHp = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MAX_HP);
+                SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_HP, &maxHp);
                 for (i = 1; i < PARTY_SIZE; i++)
-                    ZeroMonData(&gPlayerParty[i]);
-                gPlayerPartyCount = 1;
+                    ZeroMonData(&gParties[B_TRAINER_PLAYER][i]);
+                gPartiesCount[B_TRAINER_PLAYER] = 1;
 
                 DestroyAllPartyMonIcons();
                 CreatePartyMonsSprites(sInPartyMenu);
@@ -2550,6 +2621,68 @@ static void Task_OnSelectedMon(u8 taskId)
                 PrintMessage(MSG_NOW_FOLLOWING);
                 sStorage->state = 6;
             }
+            break;
+        case MENU_STARTER:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            {
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+                if (species != SPECIES_NONE && !GetBoxMonData(boxmon, MON_DATA_IS_EGG))
+                {
+                    gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = species;
+                    PrintMessage(MSG_SET_AS_STARTER);
+                    sStorage->state = 6;
+                }
+            }
+            break;
+        case MENU_BUILD:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            {
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+                if (species != SPECIES_NONE && !GetBoxMonData(boxmon, MON_DATA_IS_EGG))
+                {
+                    u16 dexNum = GetMappedNatDexNum(StorageGetCurrentBox(), sCursorPosition);
+                    u8 realBox = (dexNum - 1) / IN_BOX_COUNT;
+                    u8 realSlot = (dexNum - 1) % IN_BOX_COUNT;
+                    gSpecialVar_0x8004 = PC_MON_CHOSEN;
+                    gSpecialVar_MonBoxId = realBox;
+                    gSpecialVar_MonBoxPos = realSlot;
+                    Script_BuildMon_Select();
+
+                    sReturnToFieldRunBuildScript = TRUE;
+                    sStorage->screenChangeType = SCREEN_CHANGE_EXIT_BOX;
+                    SetPokeStorageTask(Task_ChangeScreen);
+                }
+            }
+            break;
+        case MENU_CHOOSE:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            if (sInPartyMenu)
+            {
+                gSpecialVar_0x8004 = sCursorPosition;
+            }
+            else
+            {
+                u16 dexNum = GetMappedNatDexNum(StorageGetCurrentBox(), sCursorPosition);
+                u8 realBox = (dexNum - 1) / IN_BOX_COUNT;
+                u8 realSlot = (dexNum - 1) % IN_BOX_COUNT;
+                gSpecialVar_0x8004 = PC_MON_CHOSEN;
+                gSpecialVar_MonBoxId = realBox;
+                gSpecialVar_MonBoxPos = realSlot;
+            }
+            {
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                if (IsBoxMonExcluded(boxmon))
+                    gSpecialVar_Result = FALSE;
+                else
+                    gSpecialVar_Result = TRUE;
+            }
+            sStorage->screenChangeType = SCREEN_CHANGE_EXIT_BOX;
+            SetPokeStorageTask(Task_ChangeScreen);
             break;
         }
         break;
@@ -2618,7 +2751,7 @@ static void Task_PlaceMon(u8 taskId)
     }
 }
 
-static void Task_ShiftMon(u8 taskId)
+static void UNUSED Task_ShiftMon(u8 taskId)
 {
     switch (sStorage->state)
     {
@@ -2636,7 +2769,7 @@ static void Task_ShiftMon(u8 taskId)
     }
 }
 
-static void Task_WithdrawMon(u8 taskId)
+static void UNUSED Task_WithdrawMon(u8 taskId)
 {
     switch (sStorage->state)
     {
@@ -2688,7 +2821,7 @@ static void Task_WithdrawMon(u8 taskId)
     }
 }
 
-static void Task_DepositMenu(u8 taskId)
+static void UNUSED Task_DepositMenu(u8 taskId)
 {
     u8 boxId;
 
@@ -2753,7 +2886,7 @@ static void Task_DepositMenu(u8 taskId)
     }
 }
 
-static void Task_ReleaseMon(u8 taskId)
+static void UNUSED Task_ReleaseMon(u8 taskId)
 {
     switch (sStorage->state)
     {
@@ -3242,6 +3375,12 @@ static void Task_HandleBoxOptions(u8 taskId)
             ClearBottomWindow();
             SetPokeStorageTask(Task_PokeStorageMain);
             break;
+        case MENU_FILTER:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            RemoveMenu();
+            SetPokeStorageTask(Task_HandleFilterMenu);
+            break;
         case MENU_NAME:
             PlaySE(SE_SELECT);
             SetPokeStorageTask(Task_NameBox);
@@ -3256,6 +3395,593 @@ static void Task_HandleBoxOptions(u8 taskId)
             ClearBottomWindow();
             SetPokeStorageTask(Task_JumpBox);
             break;
+        }
+        break;
+    }
+}
+
+static const u8 sFilterTypeValues[] = {
+    0, // Tutte / Tutti
+    TYPE_NORMAL,
+    TYPE_FIRE,
+    TYPE_WATER,
+    TYPE_GRASS,
+    TYPE_ELECTRIC,
+    TYPE_ICE,
+    TYPE_FIGHTING,
+    TYPE_POISON,
+    TYPE_GROUND,
+    TYPE_FLYING,
+    TYPE_PSYCHIC,
+    TYPE_BUG,
+    TYPE_ROCK,
+    TYPE_GHOST,
+    TYPE_DRAGON,
+    TYPE_STEEL,
+    TYPE_DARK,
+    TYPE_FAIRY,
+};
+#define FILTER_TYPE_COUNT ARRAY_COUNT(sFilterTypeValues)
+
+static const struct WindowTemplate sFilterWindowTemplate = {
+    .bg = 0,
+    .tilemapLeft = 4,
+    .tilemapTop = 1,
+    .width = 22,
+    .height = 18,
+    .paletteNum = 15,
+    .baseBlock = 0x5C,
+};
+
+static const u8 *const sFilterIvNames[] = {
+    COMPOUND_STRING("Tutti"),
+    COMPOUND_STRING("S+"),
+    COMPOUND_STRING("S"),
+    COMPOUND_STRING("A"),
+    COMPOUND_STRING("B"),
+    COMPOUND_STRING("C"),
+    COMPOUND_STRING("D"),
+};
+
+static const u8 *const sFilterShinyNames[] = {
+    COMPOUND_STRING("Tutti"),
+    COMPOUND_STRING("Solo Shiny"),
+    COMPOUND_STRING("Non Shiny"),
+};
+
+static u8 GetSpeciesGeneration(u16 natDexNum)
+{
+    if (natDexNum <= 151)
+        return 1;
+    if (natDexNum <= 251)
+        return 2;
+    if (natDexNum <= 386)
+        return 3;
+    if (natDexNum <= 493)
+        return 4;
+    if (natDexNum <= 649)
+        return 5;
+    if (natDexNum <= 721)
+        return 6;
+    if (natDexNum <= 809)
+        return 7;
+    if (natDexNum <= 905)
+        return 8;
+    return 9;
+}
+
+static u8 GetTotalIvGrade(u16 tot)
+{
+    if (tot >= 186) return 0; // S+ (avg 31)
+    if (tot >= 180) return 1; // S  (avg 30)
+    if (tot >= 150) return 2; // A  (avg 25-29)
+    if (tot >= 108) return 3; // B  (avg 18-24)
+    if (tot >= 60)  return 4; // C  (avg 10-17)
+    return 5;                 // D  (avg 0-9)
+}
+
+static void ApplyBoxFilters(void)
+{
+    u32 totalSlots = TOTAL_BOXES_COUNT * IN_BOX_COUNT;
+    u32 i;
+    u16 matchIdx = 0;
+
+    if (sStorage == NULL)
+        return;
+
+    if (sFilterGen == 0 && sFilterTypeIndex == 0 && sFilterOwned == 0 && sFilterIv == 0 && sFilterShiny == 0)
+    {
+        for (i = 0; i < totalSlots; i++)
+            sStorage->storageSlotMap[i] = i + 1;
+        return;
+    }
+
+    // Pass 1: Matching OWNED Pokémon (always displayed first)
+    for (i = 1; i <= totalSlots; i++)
+    {
+        u8 realBox = (i - 1) / IN_BOX_COUNT;
+        u8 realSlot = (i - 1) % IN_BOX_COUNT;
+        struct BoxPokemon *mon = &gPokemonStoragePtr->boxes[realBox][realSlot];
+        bool8 isOwned = (GetBoxMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE && !GetBoxMonData(mon, MON_DATA_IS_EGG));
+
+        if (!isOwned)
+            continue;
+
+        // If user specifically requested ONLY unowned Pokémon, skip owned
+        if (sFilterOwned == 2)
+            continue;
+
+        enum Species species = GetBoxMonData(mon, MON_DATA_SPECIES);
+        if (species == SPECIES_NONE || species >= NUM_SPECIES)
+            continue;
+
+        u16 dexNum = SpeciesToNationalPokedexNum(species);
+        bool8 match = TRUE;
+
+        // 1. Generation (Exclusive to selected Gen)
+        if (sFilterGen != 0)
+        {
+            if (GetSpeciesGeneration(dexNum) != sFilterGen)
+                match = FALSE;
+        }
+
+        // 2. Type
+        if (match && sFilterTypeIndex != 0)
+        {
+            u8 targetType = sFilterTypeValues[sFilterTypeIndex];
+            if (gSpeciesInfo[species].types[0] != targetType && gSpeciesInfo[species].types[1] != targetType)
+                match = FALSE;
+        }
+
+        // 3. IV Grade
+        if (match && sFilterIv != 0)
+        {
+            u16 totalIv = GetBoxMonData(mon, MON_DATA_HP_IV)
+                        + GetBoxMonData(mon, MON_DATA_ATK_IV)
+                        + GetBoxMonData(mon, MON_DATA_DEF_IV)
+                        + GetBoxMonData(mon, MON_DATA_SPEED_IV)
+                        + GetBoxMonData(mon, MON_DATA_SPATK_IV)
+                        + GetBoxMonData(mon, MON_DATA_SPDEF_IV);
+            u8 grade = GetTotalIvGrade(totalIv);
+            if (grade != (sFilterIv - 1))
+                match = FALSE;
+        }
+
+        // 4. Shiny
+        if (match && sFilterShiny != 0)
+        {
+            bool8 isShiny = (GetBoxMonData(mon, MON_DATA_IS_SHINY) || GetBoxMonData(mon, MON_DATA_SHINY_UNLOCKED));
+            if (sFilterShiny == 1 && !isShiny)
+                match = FALSE;
+            else if (sFilterShiny == 2 && isShiny)
+                match = FALSE;
+        }
+
+        if (match)
+            sStorage->storageSlotMap[matchIdx++] = i;
+    }
+
+    // Pass 2: Matching UNOWNED Pokémon (silhouettes)
+    // Only include silhouettes if user didn't select "Posseduti", and didn't filter by IV or Shiny (which only apply to owned)
+    if (sFilterOwned != 1 && sFilterIv == 0 && sFilterShiny == 0)
+    {
+        for (i = 1; i <= totalSlots; i++)
+        {
+            u8 realBox = (i - 1) / IN_BOX_COUNT;
+            u8 realSlot = (i - 1) % IN_BOX_COUNT;
+            struct BoxPokemon *mon = &gPokemonStoragePtr->boxes[realBox][realSlot];
+            bool8 isOwned = (GetBoxMonData(mon, MON_DATA_SPECIES) != SPECIES_NONE && !GetBoxMonData(mon, MON_DATA_IS_EGG));
+
+            if (isOwned)
+                continue;
+
+            enum Species species = NationalPokedexNumToSpecies(i);
+            if (species == SPECIES_NONE || species >= NUM_SPECIES)
+                continue;
+
+            bool8 match = TRUE;
+
+            // 1. Generation (Exclusive to selected Gen)
+            if (sFilterGen != 0)
+            {
+                if (GetSpeciesGeneration(i) != sFilterGen)
+                    match = FALSE;
+            }
+
+            // 2. Type
+            if (match && sFilterTypeIndex != 0)
+            {
+                u8 targetType = sFilterTypeValues[sFilterTypeIndex];
+                if (gSpeciesInfo[species].types[0] != targetType && gSpeciesInfo[species].types[1] != targetType)
+                    match = FALSE;
+            }
+
+            if (match)
+                sStorage->storageSlotMap[matchIdx++] = i;
+        }
+    }
+
+    // Clear all remaining non-matching slots so non-matching Pokémon do not appear!
+    for (i = matchIdx; i < totalSlots; i++)
+        sStorage->storageSlotMap[i] = 0;
+}
+
+static void PrintFilterMenu(void)
+{
+    u8 str[32];
+    u8 windowId = sStorage->filterWindowId;
+    u8 cursorPos = sStorage->filterCursorPos;
+
+    FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
+
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("--- FILTRI POKéMON ---"), 14, 2, TEXT_SKIP_DRAW, NULL);
+
+    // Gen (Row 0)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 0) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 16, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Gen:"), 14, 16, TEXT_SKIP_DRAW, NULL);
+    if (sStorage->filterTempGen == 0)
+        StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Tutte {RIGHT_ARROW}"));
+    else
+    {
+        u8 *txt = StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Gen "));
+        txt = ConvertIntToDecimalStringN(txt, sStorage->filterTempGen, STR_CONV_MODE_LEFT_ALIGN, 1);
+        StringAppend(txt, COMPOUND_STRING(" {RIGHT_ARROW}"));
+    }
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, str, 74, 16, TEXT_SKIP_DRAW, NULL);
+
+    // Tipo (Row 1)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 1) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 30, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Tipo:"), 14, 30, TEXT_SKIP_DRAW, NULL);
+    if (sStorage->filterTempTypeIndex == 0)
+        StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Tutti {RIGHT_ARROW}"));
+    else
+    {
+        u8 *txt = StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} "));
+        txt = StringAppend(txt, gTypesInfo[sFilterTypeValues[sStorage->filterTempTypeIndex]].name);
+        StringAppend(txt, COMPOUND_STRING(" {RIGHT_ARROW}"));
+    }
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, str, 74, 30, TEXT_SKIP_DRAW, NULL);
+
+    // Stato (Row 2)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 2) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 44, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Stato:"), 14, 44, TEXT_SKIP_DRAW, NULL);
+    if (sStorage->filterTempOwned == 0)
+        StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Tutti {RIGHT_ARROW}"));
+    else if (sStorage->filterTempOwned == 1)
+        StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Posseduti {RIGHT_ARROW}"));
+    else
+        StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} Non Poss. {RIGHT_ARROW}"));
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, str, 74, 44, TEXT_SKIP_DRAW, NULL);
+
+    // Media IV (Row 3)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 3) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 58, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Media IV:"), 14, 58, TEXT_SKIP_DRAW, NULL);
+    {
+        u8 *txt = StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} "));
+        txt = StringAppend(txt, sFilterIvNames[sStorage->filterTempIv]);
+        StringAppend(txt, COMPOUND_STRING(" {RIGHT_ARROW}"));
+    }
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, str, 74, 58, TEXT_SKIP_DRAW, NULL);
+
+    // Shiny (Row 4)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 4) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 72, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Shiny:"), 14, 72, TEXT_SKIP_DRAW, NULL);
+    {
+        u8 *txt = StringCopy(str, COMPOUND_STRING("{LEFT_ARROW} "));
+        txt = StringAppend(txt, sFilterShinyNames[sStorage->filterTempShiny]);
+        StringAppend(txt, COMPOUND_STRING(" {RIGHT_ARROW}"));
+    }
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, str, 74, 72, TEXT_SKIP_DRAW, NULL);
+
+    // Applica (Row 5)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 5) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 88, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Applica"), 16, 88, TEXT_SKIP_DRAW, NULL);
+
+    // Azzera Filtri (Row 6)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 6) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 104, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Azzera Filtri"), 16, 104, TEXT_SKIP_DRAW, NULL);
+
+    // Esci (Row 7)
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, (cursorPos == 7) ? COMPOUND_STRING(">") : COMPOUND_STRING(" "), 4, 120, TEXT_SKIP_DRAW, NULL);
+    AddTextPrinterParameterized(windowId, FONT_NORMAL, COMPOUND_STRING("Esci"), 16, 120, TEXT_SKIP_DRAW, NULL);
+
+    CopyWindowToVram(windowId, COPYWIN_GFX);
+}
+
+static void CloseFilterMenuAndRestoreSprites(void)
+{
+    ClearStdWindowAndFrameToTransparent(sStorage->filterWindowId, TRUE);
+    RemoveWindow(sStorage->filterWindowId);
+    ScheduleBgCopyTilemapToVram(0);
+    AnimateBoxScrollArrows(TRUE);
+    if (sStorage->cursorSprite)
+        sStorage->cursorSprite->invisible = FALSE;
+    if (sStorage->cursorShadowSprite)
+        sStorage->cursorShadowSprite->invisible = FALSE;
+    if (sStorage->displayMonSprite)
+        sStorage->displayMonSprite->invisible = FALSE;
+    if (sStorage->markingComboSprite)
+        sStorage->markingComboSprite->invisible = FALSE;
+}
+
+static void Task_HandleFilterMenu(u8 taskId)
+{
+    switch (sStorage->state)
+    {
+    case 0:
+        if (sStorage->cursorSprite)
+            sStorage->cursorSprite->invisible = TRUE;
+        if (sStorage->cursorShadowSprite)
+            sStorage->cursorShadowSprite->invisible = TRUE;
+        if (sStorage->displayMonSprite)
+            sStorage->displayMonSprite->invisible = TRUE;
+        if (sStorage->markingComboSprite)
+            sStorage->markingComboSprite->invisible = TRUE;
+
+        sStorage->filterWindowId = AddWindow(&sFilterWindowTemplate);
+        ClearWindowTilemap(sStorage->filterWindowId);
+        DrawStdFrameWithCustomTileAndPalette(sStorage->filterWindowId, FALSE, 11, 14);
+        sStorage->filterCursorPos = 0;
+        sStorage->filterTempGen = sFilterGen;
+        sStorage->filterTempTypeIndex = sFilterTypeIndex;
+        sStorage->filterTempOwned = sFilterOwned;
+        sStorage->filterTempIv = sFilterIv;
+        sStorage->filterTempShiny = sFilterShiny;
+        PrintFilterMenu();
+        ScheduleBgCopyTilemapToVram(0);
+        sStorage->state = 1;
+        break;
+    case 1:
+        if (JOY_NEW(DPAD_UP))
+        {
+            PlaySE(SE_SELECT);
+            if (sStorage->filterCursorPos == 0)
+                sStorage->filterCursorPos = 7;
+            else
+                sStorage->filterCursorPos--;
+            PrintFilterMenu();
+        }
+        else if (JOY_NEW(DPAD_DOWN))
+        {
+            PlaySE(SE_SELECT);
+            if (sStorage->filterCursorPos == 7)
+                sStorage->filterCursorPos = 0;
+            else
+                sStorage->filterCursorPos++;
+            PrintFilterMenu();
+        }
+        else if (JOY_NEW(DPAD_LEFT))
+        {
+            if (sStorage->filterCursorPos == 0)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempGen == 0)
+                    sStorage->filterTempGen = 9;
+                else
+                    sStorage->filterTempGen--;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 1)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempTypeIndex == 0)
+                    sStorage->filterTempTypeIndex = FILTER_TYPE_COUNT - 1;
+                else
+                    sStorage->filterTempTypeIndex--;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 2)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempOwned == 0)
+                    sStorage->filterTempOwned = 2;
+                else
+                    sStorage->filterTempOwned--;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 3)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempIv == 0)
+                    sStorage->filterTempIv = 6;
+                else
+                    sStorage->filterTempIv--;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 4)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempShiny == 0)
+                    sStorage->filterTempShiny = 2;
+                else
+                    sStorage->filterTempShiny--;
+                PrintFilterMenu();
+            }
+        }
+        else if (JOY_NEW(DPAD_RIGHT))
+        {
+            if (sStorage->filterCursorPos == 0)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempGen == 9)
+                    sStorage->filterTempGen = 0;
+                else
+                    sStorage->filterTempGen++;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 1)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempTypeIndex == FILTER_TYPE_COUNT - 1)
+                    sStorage->filterTempTypeIndex = 0;
+                else
+                    sStorage->filterTempTypeIndex++;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 2)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempOwned == 2)
+                    sStorage->filterTempOwned = 0;
+                else
+                    sStorage->filterTempOwned++;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 3)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempIv == 6)
+                    sStorage->filterTempIv = 0;
+                else
+                    sStorage->filterTempIv++;
+                PrintFilterMenu();
+            }
+            else if (sStorage->filterCursorPos == 4)
+            {
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempShiny == 2)
+                    sStorage->filterTempShiny = 0;
+                else
+                    sStorage->filterTempShiny++;
+                PrintFilterMenu();
+            }
+        }
+        else if (JOY_NEW(A_BUTTON | START_BUTTON))
+        {
+            if (JOY_NEW(START_BUTTON))
+                sStorage->filterCursorPos = 5;
+
+            switch (sStorage->filterCursorPos)
+            {
+            case 0:
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempGen == 9)
+                    sStorage->filterTempGen = 0;
+                else
+                    sStorage->filterTempGen++;
+                PrintFilterMenu();
+                break;
+            case 1:
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempTypeIndex == FILTER_TYPE_COUNT - 1)
+                    sStorage->filterTempTypeIndex = 0;
+                else
+                    sStorage->filterTempTypeIndex++;
+                PrintFilterMenu();
+                break;
+            case 2:
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempOwned == 2)
+                    sStorage->filterTempOwned = 0;
+                else
+                    sStorage->filterTempOwned++;
+                PrintFilterMenu();
+                break;
+            case 3:
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempIv == 6)
+                    sStorage->filterTempIv = 0;
+                else
+                    sStorage->filterTempIv++;
+                PrintFilterMenu();
+                break;
+            case 4:
+                PlaySE(SE_SELECT);
+                if (sStorage->filterTempShiny == 2)
+                    sStorage->filterTempShiny = 0;
+                else
+                    sStorage->filterTempShiny++;
+                PrintFilterMenu();
+                break;
+            case 5:
+                PlaySE(SE_SELECT);
+                sFilterGen = sStorage->filterTempGen;
+                sFilterTypeIndex = sStorage->filterTempTypeIndex;
+                sFilterOwned = sStorage->filterTempOwned;
+                sFilterIv = sStorage->filterTempIv;
+                sFilterShiny = sStorage->filterTempShiny;
+                ApplyBoxFilters();
+                CloseFilterMenuAndRestoreSprites();
+                if (StorageGetCurrentBox() != 0)
+                {
+                    sStorage->newCurrBoxId = 0;
+                    SetUpScrollToBox(0);
+                    sStorage->state = 2;
+                }
+                else
+                {
+                    ReloadCurrentBoxMonSprites();
+                    sCursorArea = CURSOR_AREA_IN_BOX;
+                    sCursorPosition = 0;
+                    sStorage->cursorSprite->x = 100;
+                    sStorage->cursorSprite->y = 32;
+                    sStorage->cursorMoveSteps = 0;
+                    SetDisplayMonData(GetMappedBoxedMonPtr(0, 0), MODE_BOX);
+                    RefreshDisplayMonData();
+                    SetPokeStorageTask(Task_PokeStorageMain);
+                }
+                break;
+            case 6:
+                PlaySE(SE_SELECT);
+                sFilterGen = 0;
+                sFilterTypeIndex = 0;
+                sFilterOwned = 0;
+                sFilterIv = 0;
+                sFilterShiny = 0;
+                sStorage->filterTempGen = 0;
+                sStorage->filterTempTypeIndex = 0;
+                sStorage->filterTempOwned = 0;
+                sStorage->filterTempIv = 0;
+                sStorage->filterTempShiny = 0;
+                ApplyBoxFilters();
+                CloseFilterMenuAndRestoreSprites();
+                if (StorageGetCurrentBox() != 0)
+                {
+                    sStorage->newCurrBoxId = 0;
+                    SetUpScrollToBox(0);
+                    sStorage->state = 2;
+                }
+                else
+                {
+                    ReloadCurrentBoxMonSprites();
+                    sCursorArea = CURSOR_AREA_IN_BOX;
+                    sCursorPosition = 0;
+                    sStorage->cursorSprite->x = 100;
+                    sStorage->cursorSprite->y = 32;
+                    sStorage->cursorMoveSteps = 0;
+                    SetDisplayMonData(GetMappedBoxedMonPtr(0, 0), MODE_BOX);
+                    RefreshDisplayMonData();
+                    SetPokeStorageTask(Task_PokeStorageMain);
+                }
+                break;
+            case 7:
+                PlaySE(SE_SELECT);
+                CloseFilterMenuAndRestoreSprites();
+                RefreshDisplayMonData();
+                SetPokeStorageTask(Task_PokeStorageMain);
+                break;
+            }
+        }
+        else if (JOY_NEW(B_BUTTON))
+        {
+            PlaySE(SE_SELECT);
+            CloseFilterMenuAndRestoreSprites();
+            RefreshDisplayMonData();
+            SetPokeStorageTask(Task_PokeStorageMain);
+        }
+        break;
+    case 2:
+        if (!ScrollToBox())
+        {
+            SetCurrentBox(0);
+            sCursorArea = CURSOR_AREA_IN_BOX;
+            sCursorPosition = 0;
+            sStorage->cursorSprite->x = 100;
+            sStorage->cursorSprite->y = 32;
+            sStorage->cursorMoveSteps = 0;
+            SetDisplayMonData(GetMappedBoxedMonPtr(0, 0), MODE_BOX);
+            RefreshDisplayMonData();
+            SetPokeStorageTask(Task_PokeStorageMain);
         }
         break;
     }
@@ -4092,9 +4818,12 @@ static void SetPartySlotTilemap(u8 partyId, bool8 hasMon)
 static void UpdatePartySlotColors(void)
 {
     SetPartySlotTilemaps();
-    TilemapUtil_SetRect(TILEMAPID_PARTY_MENU, 0, 0, 12, 22);
-    TilemapUtil_Update(TILEMAPID_PARTY_MENU);
-    ScheduleBgCopyTilemapToVram(1);
+    if (sInPartyMenu)
+    {
+        TilemapUtil_SetRect(TILEMAPID_PARTY_MENU, 0, 0, 12, 22);
+        TilemapUtil_Update(TILEMAPID_PARTY_MENU);
+        ScheduleBgCopyTilemapToVram(1);
+    }
 }
 
 static void SetUpDoShowPartyMenu(void)
@@ -4727,6 +5456,14 @@ static void DestroyBoxMonIconAtPosition(u8 boxPosition)
         DestroySprite(sStorage->boxShinySprites[boxPosition]);
         sStorage->boxShinySprites[boxPosition] = NULL;
     }
+}
+
+static void ReloadCurrentBoxMonSprites(void)
+{
+    u8 i;
+    for (i = 0; i < IN_BOX_COUNT; i++)
+        DestroyBoxMonIconAtPosition(i);
+    InitBoxMonSprites(StorageGetCurrentBox());
 }
 
 static void SetBoxMonIconObjMode(u8 boxPosition, u8 objMode)
@@ -5448,9 +6185,29 @@ static void DestroyBoxMonIcon(struct Sprite *sprite)
     DestroySprite(sprite);
 }
 
+static u16 GetMappedNatDexNum(u8 boxId, u8 boxPosition)
+{
+    u32 idx = boxId * IN_BOX_COUNT + boxPosition;
+    if (sStorage != NULL && idx < TOTAL_BOXES_COUNT * IN_BOX_COUNT)
+        return sStorage->storageSlotMap[idx];
+    return idx + 1;
+}
+
+static struct BoxPokemon *GetMappedBoxedMonPtr(u8 boxId, u8 boxPosition)
+{
+    u16 dexNum = GetMappedNatDexNum(boxId, boxPosition);
+    if (dexNum >= 1 && dexNum <= TOTAL_BOXES_COUNT * IN_BOX_COUNT)
+    {
+        u8 realBox = (dexNum - 1) / IN_BOX_COUNT;
+        u8 realSlot = (dexNum - 1) % IN_BOX_COUNT;
+        return &gPokemonStoragePtr->boxes[realBox][realSlot];
+    }
+    return NULL;
+}
+
 static enum Species GetStandardSlotSpecies(u8 boxId, u8 boxPosition)
 {
-    u16 natDexNum = (boxId * IN_BOX_COUNT) + boxPosition + 1;
+    u16 natDexNum = GetMappedNatDexNum(boxId, boxPosition);
     if (natDexNum >= 1 && natDexNum <= NATIONAL_DEX_COUNT)
         return NationalPokedexNumToSpecies(natDexNum);
     return SPECIES_NONE;
@@ -7071,10 +7828,11 @@ static void InitSummaryScreenData(void)
     }
     else
     {
-        sStorage->summaryMon.box = GetBoxedMonPtr(StorageGetCurrentBox(), 0);
-        sStorage->summaryStartPos = sCursorPosition;
-        sStorage->summaryMaxPos = IN_BOX_COUNT - 1;
-        sStorage->summaryScreenMode = SUMMARY_MODE_BOX;
+        sSavedCursorPosition = sCursorPosition;
+        sStorage->summaryMon.box = GetMappedBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition);
+        sStorage->summaryStartPos = 0;
+        sStorage->summaryMaxPos = 0;
+        sStorage->summaryScreenMode = SUMMARY_MODE_BOX_CURSOR;
     }
 }
 
@@ -7082,6 +7840,8 @@ static void SetSelectionAfterSummaryScreen(void)
 {
     if (sIsMonBeingMoved)
         LoadSavedMovingMon();
+    else if (sCursorArea == CURSOR_AREA_IN_BOX)
+        sCursorPosition = sSavedCursorPosition;
     else
         sCursorPosition = gLastViewedMonIndex;
 }
@@ -7127,7 +7887,7 @@ static void SetMonMarkings(u8 markings)
     }
 }
 
-static bool8 IsRemovingLastPartyMon(void)
+static bool8 UNUSED IsRemovingLastPartyMon(void)
 {
     if (sCursorArea == CURSOR_AREA_IN_PARTY && !sIsMonBeingMoved && CountPartyAliveNonEggMonsExcept(sCursorPosition) == 0)
         return TRUE;
@@ -7154,7 +7914,7 @@ static bool8 CanPlaceMon(void)
     return FALSE;
 }
 
-static bool8 CanShiftMon(void)
+static bool8 UNUSED CanShiftMon(void)
 {
     if (sIsMonBeingMoved)
     {
@@ -7211,7 +7971,7 @@ static void TryRefreshDisplayMon(void)
             SetDisplayMonData(NULL, MODE_MOVE);
             break;
         case CURSOR_AREA_IN_BOX:
-            SetDisplayMonData(GetBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition), MODE_BOX);
+            SetDisplayMonData(GetMappedBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition), MODE_BOX);
             break;
         }
     }
@@ -7272,7 +8032,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
             sStorage->displayMonItemId = GetMonData(mon, MON_DATA_HELD_ITEM);
         }
     }
-    else if (mode == MODE_BOX)
+    else if (mode == MODE_BOX && pokemon != NULL)
     {
         struct BoxPokemon *boxMon = (struct BoxPokemon *)pokemon;
 
@@ -7311,7 +8071,7 @@ static void SetDisplayMonData(void *pokemon, u8 mode)
             enum Species standardSpecies = GetStandardSlotSpecies(StorageGetCurrentBox(), sCursorPosition);
             if (standardSpecies != SPECIES_NONE)
             {
-                u16 natDexNum = (StorageGetCurrentBox() * IN_BOX_COUNT) + sCursorPosition + 1;
+                u16 natDexNum = GetMappedNatDexNum(StorageGetCurrentBox(), sCursorPosition);
                 u8 *txt = StringCopy(sStorage->displayMonNameText, COMPOUND_STRING("No. "));
                 txt = ConvertIntToDecimalStringN(txt, natDexNum, STR_CONV_MODE_LEADING_ZEROS, 3);
                 StringCopy(sStorage->displayMonSpeciesName, COMPOUND_STRING("/ ???"));
@@ -7492,10 +8252,9 @@ static u8 InBoxInput_Normal(void)
         }
         else if (JOY_NEW(START_BUTTON))
         {
-            retVal = INPUT_MOVE_CURSOR;
-            cursorArea = CURSOR_AREA_BOX_TITLE;
-            cursorPosition = 0;
-            break;
+            AnimateBoxScrollArrows(FALSE);
+            AddBoxOptionsMenu();
+            return INPUT_BOX_OPTIONS;
         }
 
         if (JOY_NEW(A_BUTTON))
@@ -8023,6 +8782,7 @@ static u8 HandleInput(void)
 static void AddBoxOptionsMenu(void)
 {
     InitMenu();
+    SetMenuText(MENU_FILTER);
     SetMenuText(MENU_JUMP);
     SetMenuText(MENU_WALLPAPER);
     SetMenuText(MENU_NAME);
@@ -8045,11 +8805,23 @@ static bool8 SetMenuTexts_Mon(void)
     if (species == SPECIES_NONE)
         return FALSE;
 
+    if (sStorage->boxOption == OPTION_SELECT_MON)
+    {
+        SetMenuText(MENU_CHOOSE);
+        SetMenuText(MENU_SUMMARY);
+        SetMenuText(MENU_CANCEL);
+        return TRUE;
+    }
+
     if (sCursorArea == CURSOR_AREA_IN_BOX)
     {
         bool32 isEgg = GetBoxMonData(GetCursorBoxMon(), MON_DATA_IS_EGG);
         if (!isEgg)
+        {
             SetMenuText(MENU_SELECT);
+            SetMenuText(MENU_STARTER);
+            SetMenuText(MENU_BUILD);
+        }
         SetMenuText(MENU_SUMMARY);
         SetMenuText(MENU_MARK);
         SetMenuText(MENU_CANCEL);
@@ -8356,6 +9128,10 @@ static const u8 *const sMenuTexts[] =
     [MENU_MACHINE]    = COMPOUND_STRING("MACHINE"),
     [MENU_SIMPLE]     = COMPOUND_STRING("SIMPLE"),
     [MENU_SELECT]     = COMPOUND_STRING("SEGUI"),
+    [MENU_STARTER]    = COMPOUND_STRING("STARTER"),
+    [MENU_BUILD]      = COMPOUND_STRING("BUILD"),
+    [MENU_FILTER]     = COMPOUND_STRING("FILTRI"),
+    [MENU_CHOOSE]     = COMPOUND_STRING("SCEGLI"),
 };
 
 static void SetMenuText(u8 textId)
@@ -9790,14 +10566,19 @@ static struct BoxPokemon *GetCursorBoxMon(void)
     if (sInPartyMenu)
         boxmon = &(gParties[B_TRAINER_PLAYER][sCursorPosition].box);
     else
-        boxmon = GetBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition);
+        boxmon = GetMappedBoxedMonPtr(StorageGetCurrentBox(), sCursorPosition);
     return boxmon;
 }
 
 u32 GetBoxMonDataAt(u8 boxId, u8 boxPosition, s32 request)
 {
     if (boxId < TOTAL_BOXES_COUNT && boxPosition < IN_BOX_COUNT)
-        return GetBoxMonData(&gPokemonStoragePtr->boxes[boxId][boxPosition], request);
+    {
+        struct BoxPokemon *boxMon = GetMappedBoxedMonPtr(boxId, boxPosition);
+        if (boxMon == NULL)
+            return 0;
+        return GetBoxMonData(boxMon, request);
+    }
     else
         return 0;
 }
@@ -9805,7 +10586,11 @@ u32 GetBoxMonDataAt(u8 boxId, u8 boxPosition, s32 request)
 void SetBoxMonDataAt(u8 boxId, u8 boxPosition, s32 request, const void *value)
 {
     if (boxId < TOTAL_BOXES_COUNT && boxPosition < IN_BOX_COUNT)
-        SetBoxMonData(&gPokemonStoragePtr->boxes[boxId][boxPosition], request, value);
+    {
+        struct BoxPokemon *boxMon = GetMappedBoxedMonPtr(boxId, boxPosition);
+        if (boxMon != NULL)
+            SetBoxMonData(boxMon, request, value);
+    }
 }
 
 u32 GetCurrentBoxMonData(u8 boxPosition, s32 request)
@@ -9821,7 +10606,12 @@ void SetCurrentBoxMonData(u8 boxPosition, s32 request, const void *value)
 u32 GetAndCopyBoxMonDataAt(u8 boxId, u8 boxPosition, s32 request, void *dst)
 {
     if (boxId < TOTAL_BOXES_COUNT && boxPosition < IN_BOX_COUNT)
-        return GetBoxMonData(&gPokemonStoragePtr->boxes[boxId][boxPosition], request, dst);
+    {
+        struct BoxPokemon *boxMon = GetMappedBoxedMonPtr(boxId, boxPosition);
+        if (boxMon == NULL)
+            return 0;
+        return GetBoxMonData(boxMon, request, dst);
+    }
     else
         return 0;
 }
@@ -9841,7 +10631,11 @@ void ZeroBoxMonAt(u8 boxId, u8 boxPosition)
 void BoxMonAtToMon(u8 boxId, u8 boxPosition, struct Pokemon *dst)
 {
     if (boxId < TOTAL_BOXES_COUNT && boxPosition < IN_BOX_COUNT)
-        BoxMonToMon(&gPokemonStoragePtr->boxes[boxId][boxPosition], dst);
+    {
+        struct BoxPokemon *boxMon = GetMappedBoxedMonPtr(boxId, boxPosition);
+        if (boxMon != NULL)
+            BoxMonToMon(boxMon, dst);
+    }
 }
 
 struct BoxPokemon *GetBoxedMonPtr(u8 boxId, u8 boxPosition)

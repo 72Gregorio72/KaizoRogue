@@ -274,6 +274,51 @@ void InitKaizoMetaProgression(void)
         }
         gSaveBlock2Ptr->metaProgression.shinyDefaultMigrationDone = TRUE;
     }
+
+    // Ensure Pikachu is unlocked as the first roster Pokémon with all IVs = 15
+    struct BoxPokemon *pikaBox = GetUnlockedRosterMon(SPECIES_PIKACHU);
+    if (pikaBox == NULL)
+    {
+        struct Pokemon pika;
+        u8 iv15 = 15;
+        ZeroMonData(&pika);
+        CreateMon(&pika, SPECIES_PIKACHU, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+        SetMonData(&pika, MON_DATA_HP_IV, &iv15);
+        SetMonData(&pika, MON_DATA_ATK_IV, &iv15);
+        SetMonData(&pika, MON_DATA_DEF_IV, &iv15);
+        SetMonData(&pika, MON_DATA_SPEED_IV, &iv15);
+        SetMonData(&pika, MON_DATA_SPATK_IV, &iv15);
+        SetMonData(&pika, MON_DATA_SPDEF_IV, &iv15);
+        CalculateMonStats(&pika);
+        AddUnlockedRosterMon(&pika.box);
+    }
+    else
+    {
+        u8 iv15 = 15;
+        for (u8 stat = MON_DATA_HP_IV; stat <= MON_DATA_SPDEF_IV; stat++)
+        {
+            if (GetBoxMonData(pikaBox, stat) < iv15)
+                SetBoxMonData(pikaBox, stat, &iv15);
+        }
+    }
+
+    if (gSaveBlock2Ptr->metaProgression.chosenGachaSpecies == SPECIES_NONE)
+    {
+        gSaveBlock2Ptr->metaProgression.chosenGachaSpecies = SPECIES_PIKACHU;
+    }
+
+    if (gPartiesCount[B_TRAINER_PLAYER] == 0)
+    {
+        struct BoxPokemon *p = GetUnlockedRosterMon(SPECIES_PIKACHU);
+        if (p != NULL)
+        {
+            BoxMonToMon(p, &gParties[B_TRAINER_PLAYER][0]);
+            CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
+            u16 maxHp = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MAX_HP);
+            SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_HP, &maxHp);
+            gPartiesCount[B_TRAINER_PLAYER] = 1;
+        }
+    }
 }
 
 void AddRogueShards(u32 amount)
@@ -2918,25 +2963,61 @@ struct BoxPokemon *GetUnlockedRosterMon(u16 species)
 void SortRosterBoxes(void)
 {
     u32 totalSlots = TOTAL_BOXES_COUNT * IN_BOX_COUNT;
-    for (u32 i = 0; i < totalSlots; i++)
+    u32 i;
+
+    for (i = 0; i < totalSlots; i++)
     {
-        struct BoxPokemon *mon = GetBoxedMonPtr(i / IN_BOX_COUNT, i % IN_BOX_COUNT);
-        u16 sp = GetBoxMonData(mon, MON_DATA_SPECIES);
-        if (sp != SPECIES_NONE && sp < NUM_SPECIES && !GetBoxMonData(mon, MON_DATA_IS_EGG))
+        u32 maxCycles = totalSlots;
+        while (maxCycles-- > 0)
         {
+            struct BoxPokemon *mon = GetBoxedMonPtr(i / IN_BOX_COUNT, i % IN_BOX_COUNT);
+            u16 sp = GetBoxMonData(mon, MON_DATA_SPECIES);
+
+            if (sp == SPECIES_NONE || sp >= NUM_SPECIES || GetBoxMonData(mon, MON_DATA_IS_EGG))
+                break;
+
             u16 dexNum = SpeciesToNationalPokedexNum(sp);
-            if (dexNum >= 1 && dexNum <= totalSlots)
+            if (dexNum < 1 || dexNum > totalSlots)
+                break;
+
+            u32 targetIdx = dexNum - 1;
+            if (targetIdx == i)
+                break; // Already in correct slot
+
+            struct BoxPokemon *targetMon = GetBoxedMonPtr(targetIdx / IN_BOX_COUNT, targetIdx % IN_BOX_COUNT);
+            u16 targetSp = GetBoxMonData(targetMon, MON_DATA_SPECIES);
+
+            if (targetSp == SPECIES_NONE)
             {
-                u32 targetIdx = dexNum - 1;
-                if (targetIdx != i)
+                *targetMon = *mon;
+                ZeroBoxMonData(mon);
+                break;
+            }
+            else if (targetSp == sp)
+            {
+                // Duplicate of same species: merge shiny status and higher IVs into targetMon
+                if (GetBoxMonData(mon, MON_DATA_IS_SHINY) || GetBoxMonData(mon, MON_DATA_SHINY_UNLOCKED))
                 {
-                    struct BoxPokemon *targetMon = GetBoxedMonPtr(targetIdx / IN_BOX_COUNT, targetIdx % IN_BOX_COUNT);
-                    if (GetBoxMonData(targetMon, MON_DATA_SPECIES) == SPECIES_NONE)
-                    {
-                        *targetMon = *mon;
-                        ZeroBoxMonData(mon);
-                    }
+                    bool32 trueVal = TRUE;
+                    SetBoxMonData(targetMon, MON_DATA_SHINY_UNLOCKED, &trueVal);
+                    SetBoxMonData(targetMon, MON_DATA_IS_SHINY, &trueVal);
                 }
+                for (u8 stat = MON_DATA_HP_IV; stat <= MON_DATA_SPDEF_IV; stat++)
+                {
+                    u8 oldIv = GetBoxMonData(targetMon, stat);
+                    u8 newIv = GetBoxMonData(mon, stat);
+                    if (newIv > oldIv)
+                        SetBoxMonData(targetMon, stat, &newIv);
+                }
+                ZeroBoxMonData(mon);
+                break;
+            }
+            else
+            {
+                // Different species occupying target slot: swap them and continue resolving slot i
+                struct BoxPokemon temp = *mon;
+                *mon = *targetMon;
+                *targetMon = temp;
             }
         }
     }

@@ -659,10 +659,19 @@ static const u8 *GetInteractedMetatileScript(struct MapPosition *position, u8 me
     return NULL;
 }
 
+extern const u8 City_Hub_EventScript_UseSurf[];
+
 static const u8 *GetInteractedWaterScript(struct MapPosition *unused1, u8 metatileBehavior, enum Direction direction)
 {
     if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && !TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
         return EventScript_CurrentTooFast;
+
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_CITY_HUB) && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_CITY_HUB))
+    {
+        if (IsPlayerFacingSurfableFishableWater() == TRUE && CheckFollowerNPCFlag(FOLLOWER_NPC_FLAG_CAN_SURF))
+            return City_Hub_EventScript_UseSurf;
+    }
+
     if (IsFieldMoveUnlocked(FIELD_MOVE_SURF) && PartyHasMonWithSurf() == TRUE && IsPlayerFacingSurfableFishableWater() == TRUE
      && CheckFollowerNPCFlag(FOLLOWER_NPC_FLAG_CAN_SURF)
      )

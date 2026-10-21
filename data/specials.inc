@@ -745,3 +745,10 @@ gSpecials::
 	def_special Script_Gacha_ToggleShiny
 	def_special Script_Gacha_SetBanner
 	def_special Script_Meta_CheatCleanEggs
+	def_special Script_UpdateHubRoamingMons
+	def_special Script_HubRoaming_PushSlotMenu
+	def_special Script_HubRoaming_CheckSlotOccupied
+	def_special Script_HubRoaming_ClearSlot
+	def_special Script_HubRoaming_ClearAll
+	def_special Script_HubRoaming_ValidateAndSet
+	def_special Script_HubMon_Interact
