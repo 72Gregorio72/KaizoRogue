@@ -10222,8 +10222,8 @@
     {
       "id": "LAYOUT_CITY_HUB",
       "name": "City_Hub_Layout",
-      "width": 40,
-      "height": 34,
+      "width": 45,
+      "height": 47,
       "border_width": 2,
       "border_height": 2,
       "primary_tileset": "gTileset_General_Frlg",
@@ -10266,6 +10266,58 @@
       "secondary_tileset": "gTileset_SeviiIslands45",
       "border_filepath": "data/layouts/Hub_Beach/border.bin",
       "blockdata_filepath": "data/layouts/Hub_Beach/map.bin"
+    },
+    {
+      "id": "LAYOUT_HUB_POKEMON_CENTER_1F",
+      "name": "Hub_PokemonCenter_1F_Layout",
+      "width": 15,
+      "height": 10,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_BuildingFrlg",
+      "secondary_tileset": "gTileset_PokemonCenterFrlg",
+      "border_filepath": "data/layouts/Hub_PokemonCenter_1F/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_PokemonCenter_1F/map.bin",
+      "layout_version": "frlg"
+    },
+    {
+      "id": "LAYOUT_HUB_GAME_CORNER",
+      "name": "Hub_GameCorner_Layout",
+      "width": 18,
+      "height": 15,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_BuildingFrlg",
+      "secondary_tileset": "gTileset_GameCorner",
+      "border_filepath": "data/layouts/Hub_GameCorner/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_GameCorner/map.bin",
+      "layout_version": "frlg"
+    },
+    {
+      "id": "LAYOUT_HUB_PRIZE_CORNER",
+      "name": "Hub_PrizeCorner_Layout",
+      "width": 9,
+      "height": 10,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_BuildingFrlg",
+      "secondary_tileset": "gTileset_GameCorner",
+      "border_filepath": "data/layouts/Hub_PrizeCorner/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_PrizeCorner/map.bin",
+      "layout_version": "frlg"
+    },
+    {
+      "id": "LAYOUT_HUB_MART",
+      "name": "Hub_Mart_Layout",
+      "width": 28,
+      "height": 20,
+      "border_width": 2,
+      "border_height": 2,
+      "primary_tileset": "gTileset_BuildingFrlg",
+      "secondary_tileset": "gTileset_DepartmentStore",
+      "border_filepath": "data/layouts/Hub_Mart/border.bin",
+      "blockdata_filepath": "data/layouts/Hub_Mart/map.bin",
+      "layout_version": "frlg"
     }
   ]
 }

@@ -1168,6 +1168,10 @@
   ],
   "gMapGroup_Hub": [
     "City_Hub",
+    "Hub_PokemonCenter_1F",
+    "Hub_Mart",
+    "Hub_GameCorner",
+    "Hub_PrizeCorner",
     "Hub_Park",
     "Hub_Dojo",
     "Hub_Beach"

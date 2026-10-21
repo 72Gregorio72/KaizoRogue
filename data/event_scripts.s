@@ -1757,3 +1757,8 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 
 	.include "data/maps/Hub_Beach/scripts.inc"
 	.include "data/maps/Hub_Beach/text.inc"
+
+	.include "data/maps/Hub_PokemonCenter_1F/scripts.inc"
+	.include "data/maps/Hub_Mart/scripts.inc"
+	.include "data/maps/Hub_GameCorner/scripts.inc"
+	.include "data/maps/Hub_PrizeCorner/scripts.inc"

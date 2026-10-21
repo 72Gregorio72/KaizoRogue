@@ -15,11 +15,6 @@
   "battle_scene": "MAP_BATTLE_SCENE_NORMAL",
   "connections": [
     {
-      "map": "MAP_CITY_HUB",
-      "offset": 0,
-      "direction": "right"
-    },
-    {
       "map": "MAP_HUB_BEACH",
       "offset": 0,
       "direction": "down"
