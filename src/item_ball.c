@@ -29,6 +29,6 @@ void GetItemBallIdAndAmountFromTemplate(void)
             itemId = ITEM_NONE + 1;
     }
 
-    gSpecialVar_Result = GetKaizoRandomizedItem(itemId);
+    gSpecialVar_Result = itemId;
     gSpecialVar_0x8009 = quantity;
 }

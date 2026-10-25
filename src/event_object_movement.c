@@ -42,6 +42,7 @@
 #include "util.h"
 #include "wild_encounter.h"
 #include "wild_encounter_ow.h"
+#include "kaizo_roster.h"
 #include "constants/event_object_movement.h"
 #include "constants/abilities.h"
 #include "constants/battle.h"
@@ -494,6 +495,7 @@ const u8 gInitialMovementTypeFacingDirections[NUM_MOVEMENT_TYPES] = {
 #include "data/object_events/object_event_subsprites.h"
 #include "data/object_events/object_event_graphics_info.h"
 #include "data/object_events/object_event_graphics_info_followers.h"
+#include "data/object_events/swimming_mon_pics.h"
 
 static const struct SpritePalette sObjectEventSpritePalettes[] = {
     {gObjectEventPal_Npc1,                  OBJ_EVENT_PAL_TAG_NPC_1},
@@ -2249,7 +2251,7 @@ static void RefreshFollowerGraphics(struct ObjectEvent *objEvent)
     enum Species species = OW_SPECIES(objEvent);
     bool32 shiny = OW_SHINY(objEvent);
     bool32 female = OW_FEMALE(objEvent);
-    const struct ObjectEventGraphicsInfo *graphicsInfo = SpeciesToGraphicsInfo(species, shiny, female);
+    const struct ObjectEventGraphicsInfo *graphicsInfo = GetObjectEventGraphicsInfo(objEvent->graphicsId);
     struct Sprite *sprite = &gSprites[objEvent->spriteId];
     u32 i = FindObjectEventPaletteIndexByTag(graphicsInfo->paletteTag);
 
@@ -2398,6 +2400,17 @@ void UpdateFollowingPokemon(void)
         objEvent->invisible = TRUE;
     }
     sprite->data[6] = 0; // set animation data
+    if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING)
+     || MetatileBehavior_IsSurfableWaterOrUnderwater(objEvent->currentMetatileBehavior))
+    {
+        objEvent->graphicsId |= OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objEvent);
+    }
+    else if (objEvent->graphicsId & OBJ_EVENT_MON_SWIMMING)
+    {
+        objEvent->graphicsId &= ~OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objEvent);
+    }
 }
 
 // Remove follower object. Idempotent.
@@ -2413,7 +2426,6 @@ void RemoveFollowingPokemon(void)
 bool32 IsFollowerVisible(void)
 {
     return !(TestPlayerAvatarFlags(FOLLOWER_INVISIBLE_FLAGS)
-            || MetatileBehavior_IsSurfableWaterOrUnderwater(gObjectEvents[gPlayerAvatar.objectEventId].previousMetatileBehavior)
             || MetatileBehavior_IsForcedMovementTile(gObjectEvents[gPlayerAvatar.objectEventId].currentMetatileBehavior));
 }
 
@@ -3204,11 +3216,22 @@ const struct ObjectEventGraphicsInfo *GetObjectEventGraphicsInfo(u16 graphicsId)
     if (graphicsId >= OBJ_EVENT_GFX_VARS && graphicsId <= OBJ_EVENT_GFX_VAR_F)
         graphicsId = VarGetObjectEventGraphicsId(graphicsId - OBJ_EVENT_GFX_VARS);
 
+    if (graphicsId >= OBJ_EVENT_GFX_HUB_MON_START && graphicsId <= OBJ_EVENT_GFX_HUB_MON_END)
+        graphicsId = GetHubRoamingMonGraphicsId(graphicsId - OBJ_EVENT_GFX_HUB_MON_START);
+
     if (graphicsId == OBJ_EVENT_GFX_BARD)
         return gMauvilleOldManGraphicsInfoPointers[GetCurrentMauvilleOldMan()];
 
     if (graphicsId & OBJ_EVENT_MON)
+    {
+        if (graphicsId & OBJ_EVENT_MON_SWIMMING)
+        {
+            const struct ObjectEventGraphicsInfo *swimInfo = SpeciesToSwimmingGraphicsInfo(graphicsId & OBJ_EVENT_MON_SPECIES_MASK, graphicsId & OBJ_EVENT_MON_SHINY, graphicsId & OBJ_EVENT_MON_FEMALE);
+            if (swimInfo != NULL)
+                return swimInfo;
+        }
         return SpeciesToGraphicsInfo(graphicsId & OBJ_EVENT_MON_SPECIES_MASK, graphicsId & OBJ_EVENT_MON_SHINY, graphicsId & OBJ_EVENT_MON_FEMALE);
+    }
 
     if (graphicsId >= NUM_OBJ_EVENT_GFX)
         graphicsId = OBJ_EVENT_GFX_NINJA_BOY;
@@ -3220,6 +3243,9 @@ static void SetObjectEventDynamicGraphicsId(struct ObjectEvent *objectEvent)
 {
     if (objectEvent->graphicsId >= OBJ_EVENT_GFX_VARS && objectEvent->graphicsId <= OBJ_EVENT_GFX_VAR_F)
         objectEvent->graphicsId = VarGetObjectEventGraphicsId(objectEvent->graphicsId - OBJ_EVENT_GFX_VARS);
+
+    if (objectEvent->graphicsId >= OBJ_EVENT_GFX_HUB_MON_START && objectEvent->graphicsId <= OBJ_EVENT_GFX_HUB_MON_END)
+        objectEvent->graphicsId = GetHubRoamingMonGraphicsId(objectEvent->graphicsId - OBJ_EVENT_GFX_HUB_MON_START);
 }
 
 void SetObjectInvisibility(u8 localId, u8 mapNum, u8 mapGroup, bool8 invisible)
@@ -5721,6 +5747,20 @@ bool8 MovementType_FollowPlayer_Active(struct ObjectEvent *objectEvent, struct S
         sprite->sTypeFuncId = 2; // movement action sets state to 0
         return TRUE;
     }
+
+    bool32 curIsWater = MetatileBehavior_IsSurfableWaterOrUnderwater(objectEvent->currentMetatileBehavior)
+                     || TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING);
+    if (curIsWater && !(objectEvent->graphicsId & OBJ_EVENT_MON_SWIMMING))
+    {
+        objectEvent->graphicsId |= OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objectEvent);
+    }
+    else if (!curIsWater && (objectEvent->graphicsId & OBJ_EVENT_MON_SWIMMING))
+    {
+        objectEvent->graphicsId &= ~OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objectEvent);
+    }
+
     return gFollowPlayerMovementFuncs[PlayerGetCopyableMovement()](objectEvent, sprite, GetPlayerMovementDirection(), NULL);
 }
 
@@ -5821,6 +5861,19 @@ bool8 FollowablePlayerMovement_Step(struct ObjectEvent *objectEvent, struct Spri
     {
         // don't move if already in the player's last position
         return FALSE;
+    }
+
+    bool32 targetIsWater = MetatileBehavior_IsSurfableWaterOrUnderwater(MapGridGetMetatileBehaviorAt(targetX, targetY))
+                        || TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING);
+    if (targetIsWater && !(objectEvent->graphicsId & OBJ_EVENT_MON_SWIMMING))
+    {
+        objectEvent->graphicsId |= OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objectEvent);
+    }
+    else if (!targetIsWater && (objectEvent->graphicsId & OBJ_EVENT_MON_SWIMMING))
+    {
+        objectEvent->graphicsId &= ~OBJ_EVENT_MON_SWIMMING;
+        RefreshFollowerGraphics(objectEvent);
     }
 
     // Follow player

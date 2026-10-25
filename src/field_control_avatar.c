@@ -37,6 +37,7 @@
 #include "vs_seeker.h"
 #include "wild_encounter.h"
 #include "wild_encounter_ow.h"
+#include "kaizo_dungeon_gym.h"
 #include "constants/event_bg.h"
 #include "constants/event_objects.h"
 #include "constants/field_poison.h"
@@ -212,6 +213,16 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
 
     if (input->heldDirection && (input->dpadDirection == playerDirection) && (TrySetUpWalkIntoSignpostScript(&position, metatileBehavior, playerDirection) == TRUE))
         return TRUE;
+
+    if (input->heldDirection && (input->dpadDirection == playerDirection) && !TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
+    {
+        const u8 *waterScript = GetInteractedWaterScript(&position, metatileBehavior, playerDirection);
+        if (waterScript != NULL && !Script_HasNoEffect(waterScript))
+        {
+            ScriptContext_SetupScript(waterScript);
+            return TRUE;
+        }
+    }
 
     if (input->pressedAButton && TryStartInteractionScript(&position, metatileBehavior, playerDirection) == TRUE)
         return TRUE;
@@ -661,14 +672,18 @@ static const u8 *GetInteractedMetatileScript(struct MapPosition *position, u8 me
 
 extern const u8 City_Hub_EventScript_UseSurf[];
 
-static const u8 *GetInteractedWaterScript(struct MapPosition *unused1, u8 metatileBehavior, enum Direction direction)
+static const u8 *GetInteractedWaterScript(struct MapPosition *position, u8 metatileBehavior, enum Direction direction)
 {
     if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && !TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
         return EventScript_CurrentTooFast;
 
+    if (MapGridGetCollisionAt(position->x, position->y) != 0)
+        return NULL;
+
     if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_CITY_HUB) && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_CITY_HUB))
     {
-        if (IsPlayerFacingSurfableFishableWater() == TRUE && CheckFollowerNPCFlag(FOLLOWER_NPC_FLAG_CAN_SURF))
+        if ((MetatileBehavior_IsSurfableFishableWater(metatileBehavior) || MetatileBehavior_IsSurfableWaterOrUnderwater(metatileBehavior))
+         && CheckFollowerNPCFlag(FOLLOWER_NPC_FLAG_CAN_SURF))
             return City_Hub_EventScript_UseSurf;
     }
 
@@ -980,12 +995,16 @@ static bool8 TryArrowWarp(struct MapPosition *position, u16 metatileBehavior, en
 
     if (IsArrowWarpMetatileBehavior(metatileBehavior, direction) == TRUE)
     {
+        if (TryBlockGymOrDungeonWarp((s8)warpEventId))
+            return TRUE;
         StorePlayerStateAndSetupWarp(position, warpEventId);
         DoWarp();
         return TRUE;
     }
     else if (IsDirectionalStairWarpMetatileBehavior(metatileBehavior, direction) == TRUE)
     {
+        if (TryBlockGymOrDungeonWarp((s8)warpEventId))
+            return TRUE;
         delay = 0;
         if (gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_BIKE)
         {
@@ -1006,6 +1025,8 @@ static bool8 TryStartWarpEventScript(struct MapPosition *position, u16 metatileB
 
     if (warpEventId != WARP_ID_NONE && IsWarpMetatileBehavior(metatileBehavior) == TRUE)
     {
+        if (TryBlockGymOrDungeonWarp(warpEventId))
+            return TRUE;
         StoreInitialPlayerAvatarState();
         SetupWarp(&gMapHeader, warpEventId, position);
         if (MetatileBehavior_IsEscalator(metatileBehavior) == TRUE)
@@ -1126,6 +1147,8 @@ static void SetupWarp(struct MapHeader *unused, s8 warpEventId, struct MapPositi
 
         SetWarpDestinationToMapWarp(warpEvent->mapGroup, warpEvent->mapNum, warpEvent->warpId);
         UpdateEscapeWarp(position->x, position->y);
+        CheckAndMarkDungeonClearedOnWarp(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum,
+                                         warpEvent->mapGroup, warpEvent->mapNum, warpEvent->warpId);
         mapHeader = Overworld_GetMapHeaderByGroupAndId(warpEvent->mapGroup, warpEvent->mapNum);
         if (mapHeader->events->warps[warpEvent->warpId].mapNum == MAP_NUM(MAP_DYNAMIC))
             SetDynamicWarp(mapHeader->events->warps[warpEventId].warpId, gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum, warpEventId);
@@ -1149,6 +1172,8 @@ static bool8 TryDoorWarp(struct MapPosition *position, u16 metatileBehavior, enu
             warpEventId = GetWarpEventAtMapPosition(&gMapHeader, position);
             if (warpEventId != WARP_ID_NONE && IsWarpMetatileBehavior(metatileBehavior) == TRUE)
             {
+                if (TryBlockGymOrDungeonWarp(warpEventId))
+                    return TRUE;
                 StoreInitialPlayerAvatarState();
                 SetupWarp(&gMapHeader, warpEventId, position);
                 DoDoorWarp();

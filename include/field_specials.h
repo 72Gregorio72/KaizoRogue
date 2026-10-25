@@ -143,5 +143,6 @@ void Script_Gacha_SetBanner(void);
 void Script_Meta_CheatAddTicketsAndPoints(void);
 void OpenGachaSlotMachine(void);
 void OpenGachaRosterPC(void);
+void Script_StepPlayerAwayFromExit(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

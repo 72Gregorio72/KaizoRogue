@@ -59,8 +59,9 @@ u16 GetKaizoRandomizedItem(u16 originalItem)
     if (seed == 0)
         seed = 0x54321678;
 
-    // Rimescolamento deterministico basato su seed, mappa e item
+    // Rimescolamento deterministico basato su seed, mappa, oggetto e item
     u32 itemSeed = seed ^ (originalItem * 7919)
+                        ^ (gSpecialVar_LastTalked * 1013)
                         ^ (gSaveBlock1Ptr->location.mapGroup << 16)
                         ^ (gSaveBlock1Ptr->location.mapNum << 8);
 
@@ -235,8 +236,53 @@ void GenerateStartersForType(u8 chosenType)
     GenerateStartersForTypeAndTier(chosenType, sOakRolledTier);
 }
 
+void SanitizeBagItems(struct Bag *bag)
+{
+    u32 i;
+    for (i = 0; i < BAG_ITEMS_COUNT; i++)
+    {
+        u16 item = bag->items[i].itemId;
+        u16 qty = bag->items[i].quantity;
+        if (item != ITEM_NONE)
+        {
+            if (qty >= 900)
+            {
+                if (item == ITEM_RARE_CANDY || item == ITEM_MASTER_BALL)
+                    bag->items[i].quantity = 99;
+                else
+                    bag->items[i].quantity = 1;
+            }
+        }
+    }
+    for (i = 0; i < BAG_POKEBALLS_COUNT; i++)
+    {
+        u16 item = bag->pokeBalls[i].itemId;
+        u16 qty = bag->pokeBalls[i].quantity;
+        if (item != ITEM_NONE && qty >= 900)
+        {
+            if (item == ITEM_MASTER_BALL)
+                bag->pokeBalls[i].quantity = 99;
+            else
+                bag->pokeBalls[i].quantity = 5;
+        }
+    }
+    for (i = 0; i < BAG_BERRIES_COUNT; i++)
+    {
+        u16 item = bag->berries[i].itemId;
+        u16 qty = bag->berries[i].quantity;
+        if (item != ITEM_NONE && qty >= 900)
+        {
+            bag->berries[i].quantity = 1;
+        }
+    }
+}
+
 void InitKaizoMetaProgression(void)
 {
+    SanitizeBagItems(&gSaveBlock1Ptr->bag);
+    SanitizeBagItems(&gSaveBlock2Ptr->metaProgression.hubBag);
+    memset(gSaveBlock2Ptr->metaProgression.sharedConsumables, 0, sizeof(gSaveBlock2Ptr->metaProgression.sharedConsumables));
+    gSaveBlock2Ptr->metaProgression.sharedConsumablesCount = 0;
     if (gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel == 0)
     {
         gSaveBlock2Ptr->metaProgression.martDraftChoicesLevel = 1;
@@ -281,14 +327,18 @@ void InitKaizoMetaProgression(void)
     {
         struct Pokemon pika;
         u8 iv15 = 15;
+        u16 scratch = MOVE_SCRATCH;
+        u8 pp = gMovesInfo[MOVE_SCRATCH].pp;
         ZeroMonData(&pika);
-        CreateMon(&pika, SPECIES_PIKACHU, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+        CreateMon(&pika, SPECIES_PIKACHU, 10, Random32(), OTID_STRUCT_PLAYER_ID);
         SetMonData(&pika, MON_DATA_HP_IV, &iv15);
         SetMonData(&pika, MON_DATA_ATK_IV, &iv15);
         SetMonData(&pika, MON_DATA_DEF_IV, &iv15);
         SetMonData(&pika, MON_DATA_SPEED_IV, &iv15);
         SetMonData(&pika, MON_DATA_SPATK_IV, &iv15);
         SetMonData(&pika, MON_DATA_SPDEF_IV, &iv15);
+        SetMonData(&pika, MON_DATA_MOVE1, &scratch);
+        SetMonData(&pika, MON_DATA_PP1, &pp);
         CalculateMonStats(&pika);
         AddUnlockedRosterMon(&pika.box);
     }
@@ -299,6 +349,13 @@ void InitKaizoMetaProgression(void)
         {
             if (GetBoxMonData(pikaBox, stat) < iv15)
                 SetBoxMonData(pikaBox, stat, &iv15);
+        }
+        if (GetBoxMonData(pikaBox, MON_DATA_MOVE1) == MOVE_NONE)
+        {
+            u16 scratch = MOVE_SCRATCH;
+            u8 pp = gMovesInfo[MOVE_SCRATCH].pp;
+            SetBoxMonData(pikaBox, MON_DATA_MOVE1, &scratch);
+            SetBoxMonData(pikaBox, MON_DATA_PP1, &pp);
         }
     }
 
@@ -313,11 +370,28 @@ void InitKaizoMetaProgression(void)
         if (p != NULL)
         {
             BoxMonToMon(p, &gParties[B_TRAINER_PLAYER][0]);
+            u8 level = 10;
+            SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_LEVEL, &level);
+            u32 exp = gExperienceTables[gSpeciesInfo[SPECIES_PIKACHU].growthRate][10];
+            SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_EXP, &exp);
+            if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MOVE1) == MOVE_NONE)
+            {
+                u16 scratch = MOVE_SCRATCH;
+                u8 pp = gMovesInfo[MOVE_SCRATCH].pp;
+                SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MOVE1, &scratch);
+                SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_PP1, &pp);
+            }
             CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
             u16 maxHp = GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MAX_HP);
             SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_HP, &maxHp);
             gPartiesCount[B_TRAINER_PLAYER] = 1;
         }
+    }
+
+    if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_CITY_HUB))
+    {
+        if (!CheckBagHasItem(ITEM_HM03, 1))
+            AddBagItem(ITEM_HM03, 1);
     }
 }
 
@@ -573,7 +647,7 @@ void GiveSelectedStarter(void)
     u16 chosenSpecies = gSaveBlock2Ptr->randomStarters[slot];
     struct Pokemon mon;
 
-    CreateMon(&mon, chosenSpecies, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+    CreateMon(&mon, chosenSpecies, 10, Random32(), OTID_STRUCT_PLAYER_ID);
     GiveMonInitialMoveset(&mon);
     CalculateMonStats(&mon);
     GiveCapturedMonToPlayer(&mon);
@@ -611,7 +685,7 @@ void Script_GiveKaizoStarter(void)
     u16 species = VarGet(VAR_TEMP_2);
     struct Pokemon mon;
 
-    CreateMon(&mon, species, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+    CreateMon(&mon, species, 10, Random32(), OTID_STRUCT_PLAYER_ID);
     
     // Lo starter parte con SOLO Graffio (Scratch)
     u16 moveScratch = MOVE_SCRATCH;
@@ -2694,12 +2768,42 @@ void Script_Meta_CheatCleanEggs(void)
     ConvertIntToDecimalStringN(gStringVar1, count, STR_CONV_MODE_LEFT_ALIGN, 3);
 }
 
+bool8 IsSharedConsumableItem(u16 itemId)
+{
+    return FALSE;
+}
+
+void SaveCurrentBagConsumablesToShared(void)
+{
+    memset(gSaveBlock2Ptr->metaProgression.sharedConsumables, 0, sizeof(gSaveBlock2Ptr->metaProgression.sharedConsumables));
+    gSaveBlock2Ptr->metaProgression.sharedConsumablesCount = 0;
+}
+
+void RestoreSharedConsumablesToBag(void)
+{
+}
+
 void Script_Kaizo_PrepareNewRun(void)
 {
+    // Salva lo zaino dell'Hub e azzera accumulo non voluto
+    SanitizeBagItems(&gSaveBlock1Ptr->bag);
+    gSaveBlock2Ptr->metaProgression.hubBag = gSaveBlock1Ptr->bag;
+
     ZeroPlayerPartyMons();
     gPartiesCount[B_TRAINER_PLAYER] = 0;
 
     GenerateNewKaizoSeedAndStarters();
+
+    // Svuota lo zaino per iniziare la run con un inventario fresco e pulito
+    ClearBag();
+
+    // Resetta flag di completamento dungeon per la nuova run
+    FlagClear(FLAG_CLEARED_VIRIDIAN_FOREST);
+    FlagClear(FLAG_CLEARED_MT_MOON);
+    FlagClear(FLAG_CLEARED_ROCK_TUNNEL);
+    FlagClear(FLAG_CLEARED_SEAFOAM_ISLANDS);
+    FlagClear(FLAG_CLEARED_VICTORY_ROAD);
+    FlagClear(FLAG_CLEARED_DIGLETTS_CAVE);
 
     // Check Gacha starter
     u16 starterSpecies = gSaveBlock2Ptr->metaProgression.chosenGachaSpecies;
@@ -2709,10 +2813,19 @@ void Script_Kaizo_PrepareNewRun(void)
         if (bMon != NULL)
         {
             BoxMonToMon(bMon, &gParties[B_TRAINER_PLAYER][0]);
-            u8 level = 5;
+            u8 level = 10;
             SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_LEVEL, &level);
-            u32 exp = gExperienceTables[gSpeciesInfo[starterSpecies].growthRate][5];
+            u32 exp = gExperienceTables[gSpeciesInfo[starterSpecies].growthRate][10];
             SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_EXP, &exp);
+            if (GetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MOVE1) == MOVE_NONE)
+            {
+                u16 scratch = MOVE_SCRATCH;
+                u8 pp = gMovesInfo[MOVE_SCRATCH].pp;
+                SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_MOVE1, &scratch);
+                SetMonData(&gParties[B_TRAINER_PLAYER][0], MON_DATA_PP1, &pp);
+                SetBoxMonData(bMon, MON_DATA_MOVE1, &scratch);
+                SetBoxMonData(bMon, MON_DATA_PP1, &pp);
+            }
             CalculateMonStats(&gParties[B_TRAINER_PLAYER][0]);
             extern void HealPlayerParty(void);
             HealPlayerParty();
@@ -3164,7 +3277,7 @@ void Script_Gacha_PullEgg(void)
 
     struct Pokemon tempMon;
     ZeroMonData(&tempMon);
-    CreateMon(&tempMon, species, 5, Random32(), OTID_STRUCT_PLAYER_ID);
+    CreateMon(&tempMon, species, 10, Random32(), OTID_STRUCT_PLAYER_ID);
 
     u16 scratch = MOVE_SCRATCH;
     u16 noneMove = MOVE_NONE;

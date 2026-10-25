@@ -51,12 +51,12 @@
 
 #else
 
-#define FLAG_UNUSED_0x020    0x20 // Unused Flag
-#define FLAG_UNUSED_0x021    0x21 // Unused Flag
-#define FLAG_UNUSED_0x022    0x22 // Unused Flag
-#define FLAG_UNUSED_0x023    0x23 // Unused Flag
-#define FLAG_UNUSED_0x024    0x24 // Unused Flag
-#define FLAG_UNUSED_0x025    0x25 // Unused Flag
+#define FLAG_CLEARED_VIRIDIAN_FOREST  FLAG_UNUSED_0x020
+#define FLAG_CLEARED_MT_MOON          FLAG_UNUSED_0x021
+#define FLAG_CLEARED_ROCK_TUNNEL      FLAG_UNUSED_0x022
+#define FLAG_CLEARED_SEAFOAM_ISLANDS  FLAG_UNUSED_0x023
+#define FLAG_CLEARED_VICTORY_ROAD     FLAG_UNUSED_0x024
+#define FLAG_CLEARED_DIGLETTS_CAVE    FLAG_UNUSED_0x025
 #define FLAG_UNUSED_0x026    0x26 // Unused Flag
 #define FLAG_UNUSED_0x027    0x27 // Unused Flag
 #define FLAG_UNUSED_0x028    0x28 // Unused Flag

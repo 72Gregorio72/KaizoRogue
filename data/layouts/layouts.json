@@ -10222,8 +10222,8 @@
     {
       "id": "LAYOUT_CITY_HUB",
       "name": "City_Hub_Layout",
-      "width": 45,
-      "height": 47,
+      "width": 68,
+      "height": 50,
       "border_width": 2,
       "border_height": 2,
       "primary_tileset": "gTileset_General_Frlg",

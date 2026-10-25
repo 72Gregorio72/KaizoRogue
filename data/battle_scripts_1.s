@@ -2701,6 +2701,15 @@ BattleScript_EffectCamouflage::
 	waitmessage B_WAIT_TIME_LONG
 	goto BattleScript_MoveEnd
 
+BattleScript_AutoRevive::
+	playse SE_USE_ITEM
+	playanimation BS_TARGET, B_ANIM_SIMPLE_HEAL
+	healthbarupdate BS_TARGET
+	datahpupdate BS_TARGET, ASSURANCE_DOUBLE
+	printstring STRINGID_AUTOREVIVE
+	waitmessage B_WAIT_TIME_LONG
+	return
+
 BattleScript_FaintBattler::
 	tryillusionoff BS_FAINTED
 	undodynamax BS_FAINTED

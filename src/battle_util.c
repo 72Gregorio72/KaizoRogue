@@ -1844,6 +1844,11 @@ bool32 HandleFaintedMonActions(void)
                  && !(gBattleStruct->givenExpMons[GetBattlerTrainer(gBattlerFainted) & BIT_FLANK] & (1u << gBattlerPartyIndexes[gBattlerFainted]))
                  && !(gAbsentBattlerFlags & (1u << gBattlerFainted)))
                 {
+                    if (TryAutoReviveBattler(gBattlerFainted))
+                    {
+                        BattleScriptExecute(BattleScript_AutoRevive);
+                        return TRUE;
+                    }
                     BattleScriptExecute(BattleScript_GiveExp);
                     gBattleStruct->eventState.faintedAction = FAINTED_ACTIONS_SET_ABSENT_FLAGS;
                     return TRUE;
@@ -5622,105 +5627,8 @@ u32 GetBattleMoveTarget(enum Move move, enum MoveTarget moveTarget)
 
 enum Obedience GetAttackerObedienceForAction(void)
 {
-    s32 rnd;
-    s32 calc;
-    u8 obedienceLevel = 0;
-    u8 levelReferenced;
-
-    if (gBattleTypeFlags & (BATTLE_TYPE_LINK | BATTLE_TYPE_RECORDED_LINK))
-        return OBEYS;
-    if (BattlerHasAi(gBattlerAttacker))
-        return OBEYS;
-
-    if (gBattleTypeFlags & BATTLE_TYPE_INGAME_PARTNER && GetBattlerPosition(gBattlerAttacker) == B_POSITION_PLAYER_RIGHT)
-        return OBEYS;
-    if (gBattleTypeFlags & BATTLE_TYPE_FRONTIER)
-        return OBEYS;
-    if (gBattleTypeFlags & BATTLE_TYPE_RECORDED)
-        return OBEYS;
-    if (B_OBEDIENCE_MECHANICS < GEN_8 && !IsOtherTrainer(gBattleMons[gBattlerAttacker].otId, gBattleMons[gBattlerAttacker].otName))
-        return OBEYS;
-    if (FlagGet(FLAG_BADGE08_GET)) // Rain Badge, ignore obedience altogether
-        return OBEYS;
-
-    obedienceLevel = 10;
-
-    if (FlagGet(FLAG_BADGE01_GET)) // Stone Badge
-        obedienceLevel = 20;
-    if (FlagGet(FLAG_BADGE02_GET)) // Knuckle Badge
-        obedienceLevel = 30;
-    if (FlagGet(FLAG_BADGE03_GET)) // Dynamo Badge
-        obedienceLevel = 40;
-    if (FlagGet(FLAG_BADGE04_GET)) // Heat Badge
-        obedienceLevel = 50;
-    if (FlagGet(FLAG_BADGE05_GET)) // Balance Badge
-        obedienceLevel = 60;
-    if (FlagGet(FLAG_BADGE06_GET)) // Feather Badge
-        obedienceLevel = 70;
-    if (FlagGet(FLAG_BADGE07_GET)) // Mind Badge
-        obedienceLevel = 80;
-
-    if (B_OBEDIENCE_MECHANICS >= GEN_8
-     && !IsOtherTrainer(gBattleMons[gBattlerAttacker].otId, gBattleMons[gBattlerAttacker].otName))
-        levelReferenced = gBattleMons[gBattlerAttacker].metLevel;
-    else
-        levelReferenced = gBattleMons[gBattlerAttacker].level;
-
-    if (levelReferenced <= obedienceLevel)
-        return OBEYS;
-
-    rnd = Random();
-    calc = (levelReferenced + obedienceLevel) * (rnd & 255) >> 8;
-    if (calc < obedienceLevel)
-        return OBEYS;
-
-    //  Clear the Z-Move flags if the battler is disobedient as to not waste the Z-Move
-    if (GetActiveGimmick(gBattlerAttacker) == GIMMICK_Z_MOVE)
-    {
-        gBattleStruct->gimmick.activated[gBattlerAttacker][GIMMICK_Z_MOVE] = FALSE;
-        gBattleStruct->gimmick.activeGimmick[GetBattlerSide(gBattlerAttacker)][gBattlerPartyIndexes[gBattlerAttacker]] = GIMMICK_NONE;
-    }
-
-    // is not obedient
-    enum BattleMoveEffects moveEffect = GetMoveEffect(gCurrentMove);
-    if (MoveHasAdditionalEffect(gCurrentMove, MOVE_EFFECT_RAGE))
-        gBattleMons[gBattlerAttacker].volatiles.rage = FALSE;
-    if (gBattleMons[gBattlerAttacker].status1 & STATUS1_SLEEP && IsUsableWhileAsleepEffect(moveEffect))
-        return DISOBEYS_WHILE_ASLEEP;
-
-    calc = (levelReferenced + obedienceLevel) * ((rnd >> 8) & 255) >> 8;
-    if (calc < obedienceLevel)
-    {
-        calc = CheckMoveLimitations(gBattlerAttacker, 1u << gCurrMovePos, MOVE_LIMITATIONS_ALL);
-        if (calc == ALL_MOVES_MASK) // all moves cannot be used
-            return DISOBEYS_LOAFS;
-        else // use a random move
-            do
-                gCurrMovePos = gChosenMovePos = MOD(Random(), MAX_MON_MOVES);
-            while ((1u << gCurrMovePos) & calc);
-        return DISOBEYS_RANDOM_MOVE;
-    }
-    else
-    {
-        obedienceLevel = levelReferenced - obedienceLevel;
-
-        calc = ((rnd >> 16) & 255);
-        if (calc < obedienceLevel && CanBeSlept(gBattlerAttacker, gBattlerAttacker, GetBattlerAbility(gBattlerAttacker), NOT_BLOCKED_BY_SLEEP_CLAUSE))
-        {
-            // try putting asleep
-            enum BattlerId i;
-            for (i = 0; i < gBattlersCount; i++)
-                if (gBattleMons[i].volatiles.uproarTurns)
-                    break;
-            if (i == gBattlersCount)
-                return DISOBEYS_FALL_ASLEEP;
-        }
-        calc -= obedienceLevel;
-        if (calc < obedienceLevel)
-            return DISOBEYS_HITS_SELF;
-        else
-            return DISOBEYS_LOAFS;
-    }
+    // In Kaizo Rogue i Pokémon ubbidiscono sempre, anche a livello 100 senza medaglie
+    return OBEYS;
 }
 
 enum HoldEffect GetBattlerHoldEffect(enum BattlerId battler)
@@ -11210,4 +11118,49 @@ bool32 IsBattlerInvolvedInSkyDrop(enum BattlerId battler)
 bool32 IsAsleepOrComatose(enum BattlerId battler, enum Ability ability)
 {
     return (gBattleMons[battler].status1 & STATUS1_SLEEP) || ability == ABILITY_COMATOSE;
+}
+
+bool32 TryAutoReviveBattler(enum BattlerId battler)
+{
+    u16 itemToUse = ITEM_NONE;
+    s32 hpToRestore = 0;
+
+    if (!IsOnPlayerSide(battler))
+        return FALSE;
+    if (IsBattlerAlive(battler))
+        return FALSE;
+    if (gBattleTypeFlags & BATTLE_TYPE_SAFARI)
+        return FALSE;
+
+    if (CheckBagHasItem(ITEM_REVIVE, 1))
+        itemToUse = ITEM_REVIVE;
+    else if (CheckBagHasItem(ITEM_MAX_REVIVE, 1))
+        itemToUse = ITEM_MAX_REVIVE;
+
+    if (itemToUse == ITEM_NONE)
+        return FALSE;
+
+    RemoveBagItem(itemToUse, 1);
+
+    if (itemToUse == ITEM_MAX_REVIVE)
+        hpToRestore = gBattleMons[battler].maxHP;
+    else
+        hpToRestore = max(1, gBattleMons[battler].maxHP / 2);
+
+    gBattleStruct->passiveHpUpdate[battler] = -hpToRestore;
+    gLastUsedItem = itemToUse;
+    gPotentialItemEffectBattler = battler;
+    gBattlerTarget = battler;
+    gBattlerFainted = battler;
+
+    if (gBattlerPartyIndexes[battler] < PARTY_SIZE)
+    {
+        u16 hp16 = hpToRestore;
+        u32 status0 = 0;
+        SetMonData(&gParties[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]], MON_DATA_HP, &hp16);
+        SetMonData(&gParties[B_TRAINER_PLAYER][gBattlerPartyIndexes[battler]], MON_DATA_STATUS, &status0);
+    }
+    gBattleMons[battler].status1 = 0;
+
+    return TRUE;
 }

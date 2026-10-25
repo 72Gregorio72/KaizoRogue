@@ -43,6 +43,7 @@
 #include "task.h"
 #include "text.h"
 #include "vs_seeker.h"
+#include "kaizo_dungeon_gym.h"
 #include "constants/event_bg.h"
 #include "constants/event_objects.h"
 #include "constants/item_effects.h"
@@ -1094,6 +1095,13 @@ static void ItemUseOnFieldCB_EscapeRope(u8 taskId)
 bool8 CanUseDigOrEscapeRopeOnCurMap(void)
 {
     if (!CheckFollowerNPCFlag(FOLLOWER_NPC_FLAG_CAN_LEAVE_ROUTE))
+        return FALSE;
+
+    u16 badgeFlag = 0;
+    if (IsMapGym(gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum, &badgeFlag))
+        return FALSE;
+
+    if (IsDungeonMap(gMapHeader.regionMapSectionId) && !IsDungeonCleared(gMapHeader.regionMapSectionId))
         return FALSE;
 
     if (gMapHeader.allowEscaping)

@@ -2,7 +2,11 @@
 .set AMOUNT, VAR_0x8001
 
 Std_ObtainItem::
+	copyvar VAR_RESULT, ITEMID
+	special Script_RandomizeFindItemResult
+	copyvar ITEMID, VAR_RESULT
 	copyvar VAR_0x8006, ITEMID
+	copyvar VAR_0x8004, ITEMID
 	additem ITEMID, AMOUNT
 	copyvar VAR_0x8007, VAR_RESULT
 	call EventScript_ObtainItemMessage
@@ -108,6 +112,9 @@ Std_FindItem::
 	lock
 	faceplayer
 	waitse
+	copyvar VAR_RESULT, ITEMID
+	special Script_RandomizeFindItemResult
+	copyvar ITEMID, VAR_RESULT
 	copyvar VAR_0x8006, ITEMID
 	copyvar VAR_0x8004, ITEMID
 	copyvar VAR_0x8005, AMOUNT
@@ -178,12 +185,17 @@ EventScript_HiddenItemScript::
 	lockall
 	waitse
 	goto_if_eq VAR_0x8005, 0, EventScript_TryPickUpHiddenCoins
+	copyvar VAR_RESULT, VAR_0x8005
+	special Script_RandomizeFindItemResult
+	copyvar VAR_0x8005, VAR_RESULT
 	copyvar VAR_0x8006, VAR_0x8005
+	copyvar VAR_0x8004, VAR_0x8005
 	additem VAR_0x8005, VAR_0x8009
 	copyvar VAR_0x8007, VAR_RESULT
 	bufferitemnameplural STR_VAR_2, VAR_0x8005, 1
 	checkitemtype VAR_0x8005
 	call EventScript_BufferPocketNameAndTryFanfare
+	special Script_BufferItemRarity
 	goto_if_eq VAR_0x8007, TRUE, EventScript_PickUpHiddenItem
 	goto_if_eq VAR_0x8007, FALSE, EventScript_NoRoomForHiddenItem
 	end

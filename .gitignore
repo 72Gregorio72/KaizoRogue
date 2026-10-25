@@ -13,6 +13,7 @@
 *.8bpp
 *.gbapal
 *.lz
+!graphics/swimming_mons/*.4bpp.lz
 *.smol
 *.fastSmol
 *.smolTM

@@ -623,8 +623,6 @@ bool8 ScrCmd_additem(struct ScriptContext *ctx)
 
     Script_RequestEffects(SCREFF_V1 | SCREFF_SAVE);
 
-    itemId = (enum Item)GetKaizoRandomizedItem(itemId);
-
     gSpecialVar_Result = AddBagItem(itemId, quantity);
     return FALSE;
 }
@@ -2169,9 +2167,6 @@ bool8 ScrCmd_bufferitemname(struct ScriptContext *ctx)
 
     Script_RequestEffects(SCREFF_V1);
 
-    // --- HOOK KAIZO RANDOMIZER ---
-    itemId = (enum Item)GetKaizoRandomizedItem(itemId);
-
     CopyItemName(itemId, GetStringVar(stringVarIndex));
     return FALSE;
 }
@@ -2183,9 +2178,6 @@ bool8 ScrCmd_bufferitemnameplural(struct ScriptContext *ctx)
     u16 quantity = VarGet(ScriptReadHalfword(ctx));
 
     Script_RequestEffects(SCREFF_V1);
-
-    // --- HOOK KAIZO RANDOMIZER ---
-    itemId = (enum Item)GetKaizoRandomizedItem(itemId);
 
     CopyItemNameHandlePlural(itemId, GetStringVar(stringVarIndex), quantity);
     return FALSE;

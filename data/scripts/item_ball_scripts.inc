@@ -1,5 +1,4 @@
 Common_EventScript_FindItem::
 	callnative GetItemBallIdAndAmountFromTemplate
-	special Script_RandomizeFindItemResult
 	finditem VAR_RESULT VAR_0x8009
 	end

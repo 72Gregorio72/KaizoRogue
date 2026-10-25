@@ -116,6 +116,13 @@ enum {
     MSG_NOW_FOLLOWING,
     MSG_NO_LONGER_FOLLOWING,
     MSG_SET_AS_STARTER,
+    MSG_CONFIRM_WANDER,
+    MSG_CONFIRM_STOP_WANDER,
+    MSG_WANDER_ROCK,
+    MSG_WANDER_LAKE,
+    MSG_WANDER_PARK,
+    MSG_WANDER_ZONE_FULL,
+    MSG_NO_LONGER_WANDERING,
 };
 
 // IDs for how to resolve variables in the above messages
@@ -174,6 +181,7 @@ enum {
     MENU_SELECT,
     MENU_STARTER,
     MENU_BUILD,
+    MENU_WANDER,
     MENU_FILTER,
     MENU_CHOOSE,
 };
@@ -478,7 +486,7 @@ struct PokemonStorageSystemData
     s8 iconScrollDirection; // Unnecessary duplicate of scrollDirection
     u8 iconScrollState;
     struct WindowTemplate menuWindow;
-    struct StorageMenu menuItems[7];
+    struct StorageMenu menuItems[8];
     u16 storageSlotMap[TOTAL_BOXES_COUNT * IN_BOX_COUNT];
     u8 menuItemsCount;
     u8 menuWidth;
@@ -1168,6 +1176,13 @@ static const struct StorageMessage sMessages[] =
     [MSG_NOW_FOLLOWING]        = {COMPOUND_STRING("{DYNAMIC 0} ora ti segue!"),    MSG_VAR_MON_NAME_1},
     [MSG_NO_LONGER_FOLLOWING]  = {COMPOUND_STRING("{DYNAMIC 0} non ti segue più."), MSG_VAR_MON_NAME_1},
     [MSG_SET_AS_STARTER]       = {COMPOUND_STRING("{DYNAMIC 0} è ora lo Starter!"), MSG_VAR_MON_NAME_1},
+    [MSG_CONFIRM_WANDER]       = {COMPOUND_STRING("Mandare {DYNAMIC 0} a spasso?"), MSG_VAR_MON_NAME_1},
+    [MSG_CONFIRM_STOP_WANDER]  = {COMPOUND_STRING("Rimuovere {DYNAMIC 0} dall'Hub?"), MSG_VAR_MON_NAME_1},
+    [MSG_WANDER_ROCK]          = {COMPOUND_STRING("{DYNAMIC 0} passeggia sulle Rocce!"), MSG_VAR_MON_NAME_1},
+    [MSG_WANDER_LAKE]          = {COMPOUND_STRING("{DYNAMIC 0} nuota nel Laghetto!"), MSG_VAR_MON_NAME_1},
+    [MSG_WANDER_PARK]          = {COMPOUND_STRING("{DYNAMIC 0} passeggia nel Parco!"), MSG_VAR_MON_NAME_1},
+    [MSG_WANDER_ZONE_FULL]     = {COMPOUND_STRING("L'area assegnata è piena (7/7)!"), MSG_VAR_NONE},
+    [MSG_NO_LONGER_WANDERING]  = {COMPOUND_STRING("{DYNAMIC 0} non passeggia più."), MSG_VAR_MON_NAME_1},
 };
 
 static const struct WindowTemplate sYesNoWindowTemplate =
@@ -2658,6 +2673,24 @@ static void Task_OnSelectedMon(u8 taskId)
                 }
             }
             break;
+        case MENU_WANDER:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            {
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+                if (species != SPECIES_NONE && !GetBoxMonData(boxmon, MON_DATA_IS_EGG))
+                {
+                    bool8 isWandering = IsMonWanderingInHub(boxmon);
+                    if (isWandering)
+                        PrintMessage(MSG_CONFIRM_STOP_WANDER);
+                    else
+                        PrintMessage(MSG_CONFIRM_WANDER);
+                    ShowYesNoWindow(0);
+                    sStorage->state = 7;
+                }
+            }
+            break;
         case MENU_CHOOSE:
             PlaySE(SE_SELECT);
             ClearBottomWindow();
@@ -2706,6 +2739,52 @@ static void Task_OnSelectedMon(u8 taskId)
         {
             ClearBottomWindow();
             SetPokeStorageTask(Task_PokeStorageMain);
+        }
+        break;
+    case 7:
+        switch (Menu_ProcessInputNoWrapClearOnChoose())
+        {
+        case 0: // YES
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            {
+                struct BoxPokemon *boxmon = GetCursorBoxMon();
+                bool8 isWandering = IsMonWanderingInHub(boxmon);
+                if (isWandering)
+                {
+                    RemoveMonFromHubWander(boxmon);
+                    PrintMessage(MSG_NO_LONGER_WANDERING);
+                    sStorage->state = 6;
+                }
+                else
+                {
+                    u8 zone;
+                    bool8 success = TryAddMonToHubWander(boxmon, &zone);
+                    if (success)
+                    {
+                        if (zone == HUB_ZONE_ROCK)
+                            PrintMessage(MSG_WANDER_ROCK);
+                        else if (zone == HUB_ZONE_LAKE)
+                            PrintMessage(MSG_WANDER_LAKE);
+                        else
+                            PrintMessage(MSG_WANDER_PARK);
+                        sStorage->state = 6;
+                    }
+                    else
+                    {
+                        PlaySE(SE_FAILURE);
+                        PrintMessage(MSG_WANDER_ZONE_FULL);
+                        sStorage->state = 6;
+                    }
+                }
+            }
+            break;
+        case 1: // NO
+        case MENU_B_PRESSED:
+            PlaySE(SE_SELECT);
+            ClearBottomWindow();
+            SetPokeStorageTask(Task_PokeStorageMain);
+            break;
         }
         break;
     }
@@ -8821,6 +8900,7 @@ static bool8 SetMenuTexts_Mon(void)
             SetMenuText(MENU_SELECT);
             SetMenuText(MENU_STARTER);
             SetMenuText(MENU_BUILD);
+            SetMenuText(MENU_WANDER);
         }
         SetMenuText(MENU_SUMMARY);
         SetMenuText(MENU_MARK);
@@ -9130,6 +9210,7 @@ static const u8 *const sMenuTexts[] =
     [MENU_SELECT]     = COMPOUND_STRING("SEGUI"),
     [MENU_STARTER]    = COMPOUND_STRING("STARTER"),
     [MENU_BUILD]      = COMPOUND_STRING("BUILD"),
+    [MENU_WANDER]     = COMPOUND_STRING("OVERWORLD"),
     [MENU_FILTER]     = COMPOUND_STRING("FILTRI"),
     [MENU_CHOOSE]     = COMPOUND_STRING("SCEGLI"),
 };
@@ -9164,7 +9245,10 @@ static void AddMenu(void)
     sStorage->menuWindow.width = sStorage->menuWidth + 2;
     sStorage->menuWindow.height = 2 * sStorage->menuItemsCount;
     sStorage->menuWindow.tilemapLeft = 29 - sStorage->menuWindow.width;
-    sStorage->menuWindow.tilemapTop = 15 - sStorage->menuWindow.height;
+    if (sStorage->menuWindow.height >= 15)
+        sStorage->menuWindow.tilemapTop = 0;
+    else
+        sStorage->menuWindow.tilemapTop = 15 - sStorage->menuWindow.height;
     sStorage->menuWindowId = AddWindow(&sStorage->menuWindow);
     ClearWindowTilemap(sStorage->menuWindowId);
     DrawStdFrameWithCustomTileAndPalette(sStorage->menuWindowId, FALSE, 11, 14);

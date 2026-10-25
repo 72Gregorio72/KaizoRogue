@@ -1897,6 +1897,13 @@ static void Cmd_tryfaintmon(void)
         if (!IsBattlerAlive(battler)
          && !(gBattleStruct->battlerState[battler].notOnField))
         {
+            if (TryAutoReviveBattler(battler))
+            {
+                BattleScriptPush(cmd->nextInstr);
+                gBattlescriptCurrInstr = BattleScript_AutoRevive;
+                return;
+            }
+
             if (gBattleMons[battler].volatiles.neutralizingGas)
             {
                 gBattleMons[battler].volatiles.neutralizingGas = FALSE;

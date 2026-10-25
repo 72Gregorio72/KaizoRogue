@@ -1762,3 +1762,4 @@ EventScript_PalletTown_PlayersHouse_2F_TurnOnPC::
 	.include "data/maps/Hub_Mart/scripts.inc"
 	.include "data/maps/Hub_GameCorner/scripts.inc"
 	.include "data/maps/Hub_PrizeCorner/scripts.inc"
+	.include "data/scripts/dungeon_gym_locks.inc"

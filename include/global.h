@@ -585,6 +585,23 @@ struct RankingHall2P
     //u8 padding;
 };
 
+struct ItemSlot
+{
+    enum Item itemId;
+    u16 quantity;
+};
+
+struct Bag
+{
+    struct ItemSlot items[BAG_ITEMS_COUNT];
+    struct ItemSlot keyItems[BAG_KEYITEMS_COUNT];
+    struct ItemSlot pokeBalls[BAG_POKEBALLS_COUNT];
+    struct ItemSlot TMsHMs[BAG_TMHM_COUNT];
+    struct ItemSlot berries[BAG_BERRIES_COUNT];
+};
+
+#define SHARED_CONSUMABLES_COUNT 30
+
 struct KaizoMetaProgression
 {
     u32 rogueShards;           // Frammenti Kaizo accumulati
@@ -614,11 +631,21 @@ struct KaizoMetaProgression
     u16 gachaPityLegendary;    // Contatore pity per Leggendario garantito (a 100 pull garantito)
     bool8 shinyDefaultMigrationDone;
 
-    // Roaming Pokémon nell'Hub
-    u16 hubForestMons[5];      // Specie Pokémon nel boschetto
-    u16 hubLakeMons[5];        // Specie Pokémon nel laghetto
-    u8 hubForestShiny;         // Bitmask shiny boschetto (bit 0..4)
-    u8 hubLakeShiny;           // Bitmask shiny laghetto (bit 0..4)
+    // Roaming Pokémon nell'Hub (21 total: 7 Rock, 7 Lake, 7 Park)
+    u16 hubRockMons[7];
+    u16 hubLakeMons[7];
+    u16 hubParkMons[7];
+    u8 hubRockShiny;           // Bitmask shiny (bit 0..6)
+    u8 hubLakeShiny;           // Bitmask shiny (bit 0..6)
+    u8 hubParkShiny;           // Bitmask shiny (bit 0..6)
+    u32 hubRockPersonality[7];
+    u32 hubLakePersonality[7];
+    u32 hubParkPersonality[7];
+
+    // Hub Bag & Shared Consumables
+    struct Bag hubBag;
+    struct ItemSlot sharedConsumables[SHARED_CONSUMABLES_COUNT];
+    u8 sharedConsumablesCount;
 };
 
 struct SaveBlock2
@@ -713,12 +740,6 @@ struct WarpData
     s8 warpId;
     //u8 padding;
     s16 x, y;
-};
-
-struct ItemSlot
-{
-    enum Item itemId;
-    u16 quantity;
 };
 
 struct Pokeblock
@@ -1124,15 +1145,6 @@ struct ExternalEventFlags
     u8 unknownFlag20;
 
 } __attribute__((packed));/*size = 0x15*/
-
-struct Bag
-{
-    struct ItemSlot items[BAG_ITEMS_COUNT];
-    struct ItemSlot keyItems[BAG_KEYITEMS_COUNT];
-    struct ItemSlot pokeBalls[BAG_POKEBALLS_COUNT];
-    struct ItemSlot TMsHMs[BAG_TMHM_COUNT];
-    struct ItemSlot berries[BAG_BERRIES_COUNT];
-};
 
 struct SaveBlock1
 {

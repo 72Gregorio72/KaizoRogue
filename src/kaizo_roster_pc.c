@@ -887,245 +887,268 @@ void OpenGachaRosterPC(void)
     ShowPokemonStorageSystemPC();
 }
 
-// --- HUB ROAMING POKÉMON SYSTEM (FOREST & LAKE) ---
+// --- HUB ROAMING POKÉMON SYSTEM (ROCK, LAKE & PARK) ---
+
+static const u16 sHubMonFlags[21] = {
+    // Rock (0..6)
+    FLAG_TEMP_1, FLAG_TEMP_2, FLAG_TEMP_3, FLAG_TEMP_4, FLAG_TEMP_5, FLAG_TEMP_6, FLAG_TEMP_7,
+    // Lake (7..13)
+    FLAG_TEMP_8, FLAG_TEMP_9, FLAG_TEMP_A, FLAG_TEMP_B, FLAG_TEMP_C, FLAG_TEMP_D, FLAG_TEMP_F,
+    // Park (14..20)
+    FLAG_TEMP_10, FLAG_TEMP_12, FLAG_TEMP_13, FLAG_TEMP_14, FLAG_TEMP_15, FLAG_TEMP_16, FLAG_TEMP_17
+};
+
+static u8 DetermineMonHubZone(u16 species)
+{
+    const struct SpeciesInfo *speciesInfo;
+    u8 type1, type2;
+
+    if (species == SPECIES_NONE || species >= NUM_SPECIES)
+        return HUB_ZONE_PARK;
+
+    speciesInfo = &gSpeciesInfo[species];
+    type1 = speciesInfo->types[0];
+    type2 = speciesInfo->types[1];
+
+    if (type1 == TYPE_GROUND || type1 == TYPE_ROCK || type2 == TYPE_GROUND || type2 == TYPE_ROCK)
+        return HUB_ZONE_ROCK;
+    if (type1 == TYPE_WATER || type2 == TYPE_WATER)
+        return HUB_ZONE_LAKE;
+    return HUB_ZONE_PARK;
+}
+
+bool8 IsMonWanderingInHub(struct BoxPokemon *boxmon)
+{
+    u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+    u32 personality = GetBoxMonData(boxmon, MON_DATA_PERSONALITY);
+    u8 i;
+
+    if (species == SPECIES_NONE || GetBoxMonData(boxmon, MON_DATA_IS_EGG))
+        return FALSE;
+
+    for (i = 0; i < 7; i++)
+    {
+        if (gSaveBlock2Ptr->metaProgression.hubRockMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubRockPersonality[i] == personality)
+            return TRUE;
+        if (gSaveBlock2Ptr->metaProgression.hubLakeMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubLakePersonality[i] == personality)
+            return TRUE;
+        if (gSaveBlock2Ptr->metaProgression.hubParkMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubParkPersonality[i] == personality)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+void RemoveMonFromHubWander(struct BoxPokemon *boxmon)
+{
+    u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+    u32 personality = GetBoxMonData(boxmon, MON_DATA_PERSONALITY);
+    u8 i;
+
+    for (i = 0; i < 7; i++)
+    {
+        if (gSaveBlock2Ptr->metaProgression.hubRockMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubRockPersonality[i] == personality)
+        {
+            gSaveBlock2Ptr->metaProgression.hubRockMons[i] = SPECIES_NONE;
+            gSaveBlock2Ptr->metaProgression.hubRockPersonality[i] = 0;
+            gSaveBlock2Ptr->metaProgression.hubRockShiny &= ~(1 << i);
+            return;
+        }
+        if (gSaveBlock2Ptr->metaProgression.hubLakeMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubLakePersonality[i] == personality)
+        {
+            gSaveBlock2Ptr->metaProgression.hubLakeMons[i] = SPECIES_NONE;
+            gSaveBlock2Ptr->metaProgression.hubLakePersonality[i] = 0;
+            gSaveBlock2Ptr->metaProgression.hubLakeShiny &= ~(1 << i);
+            return;
+        }
+        if (gSaveBlock2Ptr->metaProgression.hubParkMons[i] == species
+         && gSaveBlock2Ptr->metaProgression.hubParkPersonality[i] == personality)
+        {
+            gSaveBlock2Ptr->metaProgression.hubParkMons[i] = SPECIES_NONE;
+            gSaveBlock2Ptr->metaProgression.hubParkPersonality[i] = 0;
+            gSaveBlock2Ptr->metaProgression.hubParkShiny &= ~(1 << i);
+            return;
+        }
+    }
+}
+
+bool8 TryAddMonToHubWander(struct BoxPokemon *boxmon, u8 *outZone)
+{
+    u16 species = GetBoxMonData(boxmon, MON_DATA_SPECIES);
+    u32 personality = GetBoxMonData(boxmon, MON_DATA_PERSONALITY);
+    bool32 isShiny = GetBoxMonData(boxmon, MON_DATA_IS_SHINY);
+    u8 targetZone = DetermineMonHubZone(species);
+    u8 i;
+
+    if (species == SPECIES_NONE || GetBoxMonData(boxmon, MON_DATA_IS_EGG))
+        return FALSE;
+
+    // Se è tipo Acqua E (Roccia o Terra), e Roccia è piena, prova nel Lago!
+    if (targetZone == HUB_ZONE_ROCK)
+    {
+        const struct SpeciesInfo *speciesInfo = &gSpeciesInfo[species];
+        if (speciesInfo->types[0] == TYPE_WATER || speciesInfo->types[1] == TYPE_WATER)
+        {
+            bool8 rockHasRoom = FALSE;
+            for (i = 0; i < 7; i++)
+            {
+                if (gSaveBlock2Ptr->metaProgression.hubRockMons[i] == SPECIES_NONE)
+                {
+                    rockHasRoom = TRUE;
+                    break;
+                }
+            }
+            if (!rockHasRoom)
+                targetZone = HUB_ZONE_LAKE;
+        }
+    }
+
+    if (targetZone == HUB_ZONE_ROCK)
+    {
+        for (i = 0; i < 7; i++)
+        {
+            if (gSaveBlock2Ptr->metaProgression.hubRockMons[i] == SPECIES_NONE)
+            {
+                gSaveBlock2Ptr->metaProgression.hubRockMons[i] = species;
+                gSaveBlock2Ptr->metaProgression.hubRockPersonality[i] = personality;
+                if (isShiny)
+                    gSaveBlock2Ptr->metaProgression.hubRockShiny |= (1 << i);
+                else
+                    gSaveBlock2Ptr->metaProgression.hubRockShiny &= ~(1 << i);
+                if (outZone)
+                    *outZone = HUB_ZONE_ROCK;
+                return TRUE;
+            }
+        }
+    }
+    else if (targetZone == HUB_ZONE_LAKE)
+    {
+        for (i = 0; i < 7; i++)
+        {
+            if (gSaveBlock2Ptr->metaProgression.hubLakeMons[i] == SPECIES_NONE)
+            {
+                gSaveBlock2Ptr->metaProgression.hubLakeMons[i] = species;
+                gSaveBlock2Ptr->metaProgression.hubLakePersonality[i] = personality;
+                if (isShiny)
+                    gSaveBlock2Ptr->metaProgression.hubLakeShiny |= (1 << i);
+                else
+                    gSaveBlock2Ptr->metaProgression.hubLakeShiny &= ~(1 << i);
+                if (outZone)
+                    *outZone = HUB_ZONE_LAKE;
+                return TRUE;
+            }
+        }
+    }
+    else // HUB_ZONE_PARK
+    {
+        for (i = 0; i < 7; i++)
+        {
+            if (gSaveBlock2Ptr->metaProgression.hubParkMons[i] == SPECIES_NONE)
+            {
+                gSaveBlock2Ptr->metaProgression.hubParkMons[i] = species;
+                gSaveBlock2Ptr->metaProgression.hubParkPersonality[i] = personality;
+                if (isShiny)
+                    gSaveBlock2Ptr->metaProgression.hubParkShiny |= (1 << i);
+                else
+                    gSaveBlock2Ptr->metaProgression.hubParkShiny &= ~(1 << i);
+                if (outZone)
+                    *outZone = HUB_ZONE_PARK;
+                return TRUE;
+            }
+        }
+    }
+
+    return FALSE; // Zone is full (7/7)
+}
+
+u16 GetHubRoamingMonGraphicsId(u8 idx)
+{
+    u16 species = SPECIES_NONE;
+    bool32 shiny = FALSE;
+
+    if (idx < 7) // Rock (0..6)
+    {
+        species = gSaveBlock2Ptr->metaProgression.hubRockMons[idx];
+        shiny = (gSaveBlock2Ptr->metaProgression.hubRockShiny & (1 << idx)) != 0;
+        if (species != SPECIES_NONE && species < NUM_SPECIES)
+            return GetGraphicsIdForMon(species, shiny, FALSE);
+    }
+    else if (idx < 14) // Lake (7..13)
+    {
+        u8 lakeIdx = idx - 7;
+        species = gSaveBlock2Ptr->metaProgression.hubLakeMons[lakeIdx];
+        shiny = (gSaveBlock2Ptr->metaProgression.hubLakeShiny & (1 << lakeIdx)) != 0;
+        if (species != SPECIES_NONE && species < NUM_SPECIES)
+            return GetGraphicsIdForMon(species, shiny, FALSE) | OBJ_EVENT_MON_SWIMMING;
+    }
+    else if (idx < 21) // Park (14..20)
+    {
+        u8 parkIdx = idx - 14;
+        species = gSaveBlock2Ptr->metaProgression.hubParkMons[parkIdx];
+        shiny = (gSaveBlock2Ptr->metaProgression.hubParkShiny & (1 << parkIdx)) != 0;
+        if (species != SPECIES_NONE && species < NUM_SPECIES)
+            return GetGraphicsIdForMon(species, shiny, FALSE);
+    }
+
+    return OBJ_EVENT_GFX_LITTLE_BOY;
+}
 
 void Script_UpdateHubRoamingMons(void)
 {
     u8 i;
-    for (i = 0; i < 5; i++)
+
+    // Assicura che il giocatore abbia sempre MN03 Surf nell'Hub
+    if (!CheckBagHasItem(ITEM_HM03, 1))
+        AddBagItem(ITEM_HM03, 1);
+
+    for (i = 0; i < 7; i++)
     {
-        u16 sp = gSaveBlock2Ptr->metaProgression.hubForestMons[i];
+        u16 sp = gSaveBlock2Ptr->metaProgression.hubRockMons[i];
         if (sp != SPECIES_NONE && sp < NUM_SPECIES)
-        {
-            bool32 shiny = (gSaveBlock2Ptr->metaProgression.hubForestShiny & (1 << i)) != 0;
-            VarSet(VAR_OBJ_GFX_ID_0 + i, GetGraphicsIdForMon(sp, shiny, FALSE));
-            FlagClear(FLAG_TEMP_1 + i);
-        }
+            FlagClear(sHubMonFlags[i]);
         else
-        {
-            FlagSet(FLAG_TEMP_1 + i);
-        }
+            FlagSet(sHubMonFlags[i]);
     }
 
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 7; i++)
     {
         u16 sp = gSaveBlock2Ptr->metaProgression.hubLakeMons[i];
         if (sp != SPECIES_NONE && sp < NUM_SPECIES)
-        {
-            bool32 shiny = (gSaveBlock2Ptr->metaProgression.hubLakeShiny & (1 << i)) != 0;
-            VarSet(VAR_OBJ_GFX_ID_5 + i, GetGraphicsIdForMon(sp, shiny, FALSE));
-            FlagClear(FLAG_TEMP_6 + i);
-        }
+            FlagClear(sHubMonFlags[7 + i]);
         else
-        {
-            FlagSet(FLAG_TEMP_6 + i);
-        }
+            FlagSet(sHubMonFlags[7 + i]);
     }
-}
 
-// gSpecialVar_0x8008: 0 = Forest, 1 = Lake
-void Script_HubRoaming_PushSlotMenu(void)
-{
-    u8 mode = gSpecialVar_0x8008;
-    u16 *monList = (mode == 0) ? gSaveBlock2Ptr->metaProgression.hubForestMons : gSaveBlock2Ptr->metaProgression.hubLakeMons;
-    u8 i;
-
-    MultichoiceDynamic_DestroyStack();
-
-    for (i = 0; i < 5; i++)
+    for (i = 0; i < 7; i++)
     {
-        u8 *buf = Alloc(64);
-        u16 sp = monList[i];
-        u8 *txt = StringCopy(buf, COMPOUND_STRING("Slot "));
-        txt = ConvertIntToDecimalStringN(txt, i + 1, STR_CONV_MODE_LEFT_ALIGN, 1);
-        txt = StringAppend(txt, COMPOUND_STRING(": "));
+        u16 sp = gSaveBlock2Ptr->metaProgression.hubParkMons[i];
         if (sp != SPECIES_NONE && sp < NUM_SPECIES)
-            StringAppend(txt, GetSpeciesName(sp));
+            FlagClear(sHubMonFlags[14 + i]);
         else
-            StringAppend(txt, COMPOUND_STRING("Vuoto"));
-
-        struct ListMenuItem item = { buf, i };
-        MultichoiceDynamic_PushElement(item);
-    }
-
-    // Option 5: Rimuovi tutti
-    {
-        u8 *buf = Alloc(32);
-        StringCopy(buf, COMPOUND_STRING("Rimuovi tutti"));
-        struct ListMenuItem item = { buf, 5 };
-        MultichoiceDynamic_PushElement(item);
-    }
-
-    // Option 6: Esci
-    {
-        u8 *buf = Alloc(32);
-        StringCopy(buf, COMPOUND_STRING("Esci"));
-        struct ListMenuItem item = { buf, 6 };
-        MultichoiceDynamic_PushElement(item);
+            FlagSet(sHubMonFlags[14 + i]);
     }
 }
 
-// gSpecialVar_0x8008: 0 = Forest, 1 = Lake
-// gSpecialVar_0x8005: slot index (0..4)
-// Output: gSpecialVar_Result = 1 if occupied, 0 if empty. Also copies current species name to gStringVar1.
-void Script_HubRoaming_CheckSlotOccupied(void)
-{
-    u8 mode = gSpecialVar_0x8008;
-    u8 slot = gSpecialVar_0x8005;
-    u16 *monList = (mode == 0) ? gSaveBlock2Ptr->metaProgression.hubForestMons : gSaveBlock2Ptr->metaProgression.hubLakeMons;
-
-    if (slot < 5 && monList[slot] != SPECIES_NONE && monList[slot] < NUM_SPECIES)
-    {
-        StringCopy(gStringVar1, GetSpeciesName(monList[slot]));
-        gSpecialVar_Result = 1;
-    }
-    else
-    {
-        gSpecialVar_Result = 0;
-    }
-}
-
-// gSpecialVar_0x8008: 0 = Forest, 1 = Lake
-// gSpecialVar_0x8005: slot index (0..4)
-void Script_HubRoaming_ClearSlot(void)
-{
-    u8 mode = gSpecialVar_0x8008;
-    u8 slot = gSpecialVar_0x8005;
-    if (slot < 5)
-    {
-        if (mode == 0)
-        {
-            gSaveBlock2Ptr->metaProgression.hubForestMons[slot] = SPECIES_NONE;
-            gSaveBlock2Ptr->metaProgression.hubForestShiny &= ~(1 << slot);
-        }
-        else
-        {
-            gSaveBlock2Ptr->metaProgression.hubLakeMons[slot] = SPECIES_NONE;
-            gSaveBlock2Ptr->metaProgression.hubLakeShiny &= ~(1 << slot);
-        }
-        Script_UpdateHubRoamingMons();
-    }
-}
-
-// gSpecialVar_0x8008: 0 = Forest, 1 = Lake
-void Script_HubRoaming_ClearAll(void)
-{
-    u8 mode = gSpecialVar_0x8008;
-    u8 i;
-    for (i = 0; i < 5; i++)
-    {
-        if (mode == 0)
-        {
-            gSaveBlock2Ptr->metaProgression.hubForestMons[i] = SPECIES_NONE;
-            gSaveBlock2Ptr->metaProgression.hubForestShiny &= ~(1 << i);
-        }
-        else
-        {
-            gSaveBlock2Ptr->metaProgression.hubLakeMons[i] = SPECIES_NONE;
-            gSaveBlock2Ptr->metaProgression.hubLakeShiny &= ~(1 << i);
-        }
-    }
-    Script_UpdateHubRoamingMons();
-}
-
-// gSpecialVar_0x8008: 0 = Forest, 1 = Lake
-// gSpecialVar_0x8005: slot index (0..4)
-// Box selection inputs: gSpecialVar_0x8004 (PC_MON_CHOSEN or party slot), gSpecialVar_MonBoxId, gSpecialVar_MonBoxPos
-// Output:
-// gSpecialVar_Result:
-//   0: Invalid Pokémon / Not found
-//   1: Success (set and saved)
-//   2: Is an Egg
-//   3: Rejected: Is Water type (for Forest)
-//   4: Rejected: Not Water type (for Lake)
-void Script_HubRoaming_ValidateAndSet(void)
-{
-    u8 mode = gSpecialVar_0x8008;
-    u8 slot = gSpecialVar_0x8005;
-    struct BoxPokemon *mon;
-
-    if (gSpecialVar_0x8004 == PC_MON_CHOSEN)
-        mon = GetBoxedMonPtr(gSpecialVar_MonBoxId, gSpecialVar_MonBoxPos);
-    else if (gSpecialVar_0x8004 < PARTY_SIZE)
-        mon = &(gParties[B_TRAINER_PLAYER][gSpecialVar_0x8004].box);
-    else
-        mon = NULL;
-
-    if (mon == NULL)
-    {
-        gSpecialVar_Result = 0;
-        return;
-    }
-
-    if (GetBoxMonData(mon, MON_DATA_IS_EGG))
-    {
-        gSpecialVar_Result = 2; // Egg
-        return;
-    }
-
-    u16 species = GetBoxMonData(mon, MON_DATA_SPECIES);
-    if (species == SPECIES_NONE || species >= NUM_SPECIES)
-    {
-        gSpecialVar_Result = 0;
-        return;
-    }
-
-    bool8 isWater = (gSpeciesInfo[species].types[0] == TYPE_WATER || gSpeciesInfo[species].types[1] == TYPE_WATER);
-
-    if (mode == 0) // Forest: CANNOT be Water type!
-    {
-        if (isWater)
-        {
-            StringCopy(gStringVar1, GetSpeciesName(species));
-            gSpecialVar_Result = 3; // Is Water type error
-            return;
-        }
-    }
-    else // Lake: MUST be Water type!
-    {
-        if (!isWater)
-        {
-            StringCopy(gStringVar1, GetSpeciesName(species));
-            gSpecialVar_Result = 4; // Not Water type error
-            return;
-        }
-    }
-
-    // Success! Save to progression
-    bool32 isShiny = GetBoxMonData(mon, MON_DATA_IS_SHINY) || GetBoxMonData(mon, MON_DATA_SHINY_UNLOCKED);
-    if (mode == 0)
-    {
-        gSaveBlock2Ptr->metaProgression.hubForestMons[slot] = species;
-        if (isShiny)
-            gSaveBlock2Ptr->metaProgression.hubForestShiny |= (1 << slot);
-        else
-            gSaveBlock2Ptr->metaProgression.hubForestShiny &= ~(1 << slot);
-    }
-    else
-    {
-        gSaveBlock2Ptr->metaProgression.hubLakeMons[slot] = species;
-        if (isShiny)
-            gSaveBlock2Ptr->metaProgression.hubLakeShiny |= (1 << slot);
-        else
-            gSaveBlock2Ptr->metaProgression.hubLakeShiny &= ~(1 << slot);
-    }
-
-    StringCopy(gStringVar1, GetSpeciesName(species));
-    Script_UpdateHubRoamingMons();
-    gSpecialVar_Result = 1; // Success
-}
-
-// gSpecialVar_0x8004: 0..4 = Forest Mon 0..4, 5..9 = Lake Mon 0..4
-// Output: gSpecialVar_Result = species, gStringVar1 = species name
 void Script_HubMon_Interact(void)
 {
-    u8 id = gSpecialVar_0x8004;
+    u8 localId = gSpecialVar_LastTalked;
     u16 species = SPECIES_NONE;
 
-    if (id < 5)
-        species = gSaveBlock2Ptr->metaProgression.hubForestMons[id];
-    else if (id < 10)
-        species = gSaveBlock2Ptr->metaProgression.hubLakeMons[id - 5];
+    // Tester NPC has localId 1. Hub Mons have localId 2..22.
+    if (localId >= 2 && localId <= 22)
+    {
+        u8 idx = localId - 2;
+        if (idx < 7)
+            species = gSaveBlock2Ptr->metaProgression.hubRockMons[idx];
+        else if (idx < 14)
+            species = gSaveBlock2Ptr->metaProgression.hubLakeMons[idx - 7];
+        else if (idx < 21)
+            species = gSaveBlock2Ptr->metaProgression.hubParkMons[idx - 14];
+    }
 
     if (species != SPECIES_NONE && species < NUM_SPECIES)
     {

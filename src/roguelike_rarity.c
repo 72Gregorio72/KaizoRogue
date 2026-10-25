@@ -123,29 +123,29 @@ u8 GetCurrentGamePhase(void)
         return GAME_PHASE_LATE;
 }
 
-static const u8 sWeights_Standard_Early_Pokemon[4] = { 70, 25, 4, 1 };
-static const u8 sWeights_Standard_Early_Move[4]    = { 65, 25, 9, 1 };
-static const u8 sWeights_Standard_Early_Item[4]    = { 75, 20, 4, 1 };
+static const u8 sWeights_Standard_Early_Pokemon[5] = { 70, 25, 4, 1, 0 };
+static const u8 sWeights_Standard_Early_Move[5]    = { 65, 25, 9, 1, 0 };
+static const u8 sWeights_Standard_Early_Item[5]    = { 70, 24, 5, 1, 0 };
 
-static const u8 sWeights_Standard_Mid_Pokemon[4]   = { 45, 38, 15, 2 };
-static const u8 sWeights_Standard_Mid_Move[4]      = { 40, 40, 17, 3 };
-static const u8 sWeights_Standard_Mid_Item[4]      = { 45, 35, 17, 3 };
+static const u8 sWeights_Standard_Mid_Pokemon[5]   = { 45, 38, 14, 2, 1 };
+static const u8 sWeights_Standard_Mid_Move[5]      = { 40, 40, 17, 3, 0 };
+static const u8 sWeights_Standard_Mid_Item[5]      = { 40, 35, 18, 6, 1 };
 
-static const u8 sWeights_Standard_Late_Pokemon[4]  = { 20, 45, 32, 3 };
-static const u8 sWeights_Standard_Late_Move[4]     = { 15, 45, 32, 8 };
-static const u8 sWeights_Standard_Late_Item[4]     = { 20, 40, 32, 8 };
+static const u8 sWeights_Standard_Late_Pokemon[5]  = { 20, 42, 30, 6, 2 };
+static const u8 sWeights_Standard_Late_Move[5]     = { 15, 45, 32, 8, 0 };
+static const u8 sWeights_Standard_Late_Item[5]     = { 15, 35, 33, 14, 3 };
 
-static const u8 sWeights_Mart_Pokemon[4]           = { 40, 45, 14, 1 };
-static const u8 sWeights_Mart_Move[4]              = { 35, 45, 18, 2 };
-static const u8 sWeights_Mart_Item[4]              = { 40, 40, 18, 2 };
+static const u8 sWeights_Mart_Pokemon[5]           = { 40, 44, 14, 2, 0 };
+static const u8 sWeights_Mart_Move[5]              = { 35, 45, 18, 2, 0 };
+static const u8 sWeights_Mart_Item[5]              = { 35, 40, 18, 6, 1 };
 
-static const u8 sWeights_MiniBoss_Pokemon[4]       = {  0, 45, 45, 10 };
-static const u8 sWeights_MiniBoss_Move[4]          = {  0, 35, 50, 15 };
-static const u8 sWeights_MiniBoss_Item[4]          = {  0, 35, 50, 15 };
+static const u8 sWeights_MiniBoss_Pokemon[5]       = {  0, 40, 45, 12, 3 };
+static const u8 sWeights_MiniBoss_Move[5]          = {  0, 35, 50, 15, 0 };
+static const u8 sWeights_MiniBoss_Item[5]          = {  0, 30, 45, 20, 5 };
 
-static const u8 sWeights_GymBoss_Pokemon[4]        = {  0, 20, 70, 10 };
-static const u8 sWeights_GymBoss_Move[4]           = {  0, 10, 60, 30 };
-static const u8 sWeights_GymBoss_Item[4]           = {  0, 10, 60, 30 };
+static const u8 sWeights_GymBoss_Pokemon[5]        = {  0, 15, 65, 15, 5 };
+static const u8 sWeights_GymBoss_Move[5]           = {  0, 10, 60, 30, 0 };
+static const u8 sWeights_GymBoss_Item[5]           = {  0,  5, 50, 35, 10 };
 
 static const u8 *GetTierWeights(u8 category, u8 lootContext, u8 phase)
 {
@@ -204,24 +204,27 @@ static const u8 *GetTierWeights(u8 category, u8 lootContext, u8 phase)
 u8 RollRarityTier(u8 category, u8 lootContext, u32 *rng)
 {
     const u8 *baseWeights = GetTierWeights(category, lootContext, GetCurrentGamePhase());
-    u8 w[4];
+    u8 w[5];
     w[0] = baseWeights[0];
     w[1] = baseWeights[1];
     w[2] = baseWeights[2];
     w[3] = baseWeights[3];
+    w[4] = baseWeights[4];
 
     // Apply Loot Luck upgrade from Hub meta-progression
     u8 luck = gSaveBlock2Ptr->metaProgression.lootLuckLevel;
     if (luck > 0 && w[0] > 0)
     {
-        u8 boostRare = luck * 3;
+        u8 boostRare = luck * 2;
         u8 boostEpic = luck;
-        u8 totalBoost = boostRare + boostEpic;
+        u8 boostLegendary = (luck >= 3) ? 1 : 0;
+        u8 totalBoost = boostRare + boostEpic + boostLegendary;
         if (totalBoost > w[0])
             totalBoost = w[0];
         w[0] -= totalBoost;
         w[2] += boostRare;
         w[3] += boostEpic;
+        w[4] += boostLegendary;
     }
 
     u32 roll;
@@ -243,7 +246,10 @@ u8 RollRarityTier(u8 category, u8 lootContext, u32 *rng)
     roll -= w[1];
     if (roll < w[2])
         return RARITY_RARE;
-    return RARITY_EPIC;
+    roll -= w[2];
+    if (roll < w[3])
+        return RARITY_EPIC;
+    return RARITY_LEGENDARY;
 }
 
 u16 GetRandomRaritySpecies(u32 *rng)

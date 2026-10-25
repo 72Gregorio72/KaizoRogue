@@ -1187,13 +1187,13 @@
 #define FLAG_HIDDEN_ITEM_VIRIDIAN_CITY_GYM_MACHO_BRACE                     (FLAG_HIDDEN_ITEMS_START + 189)
 #define FLAG_HIDDEN_ITEM_SSANNE_EXTERIOR_LAVA_COOKIE                       (FLAG_HIDDEN_ITEMS_START + 190)
 
-// Unused hidden item flags
-#define FLAG_UNUSED_0x4A7               0x4A7 // Unused Flag
-#define FLAG_UNUSED_0x4A8               0x4A8 // Unused Flag
-#define FLAG_UNUSED_0x4A9               0x4A9 // Unused Flag
-#define FLAG_UNUSED_0x4AA               0x4AA // Unused Flag
-#define FLAG_UNUSED_0x4AB               0x4AB // Unused Flag
-#define FLAG_UNUSED_0x4AC               0x4AC // Unused Flag
+// Unused hidden item flags / Dungeon clear flags
+#define FLAG_CLEARED_VIRIDIAN_FOREST    0x4A7
+#define FLAG_CLEARED_MT_MOON            0x4A8
+#define FLAG_CLEARED_ROCK_TUNNEL        0x4A9
+#define FLAG_CLEARED_SEAFOAM_ISLANDS    0x4AA
+#define FLAG_CLEARED_VICTORY_ROAD       0x4AB
+#define FLAG_CLEARED_DIGLETTS_CAVE      0x4AC
 #define FLAG_UNUSED_0x4AD               0x4AD // Unused Flag
 #define FLAG_UNUSED_0x4AE               0x4AE // Unused Flag
 #define FLAG_UNUSED_0x4AF               0x4AF // Unused Flag

@@ -51,11 +51,16 @@ void Script_Gacha_ToggleShiny(void);
 void Script_Gacha_SetBanner(void);
 void Script_Meta_CheatCleanEggs(void);
 void Script_UpdateHubRoamingMons(void);
-void Script_HubRoaming_PushSlotMenu(void);
-void Script_HubRoaming_CheckSlotOccupied(void);
-void Script_HubRoaming_ClearSlot(void);
-void Script_HubRoaming_ClearAll(void);
-void Script_HubRoaming_ValidateAndSet(void);
 void Script_HubMon_Interact(void);
+enum {
+    HUB_ZONE_ROCK = 0,
+    HUB_ZONE_LAKE = 1,
+    HUB_ZONE_PARK = 2,
+};
+
+bool8 IsMonWanderingInHub(struct BoxPokemon *boxmon);
+bool8 TryAddMonToHubWander(struct BoxPokemon *boxmon, u8 *outZone);
+void RemoveMonFromHubWander(struct BoxPokemon *boxmon);
+u16 GetHubRoamingMonGraphicsId(u8 idx);
 
 #endif // GUARD_KAIZO_ROSTER_H

@@ -48,6 +48,7 @@
 #include "menu.h"
 #include "metatile_behavior.h"
 #include "mirage_tower.h"
+#include "kaizo_dungeon_gym.h"
 #include "money.h"
 #include "oras_dowse.h"
 #include "palette.h"
@@ -699,73 +700,92 @@ void LoadObjEventTemplatesFromHeader(void)
     }
     else if (!IsGymOrLeagueMap(curMapGroup, curMapNum))
     {
-        // Dungeon, grotte, boschi e interni: randomizzazione del 50% valutata per singolo piano
-        u8 trainerIndices[OBJECT_EVENT_TEMPLATES_COUNT];
-        u32 trainerScores[OBJECT_EVENT_TEMPLATES_COUNT];
-        u8 trainerCount = 0;
-
-        for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
+        u8 curMapsec = gMapHeader.regionMapSectionId;
+        if (IsDungeonMap(curMapsec) && IsDungeonCleared(curMapsec))
         {
-            if (gSaveBlock1Ptr->objectEventTemplates[i].trainerType != TRAINER_TYPE_NONE)
+            // Dungeon già completato: tutti i trainer non sono più sfidabili
+            for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
             {
-                trainerIndices[trainerCount] = (u8)i;
-                trainerCount++;
+                struct ObjectEventTemplate *tmpl = &gSaveBlock1Ptr->objectEventTemplates[i];
+                if (tmpl->trainerType != TRAINER_TYPE_NONE)
+                {
+                    u16 trainerId = GetTrainerIdFromTemplate(tmpl);
+                    if (trainerId != TRAINER_NONE)
+                        SetTrainerFlag(trainerId);
+                    tmpl->trainerType = TRAINER_TYPE_NONE;
+                }
             }
         }
-
-        if (trainerCount > 0)
+        else
         {
-            u32 seed = gSaveBlock2Ptr->randomizerSeed;
-            if (seed == 0)
-                seed = 0x54321678;
+            // Dungeon, grotte, boschi e interni: randomizzazione del 50% valutata per singolo piano
+            u8 trainerIndices[OBJECT_EVENT_TEMPLATES_COUNT];
+            u32 trainerScores[OBJECT_EVENT_TEMPLATES_COUNT];
+            u8 trainerCount = 0;
 
-            u32 numToKeep = (trainerCount + 1) / 2; // 50% arrotondato per eccesso per ogni piano (es: 1->1, 2->1, 3->2, 4->2, 5->3)
-
-            for (u32 t = 0; t < trainerCount; t++)
+            for (i = 0; i < objCount && i < OBJECT_EVENT_TEMPLATES_COUNT; i++)
             {
-                u8 idx = trainerIndices[t];
-                struct ObjectEventTemplate *tmpl = &gSaveBlock1Ptr->objectEventTemplates[idx];
-
-                if (IsTrainerAlwaysActive(tmpl))
+                if (gSaveBlock1Ptr->objectEventTemplates[i].trainerType != TRAINER_TYPE_NONE)
                 {
-                    trainerScores[t] = 0xFFFFFFFF; // Massima priorità: sempre attivo
-                }
-                else
-                {
-                    u32 h = seed ^ (curMapGroup << 24) ^ (curMapNum << 16) ^ (tmpl->localId * 3571) ^ (tmpl->x * 101) ^ (tmpl->y * 31);
-                    h = 1103515245 * h + 12345;
-                    trainerScores[t] = h;
+                    trainerIndices[trainerCount] = (u8)i;
+                    trainerCount++;
                 }
             }
 
-            // Ordina i trainer per punteggio decrescente
-            for (u32 a = 0; a < trainerCount; a++)
+            if (trainerCount > 0)
             {
-                for (u32 b = a + 1; b < trainerCount; b++)
-                {
-                    if (trainerScores[b] > trainerScores[a])
-                    {
-                        u32 tempScore = trainerScores[a];
-                        trainerScores[a] = trainerScores[b];
-                        trainerScores[b] = tempScore;
+                u32 seed = gSaveBlock2Ptr->randomizerSeed;
+                if (seed == 0)
+                    seed = 0x54321678;
 
-                        u8 tempIdx = trainerIndices[a];
-                        trainerIndices[a] = trainerIndices[b];
-                        trainerIndices[b] = tempIdx;
+                u32 numToKeep = (trainerCount + 1) / 2; // 50% arrotondato per eccesso per ogni piano (es: 1->1, 2->1, 3->2, 4->2, 5->3)
+
+                for (u32 t = 0; t < trainerCount; t++)
+                {
+                    u8 idx = trainerIndices[t];
+                    struct ObjectEventTemplate *tmpl = &gSaveBlock1Ptr->objectEventTemplates[idx];
+
+                    if (IsTrainerAlwaysActive(tmpl))
+                    {
+                        trainerScores[t] = 0xFFFFFFFF; // Massima priorità: sempre attivo
+                    }
+                    else
+                    {
+                        u32 h = seed ^ (curMapGroup << 24) ^ (curMapNum << 16) ^ (tmpl->localId * 3571) ^ (tmpl->x * 101) ^ (tmpl->y * 31);
+                        h = 1103515245 * h + 12345;
+                        trainerScores[t] = h;
                     }
                 }
-            }
 
-            // Disattiva i trainer oltre il 50% per questo specifico piano
-            for (u32 t = numToKeep; t < trainerCount; t++)
-            {
-                u8 idx = trainerIndices[t];
-                if (trainerScores[t] == 0xFFFFFFFF)
-                    continue; // Mai disattivare un trainer essenziale
+                // Ordina i trainer per punteggio decrescente
+                for (u32 a = 0; a < trainerCount; a++)
+                {
+                    for (u32 b = a + 1; b < trainerCount; b++)
+                    {
+                        if (trainerScores[b] > trainerScores[a])
+                        {
+                            u32 tempScore = trainerScores[a];
+                            trainerScores[a] = trainerScores[b];
+                            trainerScores[b] = tempScore;
 
-                gSaveBlock1Ptr->objectEventTemplates[idx].graphicsId = 0;
-                gSaveBlock1Ptr->objectEventTemplates[idx].trainerType = TRAINER_TYPE_NONE;
-                gSaveBlock1Ptr->objectEventTemplates[idx].script = NULL;
+                            u8 tempIdx = trainerIndices[a];
+                            trainerIndices[a] = trainerIndices[b];
+                            trainerIndices[b] = tempIdx;
+                        }
+                    }
+                }
+
+                // Disattiva i trainer oltre il 50% per questo specifico piano
+                for (u32 t = numToKeep; t < trainerCount; t++)
+                {
+                    u8 idx = trainerIndices[t];
+                    if (trainerScores[t] == 0xFFFFFFFF)
+                        continue; // Mai disattivare un trainer essenziale
+
+                    gSaveBlock1Ptr->objectEventTemplates[idx].graphicsId = 0;
+                    gSaveBlock1Ptr->objectEventTemplates[idx].trainerType = TRAINER_TYPE_NONE;
+                    gSaveBlock1Ptr->objectEventTemplates[idx].script = NULL;
+                }
             }
         }
     }
@@ -2378,6 +2398,8 @@ void CB2_ContinueSavedGame(void)
     UnlockPlayerFieldControls();
     gExitStairsMovementDisabled = TRUE;
     InitMatchCallCounters();
+    extern void InitKaizoMetaProgression(void);
+    InitKaizoMetaProgression();
     if (UseContinueGameWarp() == TRUE)
     {
         ClearContinueGameWarpStatus();
@@ -4313,6 +4335,11 @@ static void ResetKaizoRogueRun(void)
     {
         VarSet(VAR_0x40F0 + i, hubVarsBackup[i]);
     }
+    gSaveBlock1Ptr->bag = gSaveBlock2Ptr->metaProgression.hubBag;
+    extern void SanitizeBagItems(struct Bag *bag);
+    SanitizeBagItems(&gSaveBlock1Ptr->bag);
+    if (!CheckBagHasItem(ITEM_HM03, 1))
+        AddBagItem(ITEM_HM03, 1);
 
     // --- 4. PREPARAZIONE NUOVA RUN ---
     // Nuovo seed di randomizzazione per i Pokémon e gli incontri

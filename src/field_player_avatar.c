@@ -966,6 +966,15 @@ enum Collision CheckForObjectEventCollision(struct ObjectEvent *objectEvent, s16
 {
     enum Collision collision = GetCollisionAtCoords(objectEvent, x, y, direction);
 
+    if (TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING)
+     && !MetatileBehavior_IsSurfableWaterOrUnderwater(metatileBehavior)
+     && !MetatileBehavior_IsFastWater(metatileBehavior)
+     && MapGridGetCollisionAt(x, y) == 0)
+    {
+        if (CanStopSurfing(x, y, direction))
+            return COLLISION_STOP_SURFING;
+    }
+
     if (collision == COLLISION_ELEVATION_MISMATCH && CanStopSurfing(x, y, direction))
         return COLLISION_STOP_SURFING;
 
@@ -1002,10 +1011,12 @@ static enum Collision CheckForObjectEventStaticCollision(struct ObjectEvent *obj
 
 static bool8 CanStopSurfing(s16 x, s16 y, enum Direction direction)
 {
+    u8 targetElevation = MapGridGetElevationAt(x, y);
+
     if ((gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_SURFING)
-     && MapGridGetElevationAt(x, y) == ELEVATION_DEFAULT
-     && (GetObjectEventIdByPosition(x, y, ELEVATION_DEFAULT) == OBJECT_EVENTS_COUNT
-     || GetObjectEventIdByPosition(x, y, ELEVATION_DEFAULT) == GetFollowerNPCObjectId()
+     && (targetElevation == ELEVATION_DEFAULT || targetElevation == 0)
+     && (GetObjectEventIdByPosition(x, y, targetElevation) == OBJECT_EVENTS_COUNT
+     || GetObjectEventIdByPosition(x, y, targetElevation) == GetFollowerNPCObjectId()
      ))
     {
         CreateStopSurfingTask(direction);
