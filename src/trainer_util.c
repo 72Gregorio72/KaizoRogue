@@ -135,7 +135,15 @@ void GenerateMonFromTrainerMon(struct Pokemon *mon, const struct TrainerMon *tra
         errorf("Unkwown trainer mon gender value %d", trainerMon->gender);
     personality |= genderValue;
     ModifyPersonalityForNature(&personality, trainerMon->nature);
-    CreateMon(mon, trainerMon->species, trainerMon->lvl, personality, trainer->otID);
+
+    // Scala il livello del trainer ×1.5 (con cap a 100)
+    u8 rawLvl = trainerMon->lvl;
+    if (rawLvl < 1) rawLvl = 1;
+    u32 scaledLvl = (u32)rawLvl * 3 / 2;
+    if (scaledLvl < 1) scaledLvl = 1;
+    if (scaledLvl > MAX_LEVEL) scaledLvl = MAX_LEVEL;
+
+    CreateMon(mon, trainerMon->species, (u8)scaledLvl, personality, trainer->otID);
     if (trainerMon->nickname != NULL)
         SetMonData(mon, MON_DATA_NICKNAME, trainerMon->nickname);
     if (trainerMon->ev) //ev in struct TrainerMon are stored in Showdown order not vanilla Emerald order

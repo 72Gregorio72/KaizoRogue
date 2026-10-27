@@ -261,25 +261,14 @@ bool8 TryBlockGymOrDungeonWarp(s8 warpEventId)
         }
     }
 
-    // 2. Controlla Dungeon
+    // 2. Dungeon: uscita sempre libera (il giocatore può tornare indietro quando vuole)
+    // Segna comunque il completamento se si esce dall'uscita "avanzata"
     u8 curMapsec = gMapHeader.regionMapSectionId;
     if (IsDungeonMap(curMapsec))
     {
         const struct MapHeader *destHeader = Overworld_GetMapHeaderByGroupAndId(destMapGroup, destMapNum);
         if (destHeader != NULL && destHeader->regionMapSectionId != curMapsec)
-        {
-            // Se il dungeon è già completato, uscita libera
-            if (IsDungeonCleared(curMapsec))
-                return FALSE;
-
-            // Se è l'uscita in avanti che porta al completamento del dungeon, via libera!
-            if (IsForwardDungeonExit(curMapGroup, curMapNum, destMapGroup, destMapNum, destWarpId))
-                return FALSE;
-
-            // Altrimenti il giocatore sta cercando di tornare indietro: bloccato!
-            ScriptContext_SetupScript(EventScript_DungeonExitBlocked);
-            return TRUE;
-        }
+            CheckAndMarkDungeonClearedOnWarp(curMapGroup, curMapNum, destMapGroup, destMapNum, destWarpId);
     }
 
     return FALSE;
